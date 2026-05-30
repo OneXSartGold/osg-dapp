@@ -1,0 +1,9 @@
+# Query: steps
+# ContextLines: 1
+
+1 result - 1 file
+
+src/App.jsx:
+  184            <div style={{ background:"#0a0a0a", borderRadius:8, padding:"10px 12px", margin:"12px 0", fontSize:12, color:"#666" }}>
+  185:            ⓘ Staking has two steps: first <b style={{color:gold}}>Approve</b> the token, then <b style={{color:gold}}>Stake</b>. Rewards are earned daily from emissions.
+  186            </div>

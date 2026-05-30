@@ -7,7 +7,7 @@ import {
 
 // ── theme ────────────────────────────────────────────────
 const gold = "#F5B800", goldDark = "#C9930A";
-const bg = "#080808", card = "#111111", border = "#1e1e1e";
+const bg = "#0B0F1A", bgDeep = "#070A12", card = "#141A28", cardSoft = "#10151F", border = "#212a3d";
 
 const short = (a) => (a ? `${a.slice(0,6)}...${a.slice(-4)}` : "");
 const fmt = (v, d = 2) =>
@@ -15,38 +15,39 @@ const fmt = (v, d = 2) =>
 const f18 = (bn) => { try { return formatUnits(bn ?? 0n, 18); } catch { return "0"; } };
 
 const styles = `
-  @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
   * { box-sizing:border-box; margin:0; padding:0; }
-  body { background:${bg}; color:#e0e0e0; font-family:'Rajdhani',sans-serif; min-height:100vh; }
-  ::-webkit-scrollbar { width:3px; } ::-webkit-scrollbar-thumb { background:${gold}44; border-radius:2px; }
+  body { background:${bg}; color:#cdd5e3; font-family:'Plus Jakarta Sans',sans-serif; min-height:100vh; }
+  ::-webkit-scrollbar { width:4px; } ::-webkit-scrollbar-thumb { background:${gold}44; border-radius:2px; }
   a { color:${gold}; }
-  .btn-gold { background:linear-gradient(135deg,${gold},${goldDark}); color:#000; font-family:'Rajdhani',sans-serif; font-weight:700; font-size:15px; letter-spacing:1px; border:none; border-radius:6px; padding:11px 24px; cursor:pointer; transition:all .2s; text-transform:uppercase; }
-  .btn-gold:hover { filter:brightness(1.12); transform:translateY(-1px); }
-  .btn-gold:disabled { opacity:.45; cursor:not-allowed; transform:none; filter:none; }
-  .btn-danger { background:transparent; color:#ff5555; font-family:'Rajdhani',sans-serif; font-weight:700; font-size:14px; border:1px solid #ff555566; border-radius:6px; padding:10px 20px; cursor:pointer; transition:all .2s; text-transform:uppercase; }
-  .btn-danger:hover { border-color:#ff5555; background:#ff555511; }
+  .btn-gold { background:linear-gradient(135deg,${gold},${goldDark}); color:#0B0F1A; font-family:'Sora',sans-serif; font-weight:700; font-size:14px; letter-spacing:.5px; border:none; border-radius:8px; padding:12px 24px; cursor:pointer; transition:all .2s; box-shadow:0 4px 16px ${gold}22; }
+  .btn-gold:hover { filter:brightness(1.1); transform:translateY(-1px); box-shadow:0 6px 20px ${gold}33; }
+  .btn-gold:disabled { opacity:.45; cursor:not-allowed; transform:none; filter:none; box-shadow:none; }
+  .btn-danger { background:transparent; color:#ff6b6b; font-family:'Sora',sans-serif; font-weight:700; font-size:14px; border:1px solid #ff6b6b55; border-radius:8px; padding:11px 20px; cursor:pointer; transition:all .2s; }
+  .btn-danger:hover { border-color:#ff6b6b; background:#ff6b6b11; }
   .btn-danger:disabled { opacity:.4; cursor:not-allowed; }
-  .btn-ghost { background:transparent; color:#888; border:1px solid #2a2a2a; border-radius:6px; padding:10px 20px; cursor:pointer; font-family:'Rajdhani',sans-serif; font-weight:700; font-size:14px; text-transform:uppercase; transition:all .2s; }
+  .btn-ghost { background:transparent; color:#7b8699; border:1px solid ${border}; border-radius:8px; padding:11px 20px; cursor:pointer; font-family:'Sora',sans-serif; font-weight:600; font-size:14px; transition:all .2s; }
   .btn-ghost:hover { border-color:${gold}66; color:${gold}; }
   .btn-ghost:disabled { opacity:.4; cursor:not-allowed; }
-  .inp { background:#0a0a0a; border:1px solid #2a2a2a; border-radius:6px; color:#fff; font-family:'Space Mono',monospace; font-size:14px; padding:11px 14px; width:100%; outline:none; transition:border-color .2s; }
-  .inp:focus { border-color:${gold}88; } .inp::placeholder { color:#333; }
-  .tab-nav { display:flex; gap:2px; background:#0d0d0d; border-radius:8px; padding:3px; border:1px solid ${border}; }
-  .tab-btn { flex:1; padding:9px 4px; font-family:'Rajdhani',sans-serif; font-weight:600; font-size:12px; letter-spacing:.3px; text-transform:uppercase; border:none; border-radius:6px; cursor:pointer; transition:all .2s; background:transparent; color:#444; }
-  .tab-btn.active { background:${gold}18; color:${gold}; border:1px solid ${gold}44; }
-  .tab-btn:hover:not(.active){ color:#777; }
-  .stat-card { background:${card}; border:1px solid ${border}; border-radius:8px; padding:14px; position:relative; overflow:hidden; }
-  .level-row { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid #161616; }
+  .inp { background:${bgDeep}; border:1px solid ${border}; border-radius:8px; color:#fff; font-family:'Space Mono',monospace; font-size:14px; padding:12px 14px; width:100%; outline:none; transition:border-color .2s; }
+  .inp:focus { border-color:${gold}88; }
+  .inp::placeholder { color:#3a4458; }
+  .tab-nav { display:flex; gap:3px; background:${cardSoft}; border-radius:10px; padding:4px; border:1px solid ${border}; }
+  .tab-btn { flex:1; padding:10px 4px; font-family:'Sora',sans-serif; font-weight:600; font-size:12px; letter-spacing:.2px; border:none; border-radius:7px; cursor:pointer; transition:all .2s; background:transparent; color:#5a657a; }
+  .tab-btn.active { background:${gold}1a; color:${gold}; border:1px solid ${gold}44; }
+  .tab-btn:hover:not(.active){ color:#8a96ab; }
+  .stat-card { background:${card}; border:1px solid ${border}; border-radius:12px; padding:15px; position:relative; overflow:hidden; }
+  .level-row { display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid ${border}; }
   .level-row:last-child { border-bottom:none; }
-  .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:#111; border:1px solid ${gold}66; border-radius:8px; padding:12px 22px; font-size:14px; color:${gold}; z-index:9999; animation:su .3s ease; font-family:'Rajdhani',sans-serif; font-weight:600; max-width:90%; text-align:center; }
+  .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:${card}; border:1px solid ${gold}66; border-radius:10px; padding:13px 24px; font-size:14px; color:${gold}; z-index:9999; animation:su .3s ease; font-family:'Sora',sans-serif; font-weight:600; max-width:90%; text-align:center; box-shadow:0 8px 30px #0006; }
   @keyframes su { from{transform:translate(-50%,20px);opacity:0} to{transform:translate(-50%,0);opacity:1} }
-  .spin { display:inline-block; width:14px; height:14px; border:2px solid #0003; border-top-color:#000; border-radius:50%; animation:sp .7s linear infinite; vertical-align:middle; }
+  .spin { display:inline-block; width:14px; height:14px; border:2px solid #0003; border-top-color:#0B0F1A; border-radius:50%; animation:sp .7s linear infinite; vertical-align:middle; }
   @keyframes sp { to{transform:rotate(360deg)} }
-  .msg-container { position:relative; overflow:hidden; border-radius:14px; min-height:420px; background:#040408; border:1px solid ${gold}22; }
+  .msg-container { position:relative; overflow:hidden; border-radius:16px; min-height:420px; background:${bgDeep}; border:1px solid ${gold}22; }
   .msg-grid { position:absolute; inset:0; background-image:linear-gradient(${gold}08 1px,transparent 1px),linear-gradient(90deg,${gold}08 1px,transparent 1px); background-size:40px 40px; animation:gm 20s linear infinite; }
   @keyframes gm { 0%{background-position:0 0} 100%{background-position:40px 40px} }
-  .cs-badge { display:inline-flex; align-items:center; gap:6px; background:linear-gradient(135deg,${gold}22,${gold}0a); border:1px solid ${gold}55; border-radius:20px; padding:5px 16px; font-size:11px; font-weight:700; color:${gold}; letter-spacing:2px; text-transform:uppercase; }
-  .feat-pill { display:inline-flex; align-items:center; gap:6px; background:${gold}0d; border:1px solid ${gold}22; border-radius:20px; padding:6px 14px; font-size:12px; color:#888; font-family:'Rajdhani',sans-serif; font-weight:600; }
+  .cs-badge { display:inline-flex; align-items:center; gap:6px; background:linear-gradient(135deg,${gold}22,${gold}0a); border:1px solid ${gold}55; border-radius:20px; padding:6px 16px; font-size:11px; font-weight:700; color:${gold}; letter-spacing:1.5px; }
+  .feat-pill { display:inline-flex; align-items:center; gap:6px; background:${gold}0d; border:1px solid ${gold}22; border-radius:20px; padding:7px 14px; font-size:12px; color:#8a96ab; font-family:'Plus Jakarta Sans',sans-serif; font-weight:600; }
   .link-row:hover { color:${gold} !important; }
 `;
 
@@ -55,21 +56,21 @@ function StatCard({ label, value, sub, accent }) {
   return (
     <div className="stat-card" style={{ borderColor: accent ? `${accent}33` : border }}>
       <div style={{ position:"absolute", top:0, left:0, right:0, height:2, background:`linear-gradient(90deg,${accent||gold},transparent)` }}/>
-      <div style={{ fontSize:10, color:"#444", letterSpacing:1, textTransform:"uppercase", marginBottom:6, fontFamily:"'Space Mono',monospace" }}>{label}</div>
-      <div style={{ fontSize:23, fontWeight:700, color:accent||gold, lineHeight:1, wordBreak:"break-all" }}>{value}</div>
-      {sub && <div style={{ fontSize:11, color:"#444", marginTop:4 }}>{sub}</div>}
+      <div style={{ fontSize:10, color:"#5a657a", letterSpacing:1, textTransform:"uppercase", marginBottom:6, fontFamily:"'Space Mono',monospace" }}>{label}</div>
+      <div style={{ fontSize:23, fontWeight:700, color:accent||gold, lineHeight:1, wordBreak:"break-all", fontFamily:"'Sora',sans-serif" }}>{value}</div>
+      {sub && <div style={{ fontSize:11, color:"#5a657a", marginTop:4 }}>{sub}</div>}
     </div>
   );
 }
 
 function Header({ wallet, network, onConnect, onSwitch, connecting }) {
   return (
-    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"14px 20px", borderBottom:`1px solid ${border}`, background:"#060606", position:"sticky", top:0, zIndex:100, flexWrap:"wrap", gap:10 }}>
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"14px 20px", borderBottom:`1px solid ${border}`, background:bgDeep, position:"sticky", top:0, zIndex:100, flexWrap:"wrap", gap:10 }}>
       <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-        <div style={{ width:34, height:34, borderRadius:8, background:`linear-gradient(135deg,${gold},${goldDark})`, display:"flex", alignItems:"center", justifyContent:"center", fontWeight:800, fontSize:16, color:"#000" }}>X</div>
+        <div style={{ width:34, height:34, borderRadius:8, background:`linear-gradient(135deg,${gold},${goldDark})`, display:"flex", alignItems:"center", justifyContent:"center", fontWeight:800, fontSize:16, color:"#0B0F1A" }}>X</div>
         <div>
-          <div style={{ fontSize:17, fontWeight:700, color:gold, letterSpacing:1 }}>OSG DApp</div>
-          <div style={{ fontSize:10, color:"#333", fontFamily:"'Space Mono',monospace" }}>OneX Smart Gold</div>
+          <div style={{ fontSize:17, fontWeight:700, color:gold, letterSpacing:.5, fontFamily:"'Sora',sans-serif" }}>OSG DApp</div>
+          <div style={{ fontSize:10, color:"#4a5468", fontFamily:"'Space Mono',monospace" }}>OneX Smart Gold</div>
         </div>
       </div>
       <div style={{ display:"flex", alignItems:"center", gap:10 }}>
@@ -78,9 +79,9 @@ function Header({ wallet, network, onConnect, onSwitch, connecting }) {
           : <button onClick={onSwitch} style={{ background:"#ff550015", border:"1px solid #ff550055", color:"#ff7777", padding:"4px 10px", borderRadius:12, fontSize:11, fontWeight:700, cursor:"pointer" }}>⚠ Switch Network</button>
         )}
         {wallet
-          ? <div style={{ display:"flex", alignItems:"center", gap:8, background:"#111", border:`1px solid ${gold}33`, borderRadius:8, padding:"6px 12px" }}>
+          ? <div style={{ display:"flex", alignItems:"center", gap:8, background:card, border:`1px solid ${gold}33`, borderRadius:8, padding:"6px 12px" }}>
               <div style={{ width:7, height:7, borderRadius:"50%", background:network?"#00c853":"#ff5555" }}/>
-              <span style={{ fontFamily:"'Space Mono',monospace", fontSize:12, color:"#bbb" }}>{short(wallet)}</span>
+              <span style={{ fontFamily:"'Space Mono',monospace", fontSize:12, color:"#aeb8c9" }}>{short(wallet)}</span>
             </div>
           : <button className="btn-gold" onClick={onConnect} disabled={connecting} style={{ padding:"9px 18px", fontSize:13 }}>{connecting ? <span className="spin"/> : "Connect Wallet"}</button>
         }
@@ -106,8 +107,8 @@ function Dashboard({ data, wallet }) {
         <StatCard label="Pool Total Staked" value={fmt(data.totalStaked)} sub="All users" accent="#7B3FE4"/>
       </div>
 
-      <div style={{ background:card, border:`1px solid ${border}`, borderRadius:10, padding:14 }}>
-        <div style={{ fontSize:11, color:"#444", textTransform:"uppercase", letterSpacing:1, marginBottom:12 }}>Pool & Emission</div>
+      <div style={{ background:card, border:`1px solid ${border}`, borderRadius:12, padding:14 }}>
+        <div style={{ fontSize:11, color:"#5a657a", textTransform:"uppercase", letterSpacing:1, marginBottom:12, fontFamily:"'Sora',sans-serif", fontWeight:600 }}>Pool &amp; Emission</div>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
           {[
             ["Active Stakers", fmt(data.activeStakers, 0)],
@@ -117,21 +118,21 @@ function Dashboard({ data, wallet }) {
             ["Halving #", fmt(data.halving, 0)],
             ["Reward Distributed", fmt(data.rewardDistributed, 2) + " OSG"],
           ].map(([k,v]) => (
-            <div key={k} style={{ background:"#0a0a0a", border:"1px solid #1a1a1a", borderRadius:8, padding:"10px 12px" }}>
-              <div style={{ fontSize:10, color:"#555", textTransform:"uppercase", letterSpacing:.5 }}>{k}</div>
-              <div style={{ fontSize:15, fontWeight:700, color:"#ccc", marginTop:3 }}>{v}</div>
+            <div key={k} style={{ background:cardSoft, border:`1px solid ${border}`, borderRadius:8, padding:"10px 12px" }}>
+              <div style={{ fontSize:10, color:"#5a657a", textTransform:"uppercase", letterSpacing:.5 }}>{k}</div>
+              <div style={{ fontSize:15, fontWeight:700, color:"#cdd5e3", marginTop:3, fontFamily:"'Sora',sans-serif" }}>{v}</div>
             </div>
           ))}
         </div>
       </div>
 
-      <div style={{ background:card, border:`1px solid ${border}`, borderRadius:10, padding:14 }}>
-        <div style={{ fontSize:11, color:"#444", textTransform:"uppercase", letterSpacing:1, marginBottom:10 }}>Verified Contracts (Polygonscan)</div>
+      <div style={{ background:card, border:`1px solid ${border}`, borderRadius:12, padding:14 }}>
+        <div style={{ fontSize:11, color:"#5a657a", textTransform:"uppercase", letterSpacing:1, marginBottom:10, fontFamily:"'Sora',sans-serif", fontWeight:600 }}>Verified Contracts (Polygonscan)</div>
         {links.map(([n,a]) => (
           <a key={n} className="link-row" href={`https://polygonscan.com/address/${a}`} target="_blank" rel="noreferrer"
-             style={{ display:"flex", justifyContent:"space-between", padding:"7px 0", borderBottom:"1px solid #141414", textDecoration:"none", color:"inherit" }}>
-            <span style={{ fontSize:13, color:"#666" }}>{n}</span>
-            <span style={{ fontFamily:"'Space Mono',monospace", fontSize:10, color:"#555" }}>{short(a)} ↗</span>
+             style={{ display:"flex", justifyContent:"space-between", padding:"8px 0", borderBottom:`1px solid ${border}`, textDecoration:"none", color:"inherit" }}>
+            <span style={{ fontSize:13, color:"#7b8699" }}>{n}</span>
+            <span style={{ fontFamily:"'Space Mono',monospace", fontSize:10, color:"#5a657a" }}>{short(a)} ↗</span>
           </a>
         ))}
       </div>
@@ -161,10 +162,10 @@ function Staking({ wallet, data, refParam, actions, busy }) {
       </div>
 
       {tab==="stake" && (
-        <div style={{ background:card, border:`1px solid ${border}`, borderRadius:10, padding:16 }}>
+        <div style={{ background:card, border:`1px solid ${border}`, borderRadius:12, padding:16 }}>
           <div style={{ display:"flex", justifyContent:"space-between", marginBottom:8 }}>
-            <span style={{ fontSize:13, color:"#555" }}>Amount to Stake</span>
-            <span style={{ fontSize:11, color:"#444" }}>Balance: {fmt(data.balance)} OSG</span>
+            <span style={{ fontSize:13, color:"#7b8699" }}>Amount to Stake</span>
+            <span style={{ fontSize:11, color:"#5a657a" }}>Balance: {fmt(data.balance)} OSG</span>
           </div>
           <div style={{ position:"relative" }}>
             <input className="inp" placeholder="0.00" value={amount} inputMode="decimal"
@@ -175,14 +176,14 @@ function Staking({ wallet, data, refParam, actions, busy }) {
 
           {!hasStake && (
             <div style={{ marginTop:12 }}>
-              <div style={{ fontSize:12, color:"#555", marginBottom:6 }}>Referrer (optional — first stake only)</div>
+              <div style={{ fontSize:12, color:"#7b8699", marginBottom:6 }}>Referrer (optional — first stake only)</div>
               <input className="inp" placeholder="0x... referrer address" value={refInput}
                 onChange={e=>setRefInput(e.target.value.trim())} style={{ fontSize:11 }}/>
             </div>
           )}
 
-          <div style={{ background:"#0a0a0a", borderRadius:8, padding:"10px 12px", margin:"12px 0", fontSize:12, color:"#666" }}>
-            ⓘ Staking मध्ये दोन steps: आधी token <b style={{color:gold}}>Approve</b>, मग <b style={{color:gold}}>Stake</b>. Reward roज emission मधून मिळतो.
+          <div style={{ background:cardSoft, borderRadius:8, padding:"11px 13px", margin:"12px 0", fontSize:12, color:"#8a96ab", lineHeight:1.5 }}>
+            ⓘ Staking has two steps: first <b style={{color:gold}}>Approve</b> the token, then <b style={{color:gold}}>Stake</b>. Rewards are earned daily from emissions.
           </div>
 
           <button className="btn-gold" style={{ width:"100%" }} disabled={busy.stake || !wallet}
@@ -193,14 +194,14 @@ function Staking({ wallet, data, refParam, actions, busy }) {
       )}
 
       {tab==="unstake" && (
-        <div style={{ background:card, border:`1px solid ${border}`, borderRadius:10, padding:16 }}>
-          <div style={{ fontSize:12, color:"#555", marginBottom:6 }}>Currently Staked</div>
-          <div style={{ fontSize:34, fontWeight:800, color:gold, marginBottom:14 }}>{fmt(data.staked)} <span style={{fontSize:15,color:"#555"}}>OSG</span></div>
+        <div style={{ background:card, border:`1px solid ${border}`, borderRadius:12, padding:16 }}>
+          <div style={{ fontSize:12, color:"#7b8699", marginBottom:6 }}>Currently Staked</div>
+          <div style={{ fontSize:34, fontWeight:800, color:gold, marginBottom:14, fontFamily:"'Sora',sans-serif" }}>{fmt(data.staked)} <span style={{fontSize:15,color:"#5a657a"}}>OSG</span></div>
 
           {!info.unstakePending ? (
             <>
-              <div style={{ background:"#0a0a0a", borderRadius:8, padding:12, fontSize:12, color:"#888", marginBottom:14 }}>
-                Unstake साठी आधी <b style={{color:gold}}>Request</b> कर → cooldown नंतर withdraw होईल.
+              <div style={{ background:cardSoft, borderRadius:8, padding:12, fontSize:12, color:"#8a96ab", marginBottom:14, lineHeight:1.5 }}>
+                To unstake, first send a <b style={{color:gold}}>Request</b> → tokens become withdrawable after the cooldown.
               </div>
               <button className="btn-danger" style={{ width:"100%" }} disabled={busy.unstake || !hasStake}
                 onClick={actions.requestUnstake}>{busy.unstake ? <span className="spin"/> : "Request Unstake"}</button>
@@ -208,7 +209,7 @@ function Staking({ wallet, data, refParam, actions, busy }) {
           ) : (
             <>
               <div style={{ background: info.canUnstakeNow ? "#00c85311" : "#ff550011", border:`1px solid ${info.canUnstakeNow?"#00c85333":"#ff550033"}`, borderRadius:8, padding:12, fontSize:13, color: info.canUnstakeNow?"#00c853":"#ff8888", marginBottom:14 }}>
-                {info.canUnstakeNow ? "✅ Cooldown पूर्ण — आता withdraw करू शकतोस!" : "⏳ Cooldown चालू आहे — थोडा वेळ थांब."}
+                {info.canUnstakeNow ? "✅ Cooldown complete — you can withdraw now!" : "⏳ Cooldown in progress — please wait a little longer."}
               </div>
               <div style={{ display:"flex", gap:8 }}>
                 <button className="btn-gold" style={{ flex:1 }} disabled={busy.unstake || !info.canUnstakeNow}
@@ -222,11 +223,11 @@ function Staking({ wallet, data, refParam, actions, busy }) {
       )}
 
       {tab==="claim" && (
-        <div style={{ background:card, border:`1px solid ${border}`, borderRadius:10, padding:20, textAlign:"center" }}>
-          <div style={{ fontSize:11, color:"#444", textTransform:"uppercase", letterSpacing:1, marginBottom:8 }}>Claimable Reward</div>
-          <div style={{ fontSize:42, fontWeight:800, color:"#00c853", lineHeight:1 }}>{fmt(data.claim.amount, 4)}</div>
-          <div style={{ fontSize:14, color:"#444", marginTop:4, marginBottom:8 }}>OSG (this chunk)</div>
-          <div style={{ fontSize:12, color:"#555", marginBottom:16 }}>Total pending: {fmt(data.pending, 4)} OSG</div>
+        <div style={{ background:card, border:`1px solid ${border}`, borderRadius:12, padding:20, textAlign:"center" }}>
+          <div style={{ fontSize:11, color:"#5a657a", textTransform:"uppercase", letterSpacing:1, marginBottom:8, fontFamily:"'Sora',sans-serif", fontWeight:600 }}>Claimable Reward</div>
+          <div style={{ fontSize:42, fontWeight:800, color:"#00c853", lineHeight:1, fontFamily:"'Sora',sans-serif" }}>{fmt(data.claim.amount, 4)}</div>
+          <div style={{ fontSize:14, color:"#5a657a", marginTop:4, marginBottom:8 }}>OSG (this chunk)</div>
+          <div style={{ fontSize:12, color:"#7b8699", marginBottom:16 }}>Total pending: {fmt(data.pending, 4)} OSG</div>
           {!data.claim.canClaim && data.claim.reason && (
             <div style={{ background:"#ff550011", border:"1px solid #ff550033", borderRadius:8, padding:10, fontSize:12, color:"#ff8888", marginBottom:14 }}>
               ⓘ {data.claim.reason}
@@ -267,30 +268,30 @@ function Referral({ wallet, data, showToast }) {
         <StatCard label="Team Bonus" value={`${fmt(r.teamBonusEarned,4)}`} sub="OSG" accent="#7B3FE4"/>
       </div>
 
-      <div style={{ background:card, border:`1px solid ${gold}22`, borderRadius:10, padding:14 }}>
-        <div style={{ fontSize:11, color:"#444", textTransform:"uppercase", letterSpacing:1, marginBottom:10 }}>Your Referral Link</div>
+      <div style={{ background:card, border:`1px solid ${gold}22`, borderRadius:12, padding:14 }}>
+        <div style={{ fontSize:11, color:"#5a657a", textTransform:"uppercase", letterSpacing:1, marginBottom:10, fontFamily:"'Sora',sans-serif", fontWeight:600 }}>Your Referral Link</div>
         <div style={{ display:"flex", gap:8 }}>
-          <div style={{ flex:1, background:"#0a0a0a", border:"1px solid #1a1a1a", borderRadius:6, padding:"9px 12px", fontFamily:"'Space Mono',monospace", fontSize:10, color:"#555", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{refLink}</div>
+          <div style={{ flex:1, background:cardSoft, border:`1px solid ${border}`, borderRadius:6, padding:"9px 12px", fontFamily:"'Space Mono',monospace", fontSize:10, color:"#7b8699", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{refLink}</div>
           <button className="btn-gold" onClick={copy} style={{ padding:"8px 14px", fontSize:12, whiteSpace:"nowrap" }}>{copied?"✓":"🔗"} Copy</button>
         </div>
-        <div style={{ fontSize:11, color:"#444", marginTop:8 }}>हा link share कर — कोणी या link ने पहिल्यांदा stake केलं की तो तुझा referral होतो.</div>
+        <div style={{ fontSize:11, color:"#5a657a", marginTop:8, lineHeight:1.5 }}>Share this link — whoever stakes for the first time using it becomes your referral.</div>
       </div>
 
-      <div style={{ background:card, border:`1px solid ${border}`, borderRadius:10, padding:14 }}>
-        <div style={{ fontSize:11, color:"#444", textTransform:"uppercase", letterSpacing:1, marginBottom:10 }}>Your Upline (5 Levels)</div>
+      <div style={{ background:card, border:`1px solid ${border}`, borderRadius:12, padding:14 }}>
+        <div style={{ fontSize:11, color:"#5a657a", textTransform:"uppercase", letterSpacing:1, marginBottom:10, fontFamily:"'Sora',sans-serif", fontWeight:600 }}>Your Upline (5 Levels)</div>
         {chain.map((addr,i) => (
           <div key={i} className="level-row">
             <div style={{ width:26, height:26, borderRadius:6, background:`${chainColors[i]}18`, border:`1px solid ${chainColors[i]}33`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:700, color:chainColors[i] }}>{chainLabels[i]}</div>
-            <span style={{ flex:1, fontFamily:"'Space Mono',monospace", fontSize:12, color: addr && addr!==ZERO ? "#aaa" : "#333" }}>
+            <span style={{ flex:1, fontFamily:"'Space Mono',monospace", fontSize:12, color: addr && addr!==ZERO ? "#aeb8c9" : "#3a4458" }}>
               {addr && addr!==ZERO ? short(addr) : "— empty —"}
             </span>
           </div>
         ))}
       </div>
 
-      <div style={{ background:card, border:`1px solid ${border}`, borderRadius:10, padding:14 }}>
-        <div style={{ fontSize:11, color:"#444", textTransform:"uppercase", letterSpacing:1, marginBottom:8 }}>Your Referrer</div>
-        <div style={{ fontFamily:"'Space Mono',monospace", fontSize:13, color: r.referrer && r.referrer!==ZERO ? gold : "#444" }}>
+      <div style={{ background:card, border:`1px solid ${border}`, borderRadius:12, padding:14 }}>
+        <div style={{ fontSize:11, color:"#5a657a", textTransform:"uppercase", letterSpacing:1, marginBottom:8, fontFamily:"'Sora',sans-serif", fontWeight:600 }}>Your Referrer</div>
+        <div style={{ fontFamily:"'Space Mono',monospace", fontSize:13, color: r.referrer && r.referrer!==ZERO ? gold : "#5a657a" }}>
           {r.referrer && r.referrer!==ZERO ? short(r.referrer) : "No referrer set"}
         </div>
       </div>
@@ -301,19 +302,19 @@ function Referral({ wallet, data, showToast }) {
 // ── Swap (external until pool exists) ─────────────────────
 function Swap() {
   return (
-    <div style={{ background:"#0a0a0a", border:`1px solid ${gold}18`, borderRadius:10, padding:20, textAlign:"center" }}>
+    <div style={{ background:card, border:`1px solid ${gold}18`, borderRadius:12, padding:20, textAlign:"center" }}>
       <div style={{ fontSize:40, marginBottom:10 }}>🔄</div>
-      <div style={{ fontSize:18, fontWeight:700, color:gold, marginBottom:8 }}>Swap MATIC → OSG</div>
-      <div style={{ fontSize:13, color:"#888", marginBottom:6, lineHeight:1.5 }}>
-        Liquidity pool अजून live झालेला नाही. Pool add झाल्यावर इथेच in-app swap येईल.
+      <div style={{ fontSize:18, fontWeight:700, color:gold, marginBottom:8, fontFamily:"'Sora',sans-serif" }}>Swap MATIC → OSG</div>
+      <div style={{ fontSize:13, color:"#8a96ab", marginBottom:6, lineHeight:1.5 }}>
+        The liquidity pool is not live yet. Once the pool is added, in-app swap will be available right here.
       </div>
-      <div style={{ fontSize:12, color:"#555", marginBottom:18 }}>
-        तोपर्यंत QuickSwap वर थेट swap करू शकतोस ↓
+      <div style={{ fontSize:12, color:"#7b8699", marginBottom:18 }}>
+        In the meantime, you can swap directly on QuickSwap ↓
       </div>
       <a href={QUICKSWAP_URL} target="_blank" rel="noreferrer">
         <button className="btn-gold" style={{ width:"100%" }}>Open QuickSwap ↗</button>
       </a>
-      <div style={{ fontSize:11, color:"#444", marginTop:12, fontFamily:"'Space Mono',monospace" }}>
+      <div style={{ fontSize:11, color:"#5a657a", marginTop:12, fontFamily:"'Space Mono',monospace" }}>
         OSG: {short(ADDRESSES.token)}
       </div>
     </div>
@@ -333,20 +334,20 @@ function Messenger() {
         <div style={{ position:"relative", zIndex:2, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", minHeight:420, padding:24, textAlign:"center" }}>
           <div className="cs-badge" style={{ marginBottom:18 }}>● Coming Soon</div>
           <div style={{ fontSize:48, marginBottom:10 }}>💬</div>
-          <div style={{ fontSize:26, fontWeight:800, color:gold, letterSpacing:2, marginBottom:6 }}>OSG MESSENGER</div>
-          <div style={{ fontSize:12, color:"#555", letterSpacing:1, marginBottom:18, fontFamily:"'Space Mono',monospace" }}>AES-256 · X25519 · IPFS · Polygon</div>
+          <div style={{ fontSize:26, fontWeight:800, color:gold, letterSpacing:2, marginBottom:6, fontFamily:"'Sora',sans-serif" }}>OSG MESSENGER</div>
+          <div style={{ fontSize:12, color:"#7b8699", letterSpacing:1, marginBottom:18, fontFamily:"'Space Mono',monospace" }}>AES-256 · X25519 · IPFS · Polygon</div>
           <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:8, marginBottom:20, width:"100%", maxWidth:320 }}>
             {[["Days",d],["Hrs",h],["Min",m],["Sec",s]].map(([l,v])=>(
-              <div key={l} style={{ background:"#0a0a12", border:`1px solid ${gold}22`, borderRadius:10, padding:"12px 6px" }}>
+              <div key={l} style={{ background:cardSoft, border:`1px solid ${gold}22`, borderRadius:10, padding:"12px 6px" }}>
                 <div style={{ fontSize:26, fontWeight:800, color:gold, fontFamily:"'Space Mono',monospace" }}>{pad(v)}</div>
-                <div style={{ fontSize:9, color:"#444", marginTop:4, textTransform:"uppercase", letterSpacing:1 }}>{l}</div>
+                <div style={{ fontSize:9, color:"#5a657a", marginTop:4, textTransform:"uppercase", letterSpacing:1 }}>{l}</div>
               </div>
             ))}
           </div>
           <div style={{ display:"flex", flexWrap:"wrap", gap:6, justifyContent:"center" }}>
             {feats.map(([i,l])=> <div key={l} className="feat-pill">{i} {l}</div>)}
           </div>
-          <div style={{ fontSize:12, color:"#444", marginTop:20 }}>Target launch: Q3 2026</div>
+          <div style={{ fontSize:12, color:"#5a657a", marginTop:20 }}>Target launch: Q3 2026</div>
         </div>
       </div>
     </div>
@@ -384,7 +385,7 @@ export default function App() {
   }, []);
 
   const getProvider = () => {
-    if (!window.ethereum) { showToast("⚠️ MetaMask install कर!"); return null; }
+    if (!window.ethereum) { showToast("⚠️ Please install MetaMask!"); return null; }
     if (!providerRef.current) providerRef.current = new BrowserProvider(window.ethereum);
     return providerRef.current;
   };
@@ -459,7 +460,7 @@ export default function App() {
   };
 
   const connect = async () => {
-    if (!window.ethereum) { showToast("⚠️ MetaMask install कर!"); return; }
+    if (!window.ethereum) { showToast("⚠️ Please install MetaMask!"); return; }
     setConnecting(true);
     try {
       const accs = await window.ethereum.request({ method:"eth_requestAccounts" });
@@ -494,7 +495,7 @@ export default function App() {
   // ── write actions ──────────────────────────────────────
   const actions = {
     stake: async (amount, referrer) => {
-      if (!amount || Number(amount) <= 0) { showToast("⚠️ Amount टाक!"); return; }
+      if (!amount || Number(amount) <= 0) { showToast("⚠️ Enter an amount!"); return; }
       const signer = await ensureReady(); if (!signer) return;
       setBusyKey("stake", true);
       try {
@@ -502,12 +503,12 @@ export default function App() {
         const token = new Contract(ADDRESSES.token, TOKEN_ABI, signer);
         const allowance = await token.allowance(wallet, ADDRESSES.staking);
         if (allowance < amt) {
-          showToast("1/2 — Approve करत आहे...");
+          showToast("1/2 — Approving...");
           const txA = await token.approve(ADDRESSES.staking, amt);
           await txA.wait();
         }
         const stk = new Contract(ADDRESSES.staking, STAKING_ABI, signer);
-        showToast("2/2 — Stake करत आहे...");
+        showToast("2/2 — Staking...");
         let tx;
         const ref = referrer && isAddress(referrer) ? referrer : ZERO;
         if (referrer === null) tx = await stk.addToStake(amt);
@@ -524,7 +525,7 @@ export default function App() {
       try {
         const stk = new Contract(ADDRESSES.staking, STAKING_ABI, signer);
         const tx = await stk.requestUnstake(); await tx.wait();
-        showToast("⏳ Unstake requested — cooldown सुरू!"); await loadData(wallet);
+        showToast("⏳ Unstake requested — cooldown started!"); await loadData(wallet);
       } catch (e) { showToast("❌ " + (e?.shortMessage || e?.reason || "Failed")); }
       finally { setBusyKey("unstake", false); }
     },
@@ -534,7 +535,7 @@ export default function App() {
       try {
         const stk = new Contract(ADDRESSES.staking, STAKING_ABI, signer);
         const tx = await stk.unstake(); await tx.wait();
-        showToast("✅ Unstaked — tokens परत आले!"); await loadData(wallet);
+        showToast("✅ Unstaked — tokens returned!"); await loadData(wallet);
       } catch (e) { showToast("❌ " + (e?.shortMessage || e?.reason || "Failed")); }
       finally { setBusyKey("unstake", false); }
     },
@@ -587,13 +588,13 @@ export default function App() {
           {tab==="messenger" && <Messenger/>}
 
           {!wallet && (
-            <div style={{ textAlign:"center", marginTop:20, fontSize:13, color:"#555" }}>
-              👆 Real data बघण्यासाठी wallet connect कर
+            <div style={{ textAlign:"center", marginTop:20, fontSize:13, color:"#7b8699" }}>
+              👆 Connect your wallet to see real data
             </div>
           )}
         </div>
         <div style={{ textAlign:"center", padding:16, borderTop:`1px solid ${border}`, marginTop:16 }}>
-          <div style={{ fontSize:10, color:"#222", fontFamily:"'Space Mono',monospace" }}>OSG · Polygon Mainnet · {short(ADDRESSES.token)}</div>
+          <div style={{ fontSize:10, color:"#3a4458", fontFamily:"'Space Mono',monospace" }}>OSG · Polygon Mainnet · {short(ADDRESSES.token)}</div>
         </div>
       </div>
       {toast && <div className="toast">{toast}</div>}
