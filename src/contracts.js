@@ -63,6 +63,28 @@ export const STAKING_ABI = [
   "function checkReferrerEligibility(address referrer) view returns (bool eligible, uint8 reasonCode)",
 ];
 
+// ── OSGMessenger v7 (text chat: cid carries the text, fileType="text") ──
+export const MESSENGER_ABI = [
+  // writes
+  "function sendMessage(address to, string cid, string fileType) payable",
+  "function markAsRead(uint256 index)",
+  "function deleteMessage(uint256 index)",
+  "function setPublicKey(string pubKey)",
+  // reads
+  "function getMessages(uint256 start, uint256 limit) view returns (tuple(address from, string cid, string fileType, uint256 timestamp, bool isRead, bool isDeleted)[])",
+  "function getActiveMessages(uint256 start, uint256 limit) view returns (tuple(address from, string cid, string fileType, uint256 timestamp, bool isRead, bool isDeleted)[])",
+  "function getInboxLength(address user) view returns (uint256)",
+  "function unreadCount(address) view returns (uint256)",
+  "function getUserFee(address user) view returns (uint256)",
+  "function getMaticFee() view returns (uint256)",
+  "function useOSGFee() view returns (bool)",
+  "function messagingFeeOSG() view returns (uint256)",
+  "function cooldown() view returns (uint256)",
+  "function lastSent(address) view returns (uint256)",
+  "function paused() view returns (bool)",
+  "function publicKeys(address) view returns (string)",
+];
+
 // QuickSwap swap link (until liquidity pool exists)
 export const QUICKSWAP_URL =
   "https://quickswap.exchange/#/swap?outputCurrency=" + ADDRESSES.token;
