@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { BrowserProvider, Contract, formatUnits, parseUnits, isAddress } from "ethers";
 import {
   ADDRESSES, ZERO, POLYGON_CHAIN_ID, POLYGON_PARAMS,
-  TOKEN_ABI, STAKING_ABI, QUICKSWAP_URL,
+  TOKEN_ABI, STAKING_ABI, MESSENGER_ABI, QUICKSWAP_URL,
 } from "./contracts.js";
 
 // ══════════════════════════════════════════════════════════
@@ -41,7 +41,7 @@ const I18N = {
     tEnterAmt:"Enter an amount!",tConnFirst:"Connect wallet first!",tSwitchPoly:"Switch to Polygon!",tInstall:"Please install MetaMask!",
     tApproving:"1/2 — Approving…",tStaking:"2/2 — Staking…",tStakeOk:"Stake successful!",tStakeFail:"Stake failed",
     tUnstakeReq:"Unstake requested — cooldown started!",tUnstakeOk:"Unstaked — tokens returned!",tCancelled:"Unstake cancelled",
-    tClaimed:"Reward claimed!",tClaimFail:"Claim failed",tConnected:"Wallet connected!",tConnFail:"Connection failed",tCopied:"Referral link copied!",tFailed:"Failed"},
+    tClaimed:"Reward claimed!",tClaimFail:"Claim failed",tConnected:"Wallet connected!",tConnFail:"Connection failed",tCopied:"Referral link copied!",tFailed:"Failed",chatTitle:"Messages",chatSub:"Wallet-to-wallet chat on Polygon.",recipient:"Recipient address",typeMsg:"Type a message…",send:"Send",noMsgs:"No messages yet. Start the conversation!",you:"You",inbox:"Inbox",feeNote:"A small network fee may apply per message.",tSent:"Message sent!",tBadAddr:"Enter a valid recipient address!",tEmptyMsg:"Type a message first!",loadingMsgs:"Loading messages…"},
   hi:{lbl:"हिं",connect:"कनेक्ट",connectWallet:"वॉलेट कनेक्ट करें",switchNet:"नेटवर्क बदलें",
     dashboard:"होम",staking:"स्टेक",referral:"रेफरल",swap:"स्वैप",messenger:"चैट",
     osgBalance:"OSG बैलेंस",yourStaked:"आपका स्टेक",pendingReward:"लंबित इनाम",poolStaked:"पूल कुल स्टेक",
@@ -65,7 +65,7 @@ const I18N = {
     tEnterAmt:"राशि दर्ज करें!",tConnFirst:"पहले वॉलेट कनेक्ट करें!",tSwitchPoly:"Polygon पर स्विच करें!",tInstall:"कृपया MetaMask इंस्टॉल करें!",
     tApproving:"1/2 — Approve हो रहा है…",tStaking:"2/2 — स्टेक हो रहा है…",tStakeOk:"स्टेक सफल!",tStakeFail:"स्टेक विफल",
     tUnstakeReq:"अनस्टेक अनुरोध — कूलडाउन शुरू!",tUnstakeOk:"अनस्टेक — टोकन वापस!",tCancelled:"अनस्टेक रद्द",
-    tClaimed:"इनाम क्लेम हुआ!",tClaimFail:"क्लेम विफल",tConnected:"वॉलेट कनेक्ट!",tConnFail:"कनेक्शन विफल",tCopied:"रेफरल लिंक कॉपी हुआ!",tFailed:"विफल"},
+    tClaimed:"इनाम क्लेम हुआ!",tClaimFail:"क्लेम विफल",tConnected:"वॉलेट कनेक्ट!",tConnFail:"कनेक्शन विफल",tCopied:"रेफरल लिंक कॉपी हुआ!",tFailed:"विफल",chatTitle:"संदेश",chatSub:"Polygon पर वॉलेट-टू-वॉलेट चैट।",recipient:"प्राप्तकर्ता पता",typeMsg:"संदेश लिखें…",send:"भेजें",noMsgs:"अभी कोई संदेश नहीं। बातचीत शुरू करें!",you:"आप",inbox:"इनबॉक्स",feeNote:"प्रति संदेश थोड़ा नेटवर्क शुल्क लग सकता है।",tSent:"संदेश भेजा गया!",tBadAddr:"सही प्राप्तकर्ता पता डालें!",tEmptyMsg:"पहले संदेश लिखें!",loadingMsgs:"संदेश लोड हो रहे हैं…"},
   zh:{lbl:"中文",connect:"连接",connectWallet:"连接钱包",switchNet:"切换网络",
     dashboard:"首页",staking:"质押",referral:"推荐",swap:"兑换",messenger:"聊天",
     osgBalance:"OSG 余额",yourStaked:"已质押",pendingReward:"待领奖励",poolStaked:"质押池总量",
@@ -89,7 +89,7 @@ const I18N = {
     tEnterAmt:"请输入金额！",tConnFirst:"请先连接钱包！",tSwitchPoly:"请切换到 Polygon！",tInstall:"请安装 MetaMask！",
     tApproving:"1/2 — 授权中…",tStaking:"2/2 — 质押中…",tStakeOk:"质押成功！",tStakeFail:"质押失败",
     tUnstakeReq:"已申请解押 — 冷却开始！",tUnstakeOk:"已解押 — 代币已返还！",tCancelled:"解押已取消",
-    tClaimed:"奖励已领取！",tClaimFail:"领取失败",tConnected:"钱包已连接！",tConnFail:"连接失败",tCopied:"推荐链接已复制！",tFailed:"失败"},
+    tClaimed:"奖励已领取！",tClaimFail:"领取失败",tConnected:"钱包已连接！",tConnFail:"连接失败",tCopied:"推荐链接已复制！",tFailed:"失败",chatTitle:"消息",chatSub:"Polygon 上的钱包间聊天。",recipient:"接收方地址",typeMsg:"输入消息…",send:"发送",noMsgs:"还没有消息。开始对话吧！",you:"你",inbox:"收件箱",feeNote:"每条消息可能收取少量网络费用。",tSent:"消息已发送！",tBadAddr:"请输入有效的接收方地址！",tEmptyMsg:"请先输入消息！",loadingMsgs:"正在加载消息…"},
   mr:{lbl:"मरा",connect:"कनेक्ट",connectWallet:"वॉलेट कनेक्ट करा",switchNet:"नेटवर्क बदला",
     dashboard:"होम",staking:"स्टेक",referral:"रेफरल",swap:"स्वॅप",messenger:"चॅट",
     osgBalance:"OSG बॅलन्स",yourStaked:"तुमचा स्टेक",pendingReward:"प्रलंबित बक्षीस",poolStaked:"पूल एकूण स्टेक",
@@ -113,7 +113,7 @@ const I18N = {
     tEnterAmt:"रक्कम टाका!",tConnFirst:"आधी वॉलेट कनेक्ट करा!",tSwitchPoly:"Polygon वर स्विच करा!",tInstall:"कृपया MetaMask इन्स्टॉल करा!",
     tApproving:"1/2 — Approve होत आहे…",tStaking:"2/2 — स्टेक होत आहे…",tStakeOk:"स्टेक यशस्वी!",tStakeFail:"स्टेक अयशस्वी",
     tUnstakeReq:"अनस्टेक विनंती — कूलडाउन सुरू!",tUnstakeOk:"अनस्टेक — टोकन परत!",tCancelled:"अनस्टेक रद्द",
-    tClaimed:"बक्षीस क्लेम झाले!",tClaimFail:"क्लेम अयशस्वी",tConnected:"वॉलेट कनेक्ट!",tConnFail:"कनेक्शन अयशस्वी",tCopied:"रेफरल लिंक कॉपी झाला!",tFailed:"अयशस्वी"},
+    tClaimed:"बक्षीस क्लेम झाले!",tClaimFail:"क्लेम अयशस्वी",tConnected:"वॉलेट कनेक्ट!",tConnFail:"कनेक्शन अयशस्वी",tCopied:"रेफरल लिंक कॉपी झाला!",tFailed:"अयशस्वी",chatTitle:"संदेश",chatSub:"Polygon वर वॉलेट-टू-वॉलेट चॅट.",recipient:"प्राप्तकर्ता पत्ता",typeMsg:"संदेश लिहा…",send:"पाठवा",noMsgs:"अजून संदेश नाहीत. संवाद सुरू करा!",you:"तुम्ही",inbox:"इनबॉक्स",feeNote:"प्रत्येक संदेशासाठी थोडं नेटवर्क शुल्क लागू शकतं.",tSent:"संदेश पाठवला!",tBadAddr:"वैध प्राप्तकर्ता पत्ता टाका!",tEmptyMsg:"आधी संदेश लिहा!",loadingMsgs:"संदेश लोड होत आहेत…"},
   es:{lbl:"ES",connect:"Conectar",connectWallet:"Conectar billetera",switchNet:"Cambiar red",
     dashboard:"Inicio",staking:"Staking",referral:"Referido",swap:"Cambiar",messenger:"Chat",
     osgBalance:"Saldo OSG",yourStaked:"En staking",pendingReward:"Recompensa pendiente",poolStaked:"Total del pool",
@@ -137,7 +137,7 @@ const I18N = {
     tEnterAmt:"¡Ingresa una cantidad!",tConnFirst:"¡Conecta la billetera primero!",tSwitchPoly:"¡Cambia a Polygon!",tInstall:"¡Instala MetaMask!",
     tApproving:"1/2 — Aprobando…",tStaking:"2/2 — Stakeando…",tStakeOk:"¡Stake exitoso!",tStakeFail:"Stake fallido",
     tUnstakeReq:"Retiro solicitado — ¡enfriamiento iniciado!",tUnstakeOk:"Retirado — ¡tokens devueltos!",tCancelled:"Retiro cancelado",
-    tClaimed:"¡Recompensa reclamada!",tClaimFail:"Reclamo fallido",tConnected:"¡Billetera conectada!",tConnFail:"Conexión fallida",tCopied:"¡Enlace de referido copiado!",tFailed:"Fallido"},
+    tClaimed:"¡Recompensa reclamada!",tClaimFail:"Reclamo fallido",tConnected:"¡Billetera conectada!",tConnFail:"Conexión fallida",tCopied:"¡Enlace de referido copiado!",tFailed:"Fallido",chatTitle:"Mensajes",chatSub:"Chat de billetera a billetera en Polygon.",recipient:"Dirección del destinatario",typeMsg:"Escribe un mensaje…",send:"Enviar",noMsgs:"Aún no hay mensajes. ¡Inicia la conversación!",you:"Tú",inbox:"Bandeja",feeNote:"Puede aplicarse una pequeña tarifa de red por mensaje.",tSent:"¡Mensaje enviado!",tBadAddr:"¡Ingresa una dirección de destinatario válida!",tEmptyMsg:"¡Escribe un mensaje primero!",loadingMsgs:"Cargando mensajes…"},
 };
 const LANGS = [
   {id:"en",fl:"🇬🇧",name:"English"},
@@ -455,27 +455,94 @@ function Swap({ t }) {
   );
 }
 
-function Messenger({ t }) {
-  const [d,setD]=useState(31),[h,setH]=useState(14),[m,setM]=useState(37),[s,setS]=useState(42);
-  useEffect(()=>{ const tm=setInterval(()=>{ setS(x=>{ if(x>0)return x-1; setM(y=>{ if(y>0)return y-1; setH(z=>{ if(z>0)return z-1; setD(w=>w>0?w-1:0); return 23;}); return 59;}); return 59;});},1000); return ()=>clearInterval(tm);},[]);
-  const pad=n=>String(n).padStart(2,"0");
-  const feats=[["🔐","AES-256"],["🌐","IPFS"],["👛","Wallet-to-Wallet"],["👥","Groups"],["📸","Photo & Video"],["⛓️","On-Chain"]];
+function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) {
+  const [to, setTo] = useState("");
+  const [text, setText] = useState("");
+  const [msgs, setMsgs] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [sending, setSending] = useState(false);
+  const endRef = useRef(null);
+
+  const load = useCallback(async () => {
+    if (!wallet) return;
+    setLoading(true);
+    try {
+      const p = getProvider(); if (!p) return;
+      const c = new Contract(ADDRESSES.messenger, MESSENGER_ABI, p);
+      const len = Number(await c.getInboxLength(wallet));
+      let list = [];
+      if (len > 0) {
+        const start = len > 50 ? len - 50 : 0;
+        const raw = await c.getMessages(start, 50);
+        list = raw
+          .filter(mm => !mm.isDeleted && mm.fileType === "text")
+          .map(mm => ({ from: mm.from, text: mm.cid, ts: Number(mm.timestamp) }));
+      }
+      setMsgs(list);
+    } catch (e) { console.error("msg load:", e); }
+    finally { setLoading(false); }
+  }, [wallet, getProvider]);
+
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => { if (!wallet) return; const tm = setInterval(load, 15000); return () => clearInterval(tm); }, [wallet, load]);
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
+
+  const send = async () => {
+    if (!isAddress(to)) { showToast("⚠️ " + t.tBadAddr); return; }
+    if (!text.trim()) { showToast("⚠️ " + t.tEmptyMsg); return; }
+    const signer = await ensureReady(); if (!signer) return;
+    setSending(true);
+    try {
+      const c = new Contract(ADDRESSES.messenger, MESSENGER_ABI, signer);
+      let fee = 0n;
+      try { fee = await c.getUserFee(wallet); } catch {}
+      const tx = await c.sendMessage(to, text.trim(), "text", { value: fee });
+      await tx.wait();
+      showToast("✅ " + t.tSent);
+      setText("");
+      await load();
+    } catch (e) { console.error(e); showToast("❌ " + (e?.shortMessage || e?.reason || t.tFailed)); }
+    finally { setSending(false); }
+  };
+
   return (
     <div className="page">
-      <div className="page-head"><h1>{t.messenger}</h1></div>
-      <div className="msg-wrap">
-        <div className="msg-grid"/>
-        <div style={{ position:"relative",zIndex:2,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:430,padding:24,textAlign:"center" }}>
-          <div className="cs-badge" style={{ marginBottom:18 }}>● {t.comingSoon}</div>
-          <div style={{ fontSize:46,marginBottom:10 }}>💬</div>
-          <div className="disp" style={{ fontSize:24,fontWeight:800,color:C.gold1,letterSpacing:2,marginBottom:6 }}>{t.msgTitle}</div>
-          <div className="mono" style={{ fontSize:11,color:C.txt3,letterSpacing:1,marginBottom:18 }}>AES-256 · X25519 · IPFS · Polygon</div>
-          <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:20,width:"100%",maxWidth:320 }}>
-            {[["D",d],["H",h],["M",m],["S",s]].map(([l,v])=>(<div className="cd" key={l}><div className="cv">{pad(v)}</div><div className="cl">{l}</div></div>))}
-          </div>
-          <div style={{ display:"flex",flexWrap:"wrap",gap:6,justifyContent:"center" }}>{feats.map(([i,l])=><div className="feat" key={l}>{i} {l}</div>)}</div>
-          <div style={{ fontSize:12,color:C.txt3,marginTop:20 }}>{t.targetLaunch}</div>
+      <div className="page-head"><h1>{t.chatTitle}</h1><p>{t.chatSub}</p></div>
+
+      <div className="card" style={{ padding:14 }}>
+        <label style={{ fontSize:11,color:C.txt3,textTransform:"uppercase",letterSpacing:".4px" }}>{t.recipient}</label>
+        <input className="inp-sm" placeholder="0x…" value={to} onChange={e=>setTo(e.target.value.trim())}/>
+      </div>
+
+      <div className="card" style={{ marginTop:12, minHeight:300, display:"flex", flexDirection:"column" }}>
+        <div className="sec" style={{ marginBottom:10 }}>{t.inbox}{msgs.length?` · ${msgs.length}`:""}</div>
+        <div style={{ flex:1, display:"flex", flexDirection:"column", gap:8, maxHeight:340, overflowY:"auto" }}>
+          {!wallet ? (
+            <div style={{ textAlign:"center",color:C.txt3,fontSize:13,marginTop:30 }}>👆 {t.connectSee}</div>
+          ) : loading && msgs.length===0 ? (
+            <div style={{ textAlign:"center",color:C.txt3,fontSize:13,marginTop:30 }}>{t.loadingMsgs}</div>
+          ) : msgs.length===0 ? (
+            <div style={{ textAlign:"center",color:C.txt3,fontSize:13,marginTop:30 }}>💬 {t.noMsgs}</div>
+          ) : msgs.map((mm,i)=>(
+            <div key={i} style={{ alignSelf:"flex-start", maxWidth:"85%", background:C.card2, border:`1px solid ${C.line}`, borderRadius:"4px 14px 14px 14px", padding:"10px 13px" }}>
+              <div className="mono" style={{ fontSize:10,color:C.gold2,marginBottom:4 }}>{short(mm.from)}</div>
+              <div style={{ fontSize:14,color:C.txt,wordBreak:"break-word",lineHeight:1.4 }}>{mm.text}</div>
+              <div style={{ fontSize:10,color:C.txt3,marginTop:5,textAlign:"right" }}>{new Date(mm.ts*1000).toLocaleString()}</div>
+            </div>
+          ))}
+          <div ref={endRef}/>
         </div>
+      </div>
+
+      <div className="card" style={{ marginTop:12, padding:12 }}>
+        <div style={{ display:"flex",gap:10,alignItems:"flex-end" }}>
+          <input className="inp-sm" style={{ marginTop:0 }} placeholder={t.typeMsg} value={text}
+            onChange={e=>setText(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter")send(); }}/>
+          <button className="btn-gold" style={{ width:"auto",padding:"12px 18px" }} disabled={sending||!wallet} onClick={send}>
+            {sending ? <span className="spin"/> : t.send}
+          </button>
+        </div>
+        <div style={{ fontSize:10,color:C.txt3,marginTop:8 }}>ⓘ {t.feeNote}</div>
       </div>
     </div>
   );
@@ -684,7 +751,7 @@ export default function App() {
           {tab==="staking"   && <Staking wallet={wallet} data={data} refParam={refParam} actions={actions} busy={busy} t={t}/>}
           {tab==="referral"  && <Referral wallet={wallet} data={data} showToast={showToast} t={t}/>}
           {tab==="swap"      && <Swap t={t}/>}
-          {tab==="messenger" && <Messenger t={t}/>}
+          {tab==="messenger" && <Messenger wallet={wallet} network={network} getProvider={getProvider} ensureReady={ensureReady} showToast={showToast} t={t}/>}
           {!wallet && <div style={{ textAlign:"center",marginTop:20,fontSize:13,color:C.txt3 }}>👆 {t.connectSee}</div>}
         </main>
 
