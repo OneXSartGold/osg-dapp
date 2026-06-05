@@ -1,12 +1,19 @@
 // ══════════════════════════════════════════════════════════
-//  OSG Contract Config — Polygon Mainnet
+//  OSG Contract Config — Polygon Mainnet (LIVE, June 2026)
+//  Fresh 8-contract deployment. Referral is built into Staking.
 // ══════════════════════════════════════════════════════════
 
 export const ADDRESSES = {
-  token:    "0xd973a390B585569b0c1eB707db721994a8058552",
-  staking:  "0xC7F9Ae45CE55DDf9691400673485d6003265fDaa",
-  referral: "0x8D7928a05C4CdF1D3E32a07eF395cBe5436B3D83",
-  pool:     "0x5E183557F43e780D6e4c5C89F14A27da97eee2B7",
+  timelock: "0xE2E82A8ACdd3Af7FA74Eacb3331231A769d80D4c",
+  rewardStorage: "0xa0b2DcB18Cf0BdF61bcB9D33F538167dF501BEcB",
+  token: "0xba05176748347944CC26900c821AbFeBeBC57415",
+  pool: "0x2633053377c49898341f8dC813B4A8c7c05668d8",
+  staking: "0x048E814C02e85ec1438Ab8C1d2e9150A5289A886",
+  bond: "0x06263828484e36106eDF20A6D5A38c3bE9612269",
+  messenger: "0x29c63cd4C3F03B1f64e929b0b8baC691DEB5FA5c",
+  mediaStorage: "0x88E64Cbc22a35c2928038f2bc13F06630C93D07A",
+  // referral is built into staking (no separate contract)
+  referral: "0x048E814C02e85ec1438Ab8C1d2e9150A5289A886",
 };
 
 export const ZERO = "0x0000000000000000000000000000000000000000";
@@ -29,7 +36,7 @@ export const TOKEN_ABI = [
   "function allowance(address owner, address spender) view returns (uint256)",
 ];
 
-// ── OSGStaking (real ABI — human readable) ────────────────
+// ── OSGStaking (referral built-in) ────────────────────────
 export const STAKING_ABI = [
   // writes
   "function stake(uint256 amount, address referrer)",
