@@ -5,134 +5,313 @@ import {
   TOKEN_ABI, STAKING_ABI, QUICKSWAP_URL,
 } from "./contracts.js";
 
-// ── theme ────────────────────────────────────────────────
-const gold = "#F5B800", goldDark = "#C9930A";
-const bg = "#0B0F1A", bgDeep = "#070A12", card = "#141A28", cardSoft = "#10151F", border = "#212a3d";
+// ══════════════════════════════════════════════════════════
+//  OSG logo (base64). Replace this string anytime with your
+//  own logo data-URI or an imported image URL.
+// ══════════════════════════════════════════════════════════
+const LOGO = "data:image/jpeg;base64,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";
 
-const short = (a) => (a ? `${a.slice(0,6)}...${a.slice(-4)}` : "");
-const fmt = (v, d = 2) =>
-  Number(v).toLocaleString("en-IN", { maximumFractionDigits: d });
+// ── helpers ──────────────────────────────────────────────
+const short = (a) => (a ? `${a.slice(0,6)}…${a.slice(-4)}` : "");
+const fmt = (v, d = 2) => Number(v).toLocaleString("en-US", { maximumFractionDigits: d });
 const f18 = (bn) => { try { return formatUnits(bn ?? 0n, 18); } catch { return "0"; } };
 
-const styles = `
-  @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
-  * { box-sizing:border-box; margin:0; padding:0; }
-  body { background:${bg}; color:#cdd5e3; font-family:'Plus Jakarta Sans',sans-serif; min-height:100vh; }
-  ::-webkit-scrollbar { width:4px; } ::-webkit-scrollbar-thumb { background:${gold}44; border-radius:2px; }
-  a { color:${gold}; }
-  .btn-gold { background:linear-gradient(135deg,${gold},${goldDark}); color:#0B0F1A; font-family:'Sora',sans-serif; font-weight:700; font-size:14px; letter-spacing:.5px; border:none; border-radius:8px; padding:12px 24px; cursor:pointer; transition:all .2s; box-shadow:0 4px 16px ${gold}22; }
-  .btn-gold:hover { filter:brightness(1.1); transform:translateY(-1px); box-shadow:0 6px 20px ${gold}33; }
-  .btn-gold:disabled { opacity:.45; cursor:not-allowed; transform:none; filter:none; box-shadow:none; }
-  .btn-danger { background:transparent; color:#ff6b6b; font-family:'Sora',sans-serif; font-weight:700; font-size:14px; border:1px solid #ff6b6b55; border-radius:8px; padding:11px 20px; cursor:pointer; transition:all .2s; }
-  .btn-danger:hover { border-color:#ff6b6b; background:#ff6b6b11; }
-  .btn-danger:disabled { opacity:.4; cursor:not-allowed; }
-  .btn-ghost { background:transparent; color:#7b8699; border:1px solid ${border}; border-radius:8px; padding:11px 20px; cursor:pointer; font-family:'Sora',sans-serif; font-weight:600; font-size:14px; transition:all .2s; }
-  .btn-ghost:hover { border-color:${gold}66; color:${gold}; }
-  .btn-ghost:disabled { opacity:.4; cursor:not-allowed; }
-  .inp { background:${bgDeep}; border:1px solid ${border}; border-radius:8px; color:#fff; font-family:'Space Mono',monospace; font-size:14px; padding:12px 14px; width:100%; outline:none; transition:border-color .2s; }
-  .inp:focus { border-color:${gold}88; }
-  .inp::placeholder { color:#3a4458; }
-  .tab-nav { display:flex; gap:3px; background:${cardSoft}; border-radius:10px; padding:4px; border:1px solid ${border}; }
-  .tab-btn { flex:1; padding:10px 4px; font-family:'Sora',sans-serif; font-weight:600; font-size:12px; letter-spacing:.2px; border:none; border-radius:7px; cursor:pointer; transition:all .2s; background:transparent; color:#5a657a; }
-  .tab-btn.active { background:${gold}1a; color:${gold}; border:1px solid ${gold}44; }
-  .tab-btn:hover:not(.active){ color:#8a96ab; }
-  .stat-card { background:${card}; border:1px solid ${border}; border-radius:12px; padding:15px; position:relative; overflow:hidden; }
-  .level-row { display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid ${border}; }
-  .level-row:last-child { border-bottom:none; }
-  .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:${card}; border:1px solid ${gold}66; border-radius:10px; padding:13px 24px; font-size:14px; color:${gold}; z-index:9999; animation:su .3s ease; font-family:'Sora',sans-serif; font-weight:600; max-width:90%; text-align:center; box-shadow:0 8px 30px #0006; }
-  @keyframes su { from{transform:translate(-50%,20px);opacity:0} to{transform:translate(-50%,0);opacity:1} }
-  .spin { display:inline-block; width:14px; height:14px; border:2px solid #0003; border-top-color:#0B0F1A; border-radius:50%; animation:sp .7s linear infinite; vertical-align:middle; }
-  @keyframes sp { to{transform:rotate(360deg)} }
-  .msg-container { position:relative; overflow:hidden; border-radius:16px; min-height:420px; background:${bgDeep}; border:1px solid ${gold}22; }
-  .msg-grid { position:absolute; inset:0; background-image:linear-gradient(${gold}08 1px,transparent 1px),linear-gradient(90deg,${gold}08 1px,transparent 1px); background-size:40px 40px; animation:gm 20s linear infinite; }
-  @keyframes gm { 0%{background-position:0 0} 100%{background-position:40px 40px} }
-  .cs-badge { display:inline-flex; align-items:center; gap:6px; background:linear-gradient(135deg,${gold}22,${gold}0a); border:1px solid ${gold}55; border-radius:20px; padding:6px 16px; font-size:11px; font-weight:700; color:${gold}; letter-spacing:1.5px; }
-  .feat-pill { display:inline-flex; align-items:center; gap:6px; background:${gold}0d; border:1px solid ${gold}22; border-radius:20px; padding:7px 14px; font-size:12px; color:#8a96ab; font-family:'Plus Jakarta Sans',sans-serif; font-weight:600; }
-  .link-row:hover { color:${gold} !important; }
+// ── i18n ─────────────────────────────────────────────────
+const I18N = {
+  en:{lbl:"EN",connect:"Connect",connectWallet:"Connect Wallet",switchNet:"Switch Network",
+    dashboard:"Home",staking:"Stake",referral:"Referral",swap:"Swap",messenger:"Chat",
+    osgBalance:"OSG Balance",yourStaked:"Your Staked",pendingReward:"Pending Reward",poolStaked:"Pool Total Staked",
+    currentlyLocked:"Currently locked",claimable:"Claimable",allUsers:"All users",
+    poolEmission:"Pool & Emission",activeStakers:"Active Stakers",dailyEmission:"Daily Emission",
+    yourEarned:"Your Total Earned",yourShare:"Your Share",halving:"Halving #",rewardDist:"Reward Distributed",
+    verified:"Verified Contracts",amtStake:"Amount to Stake",balance:"Balance",
+    referrerOpt:"Referrer (optional — first stake only)",twoStep:"Staking has two steps: first Approve the token, then Stake. Rewards are earned daily from emissions.",
+    addToStake:"Add to Stake",stakeBtn:"Stake",unstakeTab:"Unstake",claimTab:"Claim",
+    currentlyStaked:"Currently Staked",reqUnstakeInfo:"To unstake, first send a Request → tokens become withdrawable after the cooldown.",
+    requestUnstake:"Request Unstake",cooldownDone:"Cooldown complete — you can withdraw now!",cooldownWait:"Cooldown in progress — please wait a little longer.",
+    withdrawNow:"Withdraw Now",cancel:"Cancel",claimableReward:"Claimable Reward",thisChunk:"OSG (this chunk)",totalPending:"Total pending",claimReward:"Claim Reward",
+    refEarned:"Referral Earned",totalRefs:"Total Referrals",pendingRef:"Pending Referral",teamBonus:"Team Bonus",
+    osgTotal:"OSG total",directTeam:"Direct + team",yourRefLink:"Your Referral Link",copy:"Copy",
+    shareLink:"Share this link — whoever stakes for the first time using it becomes your referral.",
+    upline:"Your Upline (5 Levels)",empty:"— empty —",yourReferrer:"Your Referrer",noReferrer:"No referrer set",
+    swapTitle:"Swap POL → OSG",swapDesc:"The liquidity pool is not live yet. Once it is added, in-app swap will be available right here.",
+    swapMeanwhile:"In the meantime, you can swap directly on QuickSwap below.",openQuickswap:"Open QuickSwap",
+    comingSoon:"Coming Soon",msgTitle:"OSG MESSENGER",targetLaunch:"Target launch: Q3 2026",
+    connectSee:"Connect your wallet to see real data",
+    tEnterAmt:"Enter an amount!",tConnFirst:"Connect wallet first!",tSwitchPoly:"Switch to Polygon!",tInstall:"Please install MetaMask!",
+    tApproving:"1/2 — Approving…",tStaking:"2/2 — Staking…",tStakeOk:"Stake successful!",tStakeFail:"Stake failed",
+    tUnstakeReq:"Unstake requested — cooldown started!",tUnstakeOk:"Unstaked — tokens returned!",tCancelled:"Unstake cancelled",
+    tClaimed:"Reward claimed!",tClaimFail:"Claim failed",tConnected:"Wallet connected!",tConnFail:"Connection failed",tCopied:"Referral link copied!",tFailed:"Failed"},
+  hi:{lbl:"हिं",connect:"कनेक्ट",connectWallet:"वॉलेट कनेक्ट करें",switchNet:"नेटवर्क बदलें",
+    dashboard:"होम",staking:"स्टेक",referral:"रेफरल",swap:"स्वैप",messenger:"चैट",
+    osgBalance:"OSG बैलेंस",yourStaked:"आपका स्टेक",pendingReward:"लंबित इनाम",poolStaked:"पूल कुल स्टेक",
+    currentlyLocked:"वर्तमान में लॉक",claimable:"क्लेम योग्य",allUsers:"सभी यूज़र",
+    poolEmission:"पूल और एमिशन",activeStakers:"सक्रिय स्टेकर",dailyEmission:"दैनिक एमिशन",
+    yourEarned:"आपकी कुल कमाई",yourShare:"आपका हिस्सा",halving:"हाविंग #",rewardDist:"इनाम वितरित",
+    verified:"सत्यापित कॉन्ट्रैक्ट",amtStake:"स्टेक राशि",balance:"बैलेंस",
+    referrerOpt:"रेफरर (वैकल्पिक — केवल पहली स्टेक)",twoStep:"स्टेकिंग के दो चरण: पहले टोकन Approve करें, फिर Stake। इनाम रोज़ एमिशन से मिलते हैं।",
+    addToStake:"स्टेक में जोड़ें",stakeBtn:"स्टेक करें",unstakeTab:"अनस्टेक",claimTab:"क्लेम",
+    currentlyStaked:"वर्तमान स्टेक",reqUnstakeInfo:"अनस्टेक के लिए पहले Request भेजें → कूलडाउन के बाद टोकन निकाले जा सकते हैं।",
+    requestUnstake:"अनस्टेक अनुरोध",cooldownDone:"कूलडाउन पूरा — अब निकाल सकते हैं!",cooldownWait:"कूलडाउन जारी — कृपया थोड़ा इंतज़ार करें।",
+    withdrawNow:"अभी निकालें",cancel:"रद्द करें",claimableReward:"क्लेम योग्य इनाम",thisChunk:"OSG (यह चंक)",totalPending:"कुल लंबित",claimReward:"इनाम क्लेम करें",
+    refEarned:"रेफरल कमाई",totalRefs:"कुल रेफरल",pendingRef:"लंबित रेफरल",teamBonus:"टीम बोनस",
+    osgTotal:"OSG कुल",directTeam:"प्रत्यक्ष + टीम",yourRefLink:"आपका रेफरल लिंक",copy:"कॉपी",
+    shareLink:"यह लिंक शेयर करें — जो पहली बार इससे स्टेक करेगा वह आपका रेफरल बनेगा।",
+    upline:"आपकी अपलाइन (5 स्तर)",empty:"— खाली —",yourReferrer:"आपका रेफरर",noReferrer:"कोई रेफरर नहीं",
+    swapTitle:"POL → OSG स्वैप",swapDesc:"लिक्विडिटी पूल अभी लाइव नहीं है। जुड़ते ही इन-ऐप स्वैप यहीं उपलब्ध होगा।",
+    swapMeanwhile:"तब तक आप QuickSwap पर सीधे स्वैप कर सकते हैं।",openQuickswap:"QuickSwap खोलें",
+    comingSoon:"जल्द आ रहा है",msgTitle:"OSG मैसेंजर",targetLaunch:"लक्षित लॉन्च: Q3 2026",
+    connectSee:"असली डेटा देखने के लिए वॉलेट कनेक्ट करें",
+    tEnterAmt:"राशि दर्ज करें!",tConnFirst:"पहले वॉलेट कनेक्ट करें!",tSwitchPoly:"Polygon पर स्विच करें!",tInstall:"कृपया MetaMask इंस्टॉल करें!",
+    tApproving:"1/2 — Approve हो रहा है…",tStaking:"2/2 — स्टेक हो रहा है…",tStakeOk:"स्टेक सफल!",tStakeFail:"स्टेक विफल",
+    tUnstakeReq:"अनस्टेक अनुरोध — कूलडाउन शुरू!",tUnstakeOk:"अनस्टेक — टोकन वापस!",tCancelled:"अनस्टेक रद्द",
+    tClaimed:"इनाम क्लेम हुआ!",tClaimFail:"क्लेम विफल",tConnected:"वॉलेट कनेक्ट!",tConnFail:"कनेक्शन विफल",tCopied:"रेफरल लिंक कॉपी हुआ!",tFailed:"विफल"},
+  zh:{lbl:"中文",connect:"连接",connectWallet:"连接钱包",switchNet:"切换网络",
+    dashboard:"首页",staking:"质押",referral:"推荐",swap:"兑换",messenger:"聊天",
+    osgBalance:"OSG 余额",yourStaked:"已质押",pendingReward:"待领奖励",poolStaked:"质押池总量",
+    currentlyLocked:"当前锁定",claimable:"可领取",allUsers:"所有用户",
+    poolEmission:"池与释放",activeStakers:"活跃质押者",dailyEmission:"每日释放",
+    yourEarned:"累计收益",yourShare:"我的占比",halving:"减半 #",rewardDist:"已分配奖励",
+    verified:"已验证合约",amtStake:"质押金额",balance:"余额",
+    referrerOpt:"推荐人（可选 — 仅首次质押）",twoStep:"质押分两步：先授权代币，再质押。奖励每日从释放中获得。",
+    addToStake:"追加质押",stakeBtn:"质押",unstakeTab:"解押",claimTab:"领取",
+    currentlyStaked:"当前质押",reqUnstakeInfo:"解押需先发送请求 → 冷却期后可提取代币。",
+    requestUnstake:"申请解押",cooldownDone:"冷却完成 — 现在可提取！",cooldownWait:"冷却中 — 请稍候。",
+    withdrawNow:"立即提取",cancel:"取消",claimableReward:"可领取奖励",thisChunk:"OSG（本期）",totalPending:"待领总额",claimReward:"领取奖励",
+    refEarned:"推荐收益",totalRefs:"推荐总数",pendingRef:"待领推荐",teamBonus:"团队奖励",
+    osgTotal:"OSG 总计",directTeam:"直推 + 团队",yourRefLink:"你的推荐链接",copy:"复制",
+    shareLink:"分享此链接 — 首次通过它质押的人将成为你的推荐。",
+    upline:"你的上线（5级）",empty:"— 空 —",yourReferrer:"你的推荐人",noReferrer:"未设置推荐人",
+    swapTitle:"POL → OSG 兑换",swapDesc:"流动性池尚未上线。添加后，应用内兑换将在此处提供。",
+    swapMeanwhile:"在此期间，你可在 QuickSwap 直接兑换。",openQuickswap:"打开 QuickSwap",
+    comingSoon:"即将推出",msgTitle:"OSG 通讯",targetLaunch:"预计上线：2026 Q3",
+    connectSee:"连接钱包以查看真实数据",
+    tEnterAmt:"请输入金额！",tConnFirst:"请先连接钱包！",tSwitchPoly:"请切换到 Polygon！",tInstall:"请安装 MetaMask！",
+    tApproving:"1/2 — 授权中…",tStaking:"2/2 — 质押中…",tStakeOk:"质押成功！",tStakeFail:"质押失败",
+    tUnstakeReq:"已申请解押 — 冷却开始！",tUnstakeOk:"已解押 — 代币已返还！",tCancelled:"解押已取消",
+    tClaimed:"奖励已领取！",tClaimFail:"领取失败",tConnected:"钱包已连接！",tConnFail:"连接失败",tCopied:"推荐链接已复制！",tFailed:"失败"},
+  mr:{lbl:"मरा",connect:"कनेक्ट",connectWallet:"वॉलेट कनेक्ट करा",switchNet:"नेटवर्क बदला",
+    dashboard:"होम",staking:"स्टेक",referral:"रेफरल",swap:"स्वॅप",messenger:"चॅट",
+    osgBalance:"OSG बॅलन्स",yourStaked:"तुमचा स्टेक",pendingReward:"प्रलंबित बक्षीस",poolStaked:"पूल एकूण स्टेक",
+    currentlyLocked:"सध्या लॉक",claimable:"क्लेम करण्यायोग्य",allUsers:"सर्व यूझर",
+    poolEmission:"पूल आणि एमिशन",activeStakers:"सक्रिय स्टेकर",dailyEmission:"दैनिक एमिशन",
+    yourEarned:"तुमची एकूण कमाई",yourShare:"तुमचा हिस्सा",halving:"हाविंग #",rewardDist:"बक्षीस वितरित",
+    verified:"सत्यापित कॉन्ट्रॅक्ट",amtStake:"स्टेक रक्कम",balance:"बॅलन्स",
+    referrerOpt:"रेफरर (ऐच्छिक — फक्त पहिली स्टेक)",twoStep:"स्टेकिंगचे दोन टप्पे: आधी टोकन Approve करा, मग Stake. बक्षीस रोज एमिशनमधून मिळते.",
+    addToStake:"स्टेकमध्ये जोडा",stakeBtn:"स्टेक करा",unstakeTab:"अनस्टेक",claimTab:"क्लेम",
+    currentlyStaked:"सध्याचा स्टेक",reqUnstakeInfo:"अनस्टेकसाठी आधी Request पाठवा → कूलडाउननंतर टोकन काढता येतील.",
+    requestUnstake:"अनस्टेक विनंती",cooldownDone:"कूलडाउन पूर्ण — आता काढू शकता!",cooldownWait:"कूलडाउन चालू — कृपया थोडं थांबा.",
+    withdrawNow:"आता काढा",cancel:"रद्द करा",claimableReward:"क्लेम करण्यायोग्य बक्षीस",thisChunk:"OSG (हा चंक)",totalPending:"एकूण प्रलंबित",claimReward:"बक्षीस क्लेम करा",
+    refEarned:"रेफरल कमाई",totalRefs:"एकूण रेफरल",pendingRef:"प्रलंबित रेफरल",teamBonus:"टीम बोनस",
+    osgTotal:"OSG एकूण",directTeam:"थेट + टीम",yourRefLink:"तुमचा रेफरल लिंक",copy:"कॉपी",
+    shareLink:"हा लिंक शेअर करा — जो पहिल्यांदा यातून स्टेक करेल तो तुमचा रेफरल होईल.",
+    upline:"तुमची अपलाइन (5 स्तर)",empty:"— रिकामे —",yourReferrer:"तुमचा रेफरर",noReferrer:"रेफरर सेट नाही",
+    swapTitle:"POL → OSG स्वॅप",swapDesc:"लिक्विडिटी पूल अजून लाइव्ह नाही. जोडल्यावर इन-अॅप स्वॅप इथेच मिळेल.",
+    swapMeanwhile:"तोवर तुम्ही QuickSwap वर थेट स्वॅप करू शकता.",openQuickswap:"QuickSwap उघडा",
+    comingSoon:"लवकरच येत आहे",msgTitle:"OSG मेसेंजर",targetLaunch:"लक्ष्य लॉन्च: Q3 2026",
+    connectSee:"खरा डेटा पाहण्यासाठी वॉलेट कनेक्ट करा",
+    tEnterAmt:"रक्कम टाका!",tConnFirst:"आधी वॉलेट कनेक्ट करा!",tSwitchPoly:"Polygon वर स्विच करा!",tInstall:"कृपया MetaMask इन्स्टॉल करा!",
+    tApproving:"1/2 — Approve होत आहे…",tStaking:"2/2 — स्टेक होत आहे…",tStakeOk:"स्टेक यशस्वी!",tStakeFail:"स्टेक अयशस्वी",
+    tUnstakeReq:"अनस्टेक विनंती — कूलडाउन सुरू!",tUnstakeOk:"अनस्टेक — टोकन परत!",tCancelled:"अनस्टेक रद्द",
+    tClaimed:"बक्षीस क्लेम झाले!",tClaimFail:"क्लेम अयशस्वी",tConnected:"वॉलेट कनेक्ट!",tConnFail:"कनेक्शन अयशस्वी",tCopied:"रेफरल लिंक कॉपी झाला!",tFailed:"अयशस्वी"},
+  es:{lbl:"ES",connect:"Conectar",connectWallet:"Conectar billetera",switchNet:"Cambiar red",
+    dashboard:"Inicio",staking:"Staking",referral:"Referido",swap:"Cambiar",messenger:"Chat",
+    osgBalance:"Saldo OSG",yourStaked:"En staking",pendingReward:"Recompensa pendiente",poolStaked:"Total del pool",
+    currentlyLocked:"Bloqueado actualmente",claimable:"Reclamable",allUsers:"Todos los usuarios",
+    poolEmission:"Pool y emisión",activeStakers:"Stakers activos",dailyEmission:"Emisión diaria",
+    yourEarned:"Total ganado",yourShare:"Tu parte",halving:"Halving #",rewardDist:"Recompensa distribuida",
+    verified:"Contratos verificados",amtStake:"Cantidad a stakear",balance:"Saldo",
+    referrerOpt:"Referidor (opcional — solo primer stake)",twoStep:"El staking tiene dos pasos: primero Aprobar el token, luego Stakear. Las recompensas se ganan a diario.",
+    addToStake:"Añadir al stake",stakeBtn:"Stakear",unstakeTab:"Retirar",claimTab:"Reclamar",
+    currentlyStaked:"En staking",reqUnstakeInfo:"Para retirar, primero envía una Solicitud → los tokens se podrán retirar tras el enfriamiento.",
+    requestUnstake:"Solicitar retiro",cooldownDone:"¡Enfriamiento completo — ya puedes retirar!",cooldownWait:"Enfriamiento en curso — espera un poco más.",
+    withdrawNow:"Retirar ahora",cancel:"Cancelar",claimableReward:"Recompensa reclamable",thisChunk:"OSG (este tramo)",totalPending:"Total pendiente",claimReward:"Reclamar recompensa",
+    refEarned:"Ganado por referidos",totalRefs:"Total referidos",pendingRef:"Referido pendiente",teamBonus:"Bono de equipo",
+    osgTotal:"OSG total",directTeam:"Directo + equipo",yourRefLink:"Tu enlace de referido",copy:"Copiar",
+    shareLink:"Comparte este enlace — quien haga staking por primera vez con él será tu referido.",
+    upline:"Tu línea ascendente (5 niveles)",empty:"— vacío —",yourReferrer:"Tu referidor",noReferrer:"Sin referidor",
+    swapTitle:"Cambiar POL → OSG",swapDesc:"El pool de liquidez aún no está activo. Cuando se añada, el cambio in-app estará aquí.",
+    swapMeanwhile:"Mientras tanto, puedes cambiar directamente en QuickSwap abajo.",openQuickswap:"Abrir QuickSwap",
+    comingSoon:"Próximamente",msgTitle:"OSG MENSAJERO",targetLaunch:"Lanzamiento previsto: Q3 2026",
+    connectSee:"Conecta tu billetera para ver datos reales",
+    tEnterAmt:"¡Ingresa una cantidad!",tConnFirst:"¡Conecta la billetera primero!",tSwitchPoly:"¡Cambia a Polygon!",tInstall:"¡Instala MetaMask!",
+    tApproving:"1/2 — Aprobando…",tStaking:"2/2 — Stakeando…",tStakeOk:"¡Stake exitoso!",tStakeFail:"Stake fallido",
+    tUnstakeReq:"Retiro solicitado — ¡enfriamiento iniciado!",tUnstakeOk:"Retirado — ¡tokens devueltos!",tCancelled:"Retiro cancelado",
+    tClaimed:"¡Recompensa reclamada!",tClaimFail:"Reclamo fallido",tConnected:"¡Billetera conectada!",tConnFail:"Conexión fallida",tCopied:"¡Enlace de referido copiado!",tFailed:"Fallido"},
+};
+const LANGS = [
+  {id:"en",fl:"🇬🇧",name:"English"},
+  {id:"hi",fl:"🇮🇳",name:"हिंदी"},
+  {id:"zh",fl:"🇨🇳",name:"中文"},
+  {id:"mr",fl:"🇮🇳",name:"मराठी"},
+  {id:"es",fl:"🇪🇸",name:"Español"},
+];
+
+// ── theme tokens ─────────────────────────────────────────
+const C = {
+  bg:"#08080B", bg2:"#0E0E14", card:"#15151E", card2:"#1B1B26",
+  line:"rgba(255,255,255,.07)", line2:"rgba(255,255,255,.12)",
+  txt:"#F4F4F5", txt2:"#9A9AA8", txt3:"#5E5E6E",
+  gold1:"#F7D27A", gold2:"#E9B949", gold3:"#C4912E",
+  green:"#46D08A", red:"#F2675C", blue:"#38BDF8", purple:"#A78BFA",
+  grad:"linear-gradient(135deg,#F7D27A 0%,#E9B949 45%,#C4912E 100%)",
+};
+
+const STYLES = `
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@500;700&family=Noto+Sans+Devanagari:wght@500;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:'Hanken Grotesk',sans-serif;background:${C.bg};color:${C.txt}}
+:lang(zh){font-family:'Noto Sans SC','Hanken Grotesk',sans-serif}
+.osg-app{position:relative;width:100%;max-width:460px;margin:0 auto;min-height:100dvh;
+  background:radial-gradient(120% 60% at 80% -5%,rgba(233,185,73,.12),transparent 60%),radial-gradient(90% 50% at -10% 8%,rgba(56,189,248,.06),transparent 55%),${C.bg};
+  display:flex;flex-direction:column;overflow-x:hidden}
+.osg-app::-webkit-scrollbar{width:0}
+.disp{font-family:'Bricolage Grotesque',sans-serif}
+.mono{font-family:'JetBrains Mono',monospace}
+.topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:rgba(8,8,11,.78);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-bottom:1px solid ${C.line}}
+.brand{display:flex;align-items:center;gap:11px}
+.logo-img{width:42px;height:42px;border-radius:12px;object-fit:cover;border:1px solid rgba(233,185,73,.25);box-shadow:0 6px 22px -6px rgba(233,185,73,.45)}
+.brand .name{font-family:'Bricolage Grotesque';font-weight:800;font-size:15px;letter-spacing:-.3px}
+.brand .sub{font-size:10px;color:${C.txt3};letter-spacing:1.5px;text-transform:uppercase;margin-top:2px}
+.top-right{display:flex;align-items:center;gap:8px}
+.lang{position:relative}
+.lang-btn{display:flex;align-items:center;gap:5px;background:${C.card};border:1px solid ${C.line2};padding:8px 10px;border-radius:99px;cursor:pointer;font-size:12px;font-weight:600;color:${C.txt};font-family:'Hanken Grotesk'}
+.lang-btn svg{width:14px;height:14px;color:${C.gold2}}
+.lang-menu{position:absolute;top:44px;right:0;background:${C.card2};border:1px solid ${C.line2};border-radius:14px;padding:6px;min-width:150px;z-index:60;box-shadow:0 18px 40px -12px rgba(0,0,0,.7)}
+.lang-menu button{display:flex;align-items:center;gap:9px;width:100%;background:none;border:none;color:${C.txt2};font-size:13.5px;font-weight:600;padding:10px 11px;border-radius:9px;cursor:pointer;text-align:left;font-family:'Hanken Grotesk'}
+.lang-menu button:hover{background:${C.card};color:${C.txt}}
+.lang-menu button.sel{color:${C.gold1}}
+.net-pill{padding:5px 10px;border-radius:99px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid}
+.wallet-pill{display:flex;align-items:center;gap:7px;background:${C.card};border:1px solid ${C.line2};padding:8px 12px;border-radius:99px;cursor:pointer}
+.wallet-pill .dot{width:7px;height:7px;border-radius:50%}
+.wallet-pill .addr{font-family:'JetBrains Mono';font-size:11.5px;font-weight:500}
+.btn-gold{width:100%;border:none;cursor:pointer;font-family:'Hanken Grotesk';font-weight:700;font-size:15px;color:#1A1407;background:${C.grad};border-radius:14px;padding:15px;letter-spacing:.2px;transition:.18s;box-shadow:0 10px 30px -10px rgba(233,185,73,.55)}
+.btn-gold:active{transform:scale(.98)}
+.btn-gold:disabled{opacity:.45;cursor:not-allowed;box-shadow:none;filter:none}
+.btn-ghost{width:100%;background:transparent;color:${C.gold1};border:1px solid rgba(233,185,73,.35);border-radius:14px;padding:14px;font-family:'Hanken Grotesk';font-weight:700;font-size:14px;cursor:pointer}
+.btn-ghost:disabled{opacity:.4;cursor:not-allowed}
+.btn-danger{width:100%;background:transparent;color:${C.red};border:1px solid rgba(242,103,92,.4);border-radius:14px;padding:14px;font-family:'Hanken Grotesk';font-weight:700;font-size:14px;cursor:pointer}
+.btn-danger:disabled{opacity:.4;cursor:not-allowed}
+.screen{flex:1;padding:8px 16px 110px}
+.page{animation:fade .4s ease both}
+@keyframes fade{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.stag>*{opacity:0;animation:rise .5s cubic-bezier(.2,.7,.3,1) forwards}
+.stag>*:nth-child(1){animation-delay:.04s}.stag>*:nth-child(2){animation-delay:.10s}
+.stag>*:nth-child(3){animation-delay:.16s}.stag>*:nth-child(4){animation-delay:.22s}
+@keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+.card{background:${C.card};border:1px solid ${C.line};border-radius:20px;padding:18px}
+.page-head{margin:12px 2px 16px}
+.page-head h1{font-family:'Bricolage Grotesque';font-size:25px;font-weight:700;letter-spacing:-.6px}
+.hero{position:relative;overflow:hidden;background:radial-gradient(140% 120% at 100% 0%,rgba(233,185,73,.18),transparent 55%),linear-gradient(160deg,#1C1A16,#121118);border:1px solid rgba(233,185,73,.22);border-radius:24px;padding:22px}
+.hero::after{content:"";position:absolute;right:-40px;top:-40px;width:160px;height:160px;background:${C.grad};filter:blur(60px);opacity:.18;border-radius:50%}
+.hero .label{font-size:12px;color:${C.txt2};letter-spacing:.3px;display:flex;align-items:center;gap:7px}
+.hero .big{font-family:'JetBrains Mono';font-weight:600;font-size:34px;letter-spacing:-1.2px;margin-top:8px;line-height:1}
+.hero .big small{font-family:'Hanken Grotesk';font-size:15px;color:${C.gold2};font-weight:600;margin-left:6px}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+.stat{background:${C.card};border:1px solid ${C.line};border-radius:14px;padding:15px;position:relative;overflow:hidden}
+.stat .bar{position:absolute;top:0;left:0;right:0;height:2px}
+.stat .t{font-size:10.5px;color:${C.txt3};letter-spacing:.4px;text-transform:uppercase}
+.stat .v{font-family:'JetBrains Mono';font-size:20px;font-weight:600;margin-top:8px;letter-spacing:-.5px;word-break:break-all}
+.stat .s{font-size:11px;color:${C.txt3};margin-top:3px}
+.sec{font-size:11px;color:${C.txt3};text-transform:uppercase;letter-spacing:1px;font-weight:700;font-family:'Bricolage Grotesque';margin-bottom:12px}
+.mini-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mini{background:${C.card2};border:1px solid ${C.line};border-radius:12px;padding:10px 12px}
+.mini .k{font-size:10px;color:${C.txt3};text-transform:uppercase;letter-spacing:.4px}
+.mini .vv{font-family:'JetBrains Mono';font-size:14px;font-weight:600;margin-top:3px;color:${C.txt}}
+.link-row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid ${C.line};text-decoration:none;color:inherit}
+.link-row:last-child{border-bottom:none}
+.link-row .ln{font-size:13px;color:${C.txt2}}
+.link-row .la{font-family:'JetBrains Mono';font-size:10.5px;color:${C.txt3}}
+.tabs2{display:flex;gap:4px;background:${C.card2};border:1px solid ${C.line};border-radius:13px;padding:4px;margin-bottom:14px}
+.tab2{flex:1;padding:11px 4px;border:none;border-radius:9px;cursor:pointer;background:transparent;color:${C.txt3};font-family:'Hanken Grotesk';font-weight:700;font-size:13px;transition:.18s}
+.tab2.on{background:rgba(233,185,73,.12);color:${C.gold1};border:1px solid rgba(233,185,73,.35)}
+.field{background:${C.bg2};border:1px solid ${C.line};border-radius:14px;padding:15px 16px}
+.field .row{display:flex;justify-content:space-between;align-items:center}
+.field label{font-size:11px;color:${C.txt3};text-transform:uppercase;letter-spacing:.4px}
+.field .bal{font-size:11px;color:${C.txt3}}
+.inp{width:100%;background:none;border:none;outline:none;color:${C.txt};font-family:'JetBrains Mono';font-size:22px;font-weight:600;letter-spacing:-.5px;margin-top:8px}
+.inp::placeholder{color:${C.txt3}}
+.inp-sm{width:100%;background:${C.bg2};border:1px solid ${C.line};border-radius:12px;color:${C.txt};font-family:'JetBrains Mono';font-size:12px;padding:12px 13px;outline:none;margin-top:8px}
+.inp-sm:focus{border-color:rgba(233,185,73,.5)}
+.inp-sm::placeholder{color:${C.txt3}}
+.maxb{background:rgba(233,185,73,.15);border:1px solid rgba(233,185,73,.33);color:${C.gold1};border-radius:6px;padding:3px 9px;font-size:10px;cursor:pointer;font-weight:700}
+.note{display:flex;gap:10px;align-items:flex-start;background:rgba(233,185,73,.07);border:1px solid rgba(233,185,73,.2);border-radius:13px;padding:13px;font-size:12px;color:${C.txt2};line-height:1.5}
+.lvl{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid ${C.line}}
+.lvl:last-child{border-bottom:none}
+.lvl .n{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;font-family:'JetBrains Mono';font-weight:600;font-size:12px;border:1px solid}
+.lvl .ad{flex:1;font-family:'JetBrains Mono';font-size:12.5px}
+.ref-link{display:flex;gap:8px;align-items:center;margin-top:8px}
+.ref-link .code{flex:1;background:${C.bg2};border:1px dashed ${C.line2};border-radius:11px;padding:11px 13px;font-family:'JetBrains Mono';font-size:11px;color:${C.txt2};overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.copy-btn{background:${C.grad};color:#1A1407;border:none;border-radius:11px;padding:0 16px;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap}
+.msg-wrap{position:relative;overflow:hidden;border-radius:20px;min-height:430px;background:${C.bg2};border:1px solid rgba(233,185,73,.18)}
+.msg-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(233,185,73,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(233,185,73,.05) 1px,transparent 1px);background-size:40px 40px;animation:gm 20s linear infinite}
+@keyframes gm{to{background-position:40px 40px}}
+.cs-badge{display:inline-flex;align-items:center;gap:6px;background:linear-gradient(135deg,rgba(233,185,73,.2),rgba(233,185,73,.05));border:1px solid rgba(233,185,73,.4);border-radius:99px;padding:6px 15px;font-size:11px;font-weight:700;color:${C.gold1};letter-spacing:1.4px}
+.feat{display:inline-flex;align-items:center;gap:5px;background:rgba(233,185,73,.06);border:1px solid rgba(233,185,73,.18);border-radius:99px;padding:6px 12px;font-size:11.5px;color:${C.txt2};font-weight:600}
+.cd{background:${C.card2};border:1px solid rgba(233,185,73,.2);border-radius:12px;padding:12px 6px;text-align:center}
+.cd .cv{font-family:'JetBrains Mono';font-size:24px;font-weight:600;color:${C.gold1}}
+.cd .cl{font-size:9px;color:${C.txt3};margin-top:4px;text-transform:uppercase;letter-spacing:1px}
+.nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:460px;z-index:50;display:flex;justify-content:space-around;align-items:center;padding:10px 8px calc(10px + env(safe-area-inset-bottom));background:rgba(10,10,14,.85);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border-top:1px solid ${C.line}}
+.nav button{background:none;border:none;cursor:pointer;color:${C.txt3};display:flex;flex-direction:column;align-items:center;gap:5px;font-family:'Hanken Grotesk';font-size:10px;font-weight:600;padding:5px 9px;border-radius:12px}
+.nav button svg{width:21px;height:21px}
+.nav button.on{color:${C.gold1}}
+.nav button.on svg{filter:drop-shadow(0 2px 8px rgba(233,185,73,.5))}
+.toast{position:fixed;bottom:88px;left:50%;transform:translateX(-50%);background:${C.card2};border:1px solid rgba(233,185,73,.4);border-radius:13px;padding:13px 22px;font-size:13.5px;color:${C.gold1};z-index:9999;font-weight:600;max-width:90%;text-align:center;box-shadow:0 12px 36px rgba(0,0,0,.6);animation:tIn .3s ease}
+@keyframes tIn{from{transform:translate(-50%,16px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
+.spin{display:inline-block;width:15px;height:15px;border:2px solid rgba(0,0,0,.25);border-top-color:#1A1407;border-radius:50%;animation:sp .7s linear infinite;vertical-align:middle}
+@keyframes sp{to{transform:rotate(360deg)}}
 `;
 
-// ── small UI bits ─────────────────────────────────────────
-function StatCard({ label, value, sub, accent }) {
+// ── icons ────────────────────────────────────────────────
+const Ico = {
+  home:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>,
+  stake:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>,
+  ref:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M16 7a4 4 0 1 0-8 0"/><circle cx="12" cy="7" r="4"/><path d="M5.3 20a8 8 0 0 1 13.4 0"/></svg>,
+  swap:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg>,
+  chat:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z"/></svg>,
+};
+
+// ── reusable Stat ────────────────────────────────────────
+function Stat({ label, value, sub, accent }) {
   return (
-    <div className="stat-card" style={{ borderColor: accent ? `${accent}33` : border }}>
-      <div style={{ position:"absolute", top:0, left:0, right:0, height:2, background:`linear-gradient(90deg,${accent||gold},transparent)` }}/>
-      <div style={{ fontSize:10, color:"#5a657a", letterSpacing:1, textTransform:"uppercase", marginBottom:6, fontFamily:"'Space Mono',monospace" }}>{label}</div>
-      <div style={{ fontSize:23, fontWeight:700, color:accent||gold, lineHeight:1, wordBreak:"break-all", fontFamily:"'Sora',sans-serif" }}>{value}</div>
-      {sub && <div style={{ fontSize:11, color:"#5a657a", marginTop:4 }}>{sub}</div>}
+    <div className="stat">
+      <div className="bar" style={{ background:`linear-gradient(90deg,${accent},transparent)` }}/>
+      <div className="t">{label}</div>
+      <div className="v" style={{ color:accent }}>{value}</div>
+      {sub && <div className="s">{sub}</div>}
     </div>
   );
 }
 
-function Header({ wallet, network, onConnect, onSwitch, connecting }) {
+// ══════════════ PAGES ══════════════
+function Dashboard({ data, wallet, t }) {
+  const links = [["OSG Token", ADDRESSES.token],["Staking", ADDRESSES.staking],["Reward Pool", ADDRESSES.pool],["Bond", ADDRESSES.bond],["Messenger", ADDRESSES.messenger]];
   return (
-    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"14px 20px", borderBottom:`1px solid ${border}`, background:bgDeep, position:"sticky", top:0, zIndex:100, flexWrap:"wrap", gap:10 }}>
-      <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-        <div style={{ width:34, height:34, borderRadius:8, background:`linear-gradient(135deg,${gold},${goldDark})`, display:"flex", alignItems:"center", justifyContent:"center", fontWeight:800, fontSize:16, color:"#0B0F1A" }}>X</div>
-        <div>
-          <div style={{ fontSize:17, fontWeight:700, color:gold, letterSpacing:.5, fontFamily:"'Sora',sans-serif" }}>OSG DApp</div>
-          <div style={{ fontSize:10, color:"#4a5468", fontFamily:"'Space Mono',monospace" }}>OneX Smart Gold</div>
-        </div>
+    <div className="page stag">
+      <div className="hero">
+        <div className="label">{t.osgBalance}</div>
+        <div className="big">{wallet ? fmt(data.balance) : "—"}<small>OSG</small></div>
+        <div className="s mono" style={{ color:C.txt2, marginTop:9, fontSize:12 }}>{t.poolStaked}: {fmt(data.totalStaked)} OSG</div>
       </div>
-      <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-        {wallet && (network
-          ? <span style={{ background:"#00c85315", border:"1px solid #00c85333", color:"#00c853", padding:"4px 10px", borderRadius:12, fontSize:11, fontWeight:700 }}>⬡ Polygon</span>
-          : <button onClick={onSwitch} style={{ background:"#ff550015", border:"1px solid #ff550055", color:"#ff7777", padding:"4px 10px", borderRadius:12, fontSize:11, fontWeight:700, cursor:"pointer" }}>⚠ Switch Network</button>
-        )}
-        {wallet
-          ? <div style={{ display:"flex", alignItems:"center", gap:8, background:card, border:`1px solid ${gold}33`, borderRadius:8, padding:"6px 12px" }}>
-              <div style={{ width:7, height:7, borderRadius:"50%", background:network?"#00c853":"#ff5555" }}/>
-              <span style={{ fontFamily:"'Space Mono',monospace", fontSize:12, color:"#aeb8c9" }}>{short(wallet)}</span>
-            </div>
-          : <button className="btn-gold" onClick={onConnect} disabled={connecting} style={{ padding:"9px 18px", fontSize:13 }}>{connecting ? <span className="spin"/> : "Connect Wallet"}</button>
-        }
+      <div className="stat-grid">
+        <Stat label={t.yourStaked} value={wallet?fmt(data.staked):"—"} sub={t.currentlyLocked} accent={C.blue}/>
+        <Stat label={t.pendingReward} value={wallet?fmt(data.pending,4):"—"} sub={t.claimable} accent={C.green}/>
+        <Stat label={t.osgBalance} value={wallet?fmt(data.balance):"—"} sub="OSG" accent={C.gold2}/>
+        <Stat label={t.poolStaked} value={fmt(data.totalStaked)} sub={t.allUsers} accent={C.purple}/>
       </div>
-    </div>
-  );
-}
-
-// ── Dashboard ─────────────────────────────────────────────
-function Dashboard({ data, wallet }) {
-  const links = [
-    ["OSG Token", ADDRESSES.token],
-    ["Staking", ADDRESSES.staking],
-    ["Referral", ADDRESSES.referral],
-    ["Reward Pool", ADDRESSES.pool],
-  ];
-  return (
-    <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-        <StatCard label="OSG Balance" value={wallet ? fmt(data.balance) : "—"} sub="OneX Smart Gold" accent={gold}/>
-        <StatCard label="Your Staked" value={wallet ? fmt(data.staked) : "—"} sub="Currently locked" accent="#00b4ff"/>
-        <StatCard label="Pending Reward" value={wallet ? fmt(data.pending, 4) : "—"} sub="Claimable" accent="#00c853"/>
-        <StatCard label="Pool Total Staked" value={fmt(data.totalStaked)} sub="All users" accent="#7B3FE4"/>
-      </div>
-
-      <div style={{ background:card, border:`1px solid ${border}`, borderRadius:12, padding:14 }}>
-        <div style={{ fontSize:11, color:"#5a657a", textTransform:"uppercase", letterSpacing:1, marginBottom:12, fontFamily:"'Sora',sans-serif", fontWeight:600 }}>Pool &amp; Emission</div>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-          {[
-            ["Active Stakers", fmt(data.activeStakers, 0)],
-            ["Daily Emission", fmt(data.dailyEmission, 2) + " OSG"],
-            ["Your Total Earned", fmt(data.totalEarned, 4) + " OSG"],
-            ["Your Share", fmt(data.sharePercent, 4) + " %"],
-            ["Halving #", fmt(data.halving, 0)],
-            ["Reward Distributed", fmt(data.rewardDistributed, 2) + " OSG"],
-          ].map(([k,v]) => (
-            <div key={k} style={{ background:cardSoft, border:`1px solid ${border}`, borderRadius:8, padding:"10px 12px" }}>
-              <div style={{ fontSize:10, color:"#5a657a", textTransform:"uppercase", letterSpacing:.5 }}>{k}</div>
-              <div style={{ fontSize:15, fontWeight:700, color:"#cdd5e3", marginTop:3, fontFamily:"'Sora',sans-serif" }}>{v}</div>
-            </div>
+      <div className="card" style={{ marginTop:14 }}>
+        <div className="sec">{t.poolEmission}</div>
+        <div className="mini-grid">
+          {[[t.activeStakers,fmt(data.activeStakers,0)],[t.dailyEmission,fmt(data.dailyEmission,2)+" OSG"],[t.yourEarned,fmt(data.totalEarned,4)],[t.yourShare,fmt(data.sharePercent,4)+" %"],[t.halving,fmt(data.halving,0)],[t.rewardDist,fmt(data.rewardDistributed,2)]].map(([k,v])=>(
+            <div className="mini" key={k}><div className="k">{k}</div><div className="vv">{v}</div></div>
           ))}
         </div>
       </div>
-
-      <div style={{ background:card, border:`1px solid ${border}`, borderRadius:12, padding:14 }}>
-        <div style={{ fontSize:11, color:"#5a657a", textTransform:"uppercase", letterSpacing:1, marginBottom:10, fontFamily:"'Sora',sans-serif", fontWeight:600 }}>Verified Contracts (Polygonscan)</div>
-        {links.map(([n,a]) => (
-          <a key={n} className="link-row" href={`https://polygonscan.com/address/${a}`} target="_blank" rel="noreferrer"
-             style={{ display:"flex", justifyContent:"space-between", padding:"8px 0", borderBottom:`1px solid ${border}`, textDecoration:"none", color:"inherit" }}>
-            <span style={{ fontSize:13, color:"#7b8699" }}>{n}</span>
-            <span style={{ fontFamily:"'Space Mono',monospace", fontSize:10, color:"#5a657a" }}>{short(a)} ↗</span>
+      <div className="card" style={{ marginTop:14 }}>
+        <div className="sec">{t.verified}</div>
+        {links.map(([n,a])=>(
+          <a className="link-row" key={n} href={`https://polygonscan.com/address/${a}`} target="_blank" rel="noreferrer">
+            <span className="ln">{n}</span><span className="la">{short(a)} ↗</span>
           </a>
         ))}
       </div>
@@ -140,82 +319,61 @@ function Dashboard({ data, wallet }) {
   );
 }
 
-// ── Staking ───────────────────────────────────────────────
-function Staking({ wallet, data, refParam, actions, busy }) {
+function Staking({ wallet, data, refParam, actions, busy, t }) {
   const [tab, setTab] = useState("stake");
   const [amount, setAmount] = useState("");
   const [refInput, setRefInput] = useState("");
-
   useEffect(() => { if (refParam && isAddress(refParam)) setRefInput(refParam); }, [refParam]);
-
   const info = data.stakingInfo;
   const hasStake = Number(data.staked) > 0;
-
   return (
-    <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
-      <div className="tab-nav">
-        {["stake","unstake","claim"].map(t => (
-          <button key={t} className={`tab-btn ${tab===t?"active":""}`} onClick={()=>setTab(t)}>
-            {t==="stake"?"⬆ Stake":t==="unstake"?"⬇ Unstake":"💰 Claim"}
-          </button>
+    <div className="page">
+      <div className="page-head"><h1>{t.staking}</h1></div>
+      <div className="tabs2">
+        {[["stake",t.stakeBtn],["unstake",t.unstakeTab],["claim",t.claimTab]].map(([k,l])=>(
+          <button key={k} className={`tab2 ${tab===k?"on":""}`} onClick={()=>setTab(k)}>{l}</button>
         ))}
       </div>
 
       {tab==="stake" && (
-        <div style={{ background:card, border:`1px solid ${border}`, borderRadius:12, padding:16 }}>
-          <div style={{ display:"flex", justifyContent:"space-between", marginBottom:8 }}>
-            <span style={{ fontSize:13, color:"#7b8699" }}>Amount to Stake</span>
-            <span style={{ fontSize:11, color:"#5a657a" }}>Balance: {fmt(data.balance)} OSG</span>
+        <div className="card">
+          <div className="field">
+            <div className="row"><label>{t.amtStake}</label><span className="bal">{t.balance}: {fmt(data.balance)} OSG</span></div>
+            <div style={{ display:"flex",alignItems:"center",gap:10 }}>
+              <input className="inp" placeholder="0.0" value={amount} inputMode="decimal" onChange={e=>setAmount(e.target.value.replace(/[^0-9.]/g,""))}/>
+              <button className="maxb" onClick={()=>setAmount(String(data.balance).replace(/,/g,""))}>MAX</button>
+            </div>
           </div>
-          <div style={{ position:"relative" }}>
-            <input className="inp" placeholder="0.00" value={amount} inputMode="decimal"
-              onChange={e=>setAmount(e.target.value.replace(/[^0-9.]/g,""))} style={{ paddingRight:60 }}/>
-            <button onClick={()=>setAmount(String(data.balance).replace(/,/g,""))}
-              style={{ position:"absolute", right:8, top:"50%", transform:"translateY(-50%)", background:`${gold}18`, border:`1px solid ${gold}33`, color:gold, borderRadius:4, padding:"2px 7px", fontSize:10, cursor:"pointer", fontWeight:700 }}>MAX</button>
-          </div>
-
           {!hasStake && (
             <div style={{ marginTop:12 }}>
-              <div style={{ fontSize:12, color:"#7b8699", marginBottom:6 }}>Referrer (optional — first stake only)</div>
-              <input className="inp" placeholder="0x... referrer address" value={refInput}
-                onChange={e=>setRefInput(e.target.value.trim())} style={{ fontSize:11 }}/>
+              <label style={{ fontSize:12,color:C.txt2 }}>{t.referrerOpt}</label>
+              <input className="inp-sm" placeholder="0x… referrer address" value={refInput} onChange={e=>setRefInput(e.target.value.trim())}/>
             </div>
           )}
-
-          <div style={{ background:cardSoft, borderRadius:8, padding:"11px 13px", margin:"12px 0", fontSize:12, color:"#8a96ab", lineHeight:1.5 }}>
-            ⓘ Staking has two steps: first <b style={{color:gold}}>Approve</b> the token, then <b style={{color:gold}}>Stake</b>. Rewards are earned daily from emissions.
-          </div>
-
-          <button className="btn-gold" style={{ width:"100%" }} disabled={busy.stake || !wallet}
-            onClick={()=>actions.stake(amount, hasStake ? null : refInput)}>
-            {busy.stake ? <span className="spin"/> : hasStake ? `Add ${amount||"0"} OSG to Stake` : `Stake ${amount||"0"} OSG`}
+          <div className="note" style={{ margin:"14px 0" }}>ⓘ {t.twoStep}</div>
+          <button className="btn-gold" disabled={busy.stake||!wallet} onClick={()=>actions.stake(amount, hasStake?null:refInput)}>
+            {busy.stake ? <span className="spin"/> : `${hasStake?t.addToStake:t.stakeBtn} ${amount||"0"} OSG`}
           </button>
         </div>
       )}
 
       {tab==="unstake" && (
-        <div style={{ background:card, border:`1px solid ${border}`, borderRadius:12, padding:16 }}>
-          <div style={{ fontSize:12, color:"#7b8699", marginBottom:6 }}>Currently Staked</div>
-          <div style={{ fontSize:34, fontWeight:800, color:gold, marginBottom:14, fontFamily:"'Sora',sans-serif" }}>{fmt(data.staked)} <span style={{fontSize:15,color:"#5a657a"}}>OSG</span></div>
-
+        <div className="card">
+          <div className="label" style={{ fontSize:12,color:C.txt2 }}>{t.currentlyStaked}</div>
+          <div className="big mono" style={{ fontSize:32,fontWeight:600,color:C.gold1,margin:"6px 0 16px" }}>{fmt(data.staked)} <span style={{ fontSize:14,color:C.txt3 }}>OSG</span></div>
           {!info.unstakePending ? (
             <>
-              <div style={{ background:cardSoft, borderRadius:8, padding:12, fontSize:12, color:"#8a96ab", marginBottom:14, lineHeight:1.5 }}>
-                To unstake, first send a <b style={{color:gold}}>Request</b> → tokens become withdrawable after the cooldown.
-              </div>
-              <button className="btn-danger" style={{ width:"100%" }} disabled={busy.unstake || !hasStake}
-                onClick={actions.requestUnstake}>{busy.unstake ? <span className="spin"/> : "Request Unstake"}</button>
+              <div className="note" style={{ marginBottom:14 }}>ⓘ {t.reqUnstakeInfo}</div>
+              <button className="btn-danger" disabled={busy.unstake||!hasStake} onClick={actions.requestUnstake}>{busy.unstake?<span className="spin"/>:t.requestUnstake}</button>
             </>
           ) : (
             <>
-              <div style={{ background: info.canUnstakeNow ? "#00c85311" : "#ff550011", border:`1px solid ${info.canUnstakeNow?"#00c85333":"#ff550033"}`, borderRadius:8, padding:12, fontSize:13, color: info.canUnstakeNow?"#00c853":"#ff8888", marginBottom:14 }}>
-                {info.canUnstakeNow ? "✅ Cooldown complete — you can withdraw now!" : "⏳ Cooldown in progress — please wait a little longer."}
+              <div className="note" style={{ marginBottom:14, color:info.canUnstakeNow?C.green:C.red, borderColor:info.canUnstakeNow?"rgba(70,208,138,.3)":"rgba(242,103,92,.3)", background:info.canUnstakeNow?"rgba(70,208,138,.08)":"rgba(242,103,92,.08)" }}>
+                {info.canUnstakeNow ? "✅ "+t.cooldownDone : "⏳ "+t.cooldownWait}
               </div>
-              <div style={{ display:"flex", gap:8 }}>
-                <button className="btn-gold" style={{ flex:1 }} disabled={busy.unstake || !info.canUnstakeNow}
-                  onClick={actions.unstake}>{busy.unstake ? <span className="spin"/> : "Withdraw Now"}</button>
-                <button className="btn-ghost" disabled={busy.cancel} onClick={actions.cancelUnstake}>
-                  {busy.cancel ? <span className="spin"/> : "Cancel"}</button>
+              <div style={{ display:"flex",gap:10 }}>
+                <button className="btn-gold" disabled={busy.unstake||!info.canUnstakeNow} onClick={actions.unstake}>{busy.unstake?<span className="spin"/>:t.withdrawNow}</button>
+                <button className="btn-ghost" disabled={busy.cancel} onClick={actions.cancelUnstake} style={{ width:"auto",padding:"14px 18px" }}>{busy.cancel?<span className="spin"/>:t.cancel}</button>
               </div>
             </>
           )}
@@ -223,142 +381,110 @@ function Staking({ wallet, data, refParam, actions, busy }) {
       )}
 
       {tab==="claim" && (
-        <div style={{ background:card, border:`1px solid ${border}`, borderRadius:12, padding:20, textAlign:"center" }}>
-          <div style={{ fontSize:11, color:"#5a657a", textTransform:"uppercase", letterSpacing:1, marginBottom:8, fontFamily:"'Sora',sans-serif", fontWeight:600 }}>Claimable Reward</div>
-          <div style={{ fontSize:42, fontWeight:800, color:"#00c853", lineHeight:1, fontFamily:"'Sora',sans-serif" }}>{fmt(data.claim.amount, 4)}</div>
-          <div style={{ fontSize:14, color:"#5a657a", marginTop:4, marginBottom:8 }}>OSG (this chunk)</div>
-          <div style={{ fontSize:12, color:"#7b8699", marginBottom:16 }}>Total pending: {fmt(data.pending, 4)} OSG</div>
-          {!data.claim.canClaim && data.claim.reason && (
-            <div style={{ background:"#ff550011", border:"1px solid #ff550033", borderRadius:8, padding:10, fontSize:12, color:"#ff8888", marginBottom:14 }}>
-              ⓘ {data.claim.reason}
-            </div>
-          )}
-          <button className="btn-gold" style={{ width:"100%" }} disabled={busy.claim || !data.claim.canClaim}
-            onClick={actions.claim}>{busy.claim ? <span className="spin"/> : "Claim Reward"}</button>
+        <div className="card" style={{ textAlign:"center",padding:24 }}>
+          <div className="sec" style={{ marginBottom:8 }}>{t.claimableReward}</div>
+          <div className="mono" style={{ fontSize:40,fontWeight:600,color:C.green,lineHeight:1 }}>{fmt(data.claim.amount,4)}</div>
+          <div style={{ fontSize:13,color:C.txt3,margin:"6px 0 8px" }}>{t.thisChunk}</div>
+          <div style={{ fontSize:12,color:C.txt2,marginBottom:16 }}>{t.totalPending}: {fmt(data.pending,4)} OSG</div>
+          {!data.claim.canClaim && data.claim.reason && (<div className="note" style={{ marginBottom:14,color:C.red,justifyContent:"center" }}>ⓘ {data.claim.reason}</div>)}
+          <button className="btn-gold" disabled={busy.claim||!data.claim.canClaim} onClick={actions.claim}>{busy.claim?<span className="spin"/>:t.claimReward}</button>
         </div>
       )}
     </div>
   );
 }
 
-// ── Referral ──────────────────────────────────────────────
-function Referral({ wallet, data, showToast }) {
-  const origin = typeof window !== "undefined" ? window.location.origin : "";
-  const refLink = wallet ? `${origin}/?ref=${wallet}` : "Connect wallet to generate your link";
+function Referral({ wallet, data, showToast, t }) {
+  const origin = typeof window!=="undefined" ? window.location.origin : "";
+  const refLink = wallet ? `${origin}/?ref=${wallet}` : "—";
   const [copied, setCopied] = useState(false);
-
   const copy = async () => {
-    if (!wallet) { showToast("⚠️ Connect wallet first!"); return; }
+    if (!wallet) { showToast("⚠️ "+t.tConnFirst); return; }
     try { await navigator.clipboard.writeText(refLink); } catch {}
-    setCopied(true); showToast("🔗 Referral link copied!");
-    setTimeout(()=>setCopied(false), 1800);
+    setCopied(true); showToast("🔗 "+t.tCopied); setTimeout(()=>setCopied(false),1800);
   };
-
-  const r = data.referralInfo;
-  const chain = data.referralChain;
-  const chainLabels = ["L1","L2","L3","L4","L5"];
-  const chainColors = [gold,"#C0C0C0","#CD7F32","#00c853","#00b4ff"];
-
+  const r = data.referralInfo, chain = data.referralChain;
+  const labels = ["L1","L2","L3","L4","L5"], colors = [C.gold1,"#C0C0C0","#CD7F32",C.green,C.blue];
   return (
-    <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-        <StatCard label="Referral Earned" value={`${fmt(r.totalReferralEarned,4)}`} sub="OSG total" accent={gold}/>
-        <StatCard label="Total Referrals" value={fmt(r.totalReferrals,0)} sub="Direct + team" accent="#00c853"/>
-        <StatCard label="Pending Referral" value={`${fmt(r.pendingReferral,4)}`} sub="OSG" accent="#00b4ff"/>
-        <StatCard label="Team Bonus" value={`${fmt(r.teamBonusEarned,4)}`} sub="OSG" accent="#7B3FE4"/>
+    <div className="page stag">
+      <div className="page-head"><h1>{t.referral}</h1></div>
+      <div className="stat-grid">
+        <Stat label={t.refEarned} value={fmt(r.totalReferralEarned,4)} sub={t.osgTotal} accent={C.gold2}/>
+        <Stat label={t.totalRefs} value={fmt(r.totalReferrals,0)} sub={t.directTeam} accent={C.green}/>
+        <Stat label={t.pendingRef} value={fmt(r.pendingReferral,4)} sub="OSG" accent={C.blue}/>
+        <Stat label={t.teamBonus} value={fmt(r.teamBonusEarned,4)} sub="OSG" accent={C.purple}/>
       </div>
-
-      <div style={{ background:card, border:`1px solid ${gold}22`, borderRadius:12, padding:14 }}>
-        <div style={{ fontSize:11, color:"#5a657a", textTransform:"uppercase", letterSpacing:1, marginBottom:10, fontFamily:"'Sora',sans-serif", fontWeight:600 }}>Your Referral Link</div>
-        <div style={{ display:"flex", gap:8 }}>
-          <div style={{ flex:1, background:cardSoft, border:`1px solid ${border}`, borderRadius:6, padding:"9px 12px", fontFamily:"'Space Mono',monospace", fontSize:10, color:"#7b8699", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{refLink}</div>
-          <button className="btn-gold" onClick={copy} style={{ padding:"8px 14px", fontSize:12, whiteSpace:"nowrap" }}>{copied?"✓":"🔗"} Copy</button>
+      <div className="card" style={{ marginTop:14 }}>
+        <div className="sec">{t.yourRefLink}</div>
+        <div className="ref-link">
+          <div className="code">{refLink}</div>
+          <button className="copy-btn" onClick={copy}>{copied?"✓":"🔗"} {t.copy}</button>
         </div>
-        <div style={{ fontSize:11, color:"#5a657a", marginTop:8, lineHeight:1.5 }}>Share this link — whoever stakes for the first time using it becomes your referral.</div>
+        <div style={{ fontSize:11,color:C.txt3,marginTop:8,lineHeight:1.5 }}>{t.shareLink}</div>
       </div>
-
-      <div style={{ background:card, border:`1px solid ${border}`, borderRadius:12, padding:14 }}>
-        <div style={{ fontSize:11, color:"#5a657a", textTransform:"uppercase", letterSpacing:1, marginBottom:10, fontFamily:"'Sora',sans-serif", fontWeight:600 }}>Your Upline (5 Levels)</div>
-        {chain.map((addr,i) => (
-          <div key={i} className="level-row">
-            <div style={{ width:26, height:26, borderRadius:6, background:`${chainColors[i]}18`, border:`1px solid ${chainColors[i]}33`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:700, color:chainColors[i] }}>{chainLabels[i]}</div>
-            <span style={{ flex:1, fontFamily:"'Space Mono',monospace", fontSize:12, color: addr && addr!==ZERO ? "#aeb8c9" : "#3a4458" }}>
-              {addr && addr!==ZERO ? short(addr) : "— empty —"}
-            </span>
+      <div className="card" style={{ marginTop:14 }}>
+        <div className="sec">{t.upline}</div>
+        {chain.map((addr,i)=>(
+          <div className="lvl" key={i}>
+            <div className="n" style={{ color:colors[i],borderColor:colors[i]+"55",background:colors[i]+"18" }}>{labels[i]}</div>
+            <span className="ad" style={{ color: addr&&addr!==ZERO?C.txt:C.txt3 }}>{addr&&addr!==ZERO?short(addr):t.empty}</span>
           </div>
         ))}
       </div>
-
-      <div style={{ background:card, border:`1px solid ${border}`, borderRadius:12, padding:14 }}>
-        <div style={{ fontSize:11, color:"#5a657a", textTransform:"uppercase", letterSpacing:1, marginBottom:8, fontFamily:"'Sora',sans-serif", fontWeight:600 }}>Your Referrer</div>
-        <div style={{ fontFamily:"'Space Mono',monospace", fontSize:13, color: r.referrer && r.referrer!==ZERO ? gold : "#5a657a" }}>
-          {r.referrer && r.referrer!==ZERO ? short(r.referrer) : "No referrer set"}
-        </div>
+      <div className="card" style={{ marginTop:14 }}>
+        <div className="sec">{t.yourReferrer}</div>
+        <div className="mono" style={{ fontSize:13,color: r.referrer&&r.referrer!==ZERO?C.gold1:C.txt3 }}>{r.referrer&&r.referrer!==ZERO?short(r.referrer):t.noReferrer}</div>
       </div>
     </div>
   );
 }
 
-// ── Swap (external until pool exists) ─────────────────────
-function Swap() {
+function Swap({ t }) {
   return (
-    <div style={{ background:card, border:`1px solid ${gold}18`, borderRadius:12, padding:20, textAlign:"center" }}>
-      <div style={{ fontSize:40, marginBottom:10 }}>🔄</div>
-      <div style={{ fontSize:18, fontWeight:700, color:gold, marginBottom:8, fontFamily:"'Sora',sans-serif" }}>Swap MATIC → OSG</div>
-      <div style={{ fontSize:13, color:"#8a96ab", marginBottom:6, lineHeight:1.5 }}>
-        The liquidity pool is not live yet. Once the pool is added, in-app swap will be available right here.
-      </div>
-      <div style={{ fontSize:12, color:"#7b8699", marginBottom:18 }}>
-        In the meantime, you can swap directly on QuickSwap ↓
-      </div>
-      <a href={QUICKSWAP_URL} target="_blank" rel="noreferrer">
-        <button className="btn-gold" style={{ width:"100%" }}>Open QuickSwap ↗</button>
-      </a>
-      <div style={{ fontSize:11, color:"#5a657a", marginTop:12, fontFamily:"'Space Mono',monospace" }}>
-        OSG: {short(ADDRESSES.token)}
+    <div className="page">
+      <div className="page-head"><h1>{t.swap}</h1></div>
+      <div className="card" style={{ textAlign:"center",padding:24 }}>
+        <div style={{ fontSize:40,marginBottom:12 }}>🔄</div>
+        <div className="disp" style={{ fontSize:18,fontWeight:700,color:C.gold1,marginBottom:8 }}>{t.swapTitle}</div>
+        <div style={{ fontSize:13,color:C.txt2,marginBottom:6,lineHeight:1.5 }}>{t.swapDesc}</div>
+        <div style={{ fontSize:12,color:C.txt3,marginBottom:18 }}>{t.swapMeanwhile}</div>
+        <a href={QUICKSWAP_URL} target="_blank" rel="noreferrer"><button className="btn-gold">{t.openQuickswap} ↗</button></a>
+        <div className="mono" style={{ fontSize:11,color:C.txt3,marginTop:12 }}>OSG: {short(ADDRESSES.token)}</div>
       </div>
     </div>
   );
 }
 
-// ── Messenger (coming soon) ───────────────────────────────
-function Messenger() {
+function Messenger({ t }) {
   const [d,setD]=useState(31),[h,setH]=useState(14),[m,setM]=useState(37),[s,setS]=useState(42);
-  useEffect(()=>{ const t=setInterval(()=>{ setS(x=>{ if(x>0)return x-1; setM(y=>{ if(y>0)return y-1; setH(z=>{ if(z>0)return z-1; setD(w=>w>0?w-1:0); return 23; }); return 59; }); return 59; }); },1000); return ()=>clearInterval(t); },[]);
+  useEffect(()=>{ const tm=setInterval(()=>{ setS(x=>{ if(x>0)return x-1; setM(y=>{ if(y>0)return y-1; setH(z=>{ if(z>0)return z-1; setD(w=>w>0?w-1:0); return 23;}); return 59;}); return 59;});},1000); return ()=>clearInterval(tm);},[]);
   const pad=n=>String(n).padStart(2,"0");
-  const feats=[["🔐","AES-256 Encrypted"],["🌐","IPFS Storage"],["👛","Wallet-to-Wallet"],["👥","Group Chats"],["📸","Photo & Video"],["⛓️","On-Chain Hash"]];
+  const feats=[["🔐","AES-256"],["🌐","IPFS"],["👛","Wallet-to-Wallet"],["👥","Groups"],["📸","Photo & Video"],["⛓️","On-Chain"]];
   return (
-    <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
-      <div className="msg-container">
+    <div className="page">
+      <div className="page-head"><h1>{t.messenger}</h1></div>
+      <div className="msg-wrap">
         <div className="msg-grid"/>
-        <div style={{ position:"relative", zIndex:2, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", minHeight:420, padding:24, textAlign:"center" }}>
-          <div className="cs-badge" style={{ marginBottom:18 }}>● Coming Soon</div>
-          <div style={{ fontSize:48, marginBottom:10 }}>💬</div>
-          <div style={{ fontSize:26, fontWeight:800, color:gold, letterSpacing:2, marginBottom:6, fontFamily:"'Sora',sans-serif" }}>OSG MESSENGER</div>
-          <div style={{ fontSize:12, color:"#7b8699", letterSpacing:1, marginBottom:18, fontFamily:"'Space Mono',monospace" }}>AES-256 · X25519 · IPFS · Polygon</div>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:8, marginBottom:20, width:"100%", maxWidth:320 }}>
-            {[["Days",d],["Hrs",h],["Min",m],["Sec",s]].map(([l,v])=>(
-              <div key={l} style={{ background:cardSoft, border:`1px solid ${gold}22`, borderRadius:10, padding:"12px 6px" }}>
-                <div style={{ fontSize:26, fontWeight:800, color:gold, fontFamily:"'Space Mono',monospace" }}>{pad(v)}</div>
-                <div style={{ fontSize:9, color:"#5a657a", marginTop:4, textTransform:"uppercase", letterSpacing:1 }}>{l}</div>
-              </div>
-            ))}
+        <div style={{ position:"relative",zIndex:2,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:430,padding:24,textAlign:"center" }}>
+          <div className="cs-badge" style={{ marginBottom:18 }}>● {t.comingSoon}</div>
+          <div style={{ fontSize:46,marginBottom:10 }}>💬</div>
+          <div className="disp" style={{ fontSize:24,fontWeight:800,color:C.gold1,letterSpacing:2,marginBottom:6 }}>{t.msgTitle}</div>
+          <div className="mono" style={{ fontSize:11,color:C.txt3,letterSpacing:1,marginBottom:18 }}>AES-256 · X25519 · IPFS · Polygon</div>
+          <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:20,width:"100%",maxWidth:320 }}>
+            {[["D",d],["H",h],["M",m],["S",s]].map(([l,v])=>(<div className="cd" key={l}><div className="cv">{pad(v)}</div><div className="cl">{l}</div></div>))}
           </div>
-          <div style={{ display:"flex", flexWrap:"wrap", gap:6, justifyContent:"center" }}>
-            {feats.map(([i,l])=> <div key={l} className="feat-pill">{i} {l}</div>)}
-          </div>
-          <div style={{ fontSize:12, color:"#5a657a", marginTop:20 }}>Target launch: Q3 2026</div>
+          <div style={{ display:"flex",flexWrap:"wrap",gap:6,justifyContent:"center" }}>{feats.map(([i,l])=><div className="feat" key={l}>{i} {l}</div>)}</div>
+          <div style={{ fontSize:12,color:C.txt3,marginTop:20 }}>{t.targetLaunch}</div>
         </div>
       </div>
     </div>
   );
 }
 
-// ── Main App ──────────────────────────────────────────────
+// ══════════════ MAIN APP ══════════════
 const EMPTY = {
   balance:"0", staked:"0", pending:"0", totalStaked:"0",
-  activeStakers:"0", dailyEmission:"0", totalEarned:"0", sharePercent:"0",
-  halving:"0", rewardDistributed:"0",
+  activeStakers:"0", dailyEmission:"0", totalEarned:"0", sharePercent:"0", halving:"0", rewardDistributed:"0",
   stakingInfo:{ unstakePending:false, canUnstakeNow:false },
   referralInfo:{ referrer:ZERO, totalReferrals:"0", totalReferralEarned:"0", pendingReferral:"0", teamBonusEarned:"0", totalTeamVolume:"0" },
   referralChain:[ZERO,ZERO,ZERO,ZERO,ZERO],
@@ -366,6 +492,8 @@ const EMPTY = {
 };
 
 export default function App() {
+  const [lang, setLang] = useState("en");
+  const [langOpen, setLangOpen] = useState(false);
   const [tab, setTab] = useState("dashboard");
   const [wallet, setWallet] = useState(null);
   const [network, setNetwork] = useState(false);
@@ -375,24 +503,22 @@ export default function App() {
   const [busy, setBusy] = useState({});
   const [refParam, setRefParam] = useState(null);
   const providerRef = useRef(null);
+  const t = I18N[lang] || I18N.en;
 
   const showToast = useCallback((msg) => { setToast(msg); setTimeout(()=>setToast(null), 3000); }, []);
   const setBusyKey = (k,v) => setBusy(b => ({ ...b, [k]:v }));
 
-  // read ?ref= from URL
-  useEffect(() => {
-    try { const p = new URLSearchParams(window.location.search).get("ref"); if (p && isAddress(p)) setRefParam(p); } catch {}
-  }, []);
+  useEffect(() => { try { const p = new URLSearchParams(window.location.search).get("ref"); if (p && isAddress(p)) setRefParam(p); } catch {} }, []);
+  useEffect(() => { document.documentElement.lang = (lang==="zh")?"zh":lang; }, [lang]);
 
   const getProvider = () => {
-    if (!window.ethereum) { showToast("⚠️ Please install MetaMask!"); return null; }
+    if (!window.ethereum) { showToast("⚠️ "+t.tInstall); return null; }
     if (!providerRef.current) providerRef.current = new BrowserProvider(window.ethereum);
     return providerRef.current;
   };
-
   const ensureReady = async () => {
-    if (!wallet) { showToast("⚠️ Connect wallet first!"); return null; }
-    if (!network) { showToast("⚠️ Switch to Polygon!"); await switchNetwork(); return null; }
+    if (!wallet) { showToast("⚠️ "+t.tConnFirst); return null; }
+    if (!network) { showToast("⚠️ "+t.tSwitchPoly); await switchNetwork(); return null; }
     const p = getProvider(); if (!p) return null;
     return await p.getSigner();
   };
@@ -402,7 +528,6 @@ export default function App() {
       const p = getProvider(); if (!p) return;
       const token = new Contract(ADDRESSES.token, TOKEN_ABI, p);
       const stk = new Contract(ADDRESSES.staking, STAKING_ABI, p);
-
       const [bal, si, ri, chain, totStk, pend, claimNow, pool, emis] = await Promise.all([
         account ? token.balanceOf(account) : Promise.resolve(0n),
         account ? stk.getUserStakingInfo(account) : Promise.resolve(null),
@@ -414,7 +539,6 @@ export default function App() {
         stk.getPoolInfo(),
         stk.getEmissionSchedule(),
       ]);
-
       setData({
         balance: f18(bal),
         staked: si ? f18(si.staked) : "0",
@@ -426,25 +550,12 @@ export default function App() {
         totalEarned: si ? f18(si.totalEarned) : "0",
         sharePercent: si ? (Number(si.sharePercent)/100).toString() : "0",
         halving: emis ? String(emis.halvingNumber) : "0",
-        stakingInfo: si ? {
-          unstakePending: si.unstakePending,
-          canUnstakeNow: si.canUnstakeNow,
-          unstakeAvailableAt: Number(si.unstakeAvailableAt),
-        } : EMPTY.stakingInfo,
-        referralInfo: ri ? {
-          referrer: ri.referrer,
-          totalReferrals: String(ri.totalReferrals),
-          totalReferralEarned: f18(ri.totalReferralEarned),
-          pendingReferral: f18(ri.pendingReferral),
-          teamBonusEarned: f18(ri.teamBonusEarned),
-          totalTeamVolume: f18(ri.totalTeamVolume),
-        } : EMPTY.referralInfo,
+        stakingInfo: si ? { unstakePending: si.unstakePending, canUnstakeNow: si.canUnstakeNow, unstakeAvailableAt: Number(si.unstakeAvailableAt) } : EMPTY.stakingInfo,
+        referralInfo: ri ? { referrer: ri.referrer, totalReferrals: String(ri.totalReferrals), totalReferralEarned: f18(ri.totalReferralEarned), pendingReferral: f18(ri.pendingReferral), teamBonusEarned: f18(ri.teamBonusEarned), totalTeamVolume: f18(ri.totalTeamVolume) } : EMPTY.referralInfo,
         referralChain: chain ? [chain.l1,chain.l2,chain.l3,chain.l4,chain.l5] : EMPTY.referralChain,
         claim: claimNow ? { canClaim: claimNow.canClaim, amount: f18(claimNow.amount), total: f18(claimNow.total), reason: claimNow.reason } : EMPTY.claim,
       });
-    } catch (e) {
-      console.error("loadData error:", e);
-    }
+    } catch (e) { console.error("loadData error:", e); }
   }, []);
 
   const switchNetwork = async () => {
@@ -453,14 +564,13 @@ export default function App() {
       setNetwork(true);
     } catch (e) {
       if (e.code === 4902) {
-        try { await window.ethereum.request({ method:"wallet_addEthereumChain", params:[POLYGON_PARAMS] }); setNetwork(true); }
-        catch { showToast("❌ Network add failed"); }
-      } else { showToast("❌ Switch failed"); }
+        try { await window.ethereum.request({ method:"wallet_addEthereumChain", params:[POLYGON_PARAMS] }); setNetwork(true); } catch { showToast("❌ Network add failed"); }
+      } else { showToast("❌ "+t.tFailed); }
     }
   };
 
   const connect = async () => {
-    if (!window.ethereum) { showToast("⚠️ Please install MetaMask!"); return; }
+    if (!window.ethereum) { showToast("⚠️ "+t.tInstall); return; }
     setConnecting(true);
     try {
       const accs = await window.ethereum.request({ method:"eth_requestAccounts" });
@@ -468,14 +578,12 @@ export default function App() {
       setWallet(accs[0]);
       const onPoly = cid === POLYGON_CHAIN_ID;
       setNetwork(onPoly);
-      if (!onPoly) await switchNetwork();
-      else showToast("✅ Wallet connected!");
+      if (!onPoly) await switchNetwork(); else showToast("✅ "+t.tConnected);
       await loadData(accs[0]);
-    } catch { showToast("❌ Connection failed"); }
+    } catch { showToast("❌ "+t.tConnFail); }
     finally { setConnecting(false); }
   };
 
-  // wallet event listeners
   useEffect(() => {
     if (!window.ethereum) return;
     const onAcc = (accs) => { if (accs.length) { setWallet(accs[0]); loadData(accs[0]); } else { setWallet(null); setData(EMPTY); } };
@@ -485,117 +593,107 @@ export default function App() {
     return () => { window.ethereum.removeListener("accountsChanged", onAcc); window.ethereum.removeListener("chainChanged", onChain); };
   }, [wallet, loadData]);
 
-  // auto refresh every 20s
-  useEffect(() => {
-    if (!wallet) return;
-    const t = setInterval(() => loadData(wallet), 20000);
-    return () => clearInterval(t);
-  }, [wallet, loadData]);
+  useEffect(() => { if (!wallet) return; const tm = setInterval(() => loadData(wallet), 20000); return () => clearInterval(tm); }, [wallet, loadData]);
 
-  // ── write actions ──────────────────────────────────────
   const actions = {
     stake: async (amount, referrer) => {
-      if (!amount || Number(amount) <= 0) { showToast("⚠️ Enter an amount!"); return; }
+      if (!amount || Number(amount) <= 0) { showToast("⚠️ "+t.tEnterAmt); return; }
       const signer = await ensureReady(); if (!signer) return;
       setBusyKey("stake", true);
       try {
         const amt = parseUnits(String(amount), 18);
         const token = new Contract(ADDRESSES.token, TOKEN_ABI, signer);
         const allowance = await token.allowance(wallet, ADDRESSES.staking);
-        if (allowance < amt) {
-          showToast("1/2 — Approving...");
-          const txA = await token.approve(ADDRESSES.staking, amt);
-          await txA.wait();
-        }
+        if (allowance < amt) { showToast(t.tApproving); const txA = await token.approve(ADDRESSES.staking, amt); await txA.wait(); }
         const stk = new Contract(ADDRESSES.staking, STAKING_ABI, signer);
-        showToast("2/2 — Staking...");
-        let tx;
+        showToast(t.tStaking);
         const ref = referrer && isAddress(referrer) ? referrer : ZERO;
-        if (referrer === null) tx = await stk.addToStake(amt);
-        else tx = await stk.stake(amt, ref);
-        await tx.wait();
-        showToast("✅ Stake successful!");
-        await loadData(wallet);
-      } catch (e) { console.error(e); showToast("❌ " + (e?.shortMessage || e?.reason || "Stake failed")); }
+        let tx; if (referrer === null) tx = await stk.addToStake(amt); else tx = await stk.stake(amt, ref);
+        await tx.wait(); showToast("✅ "+t.tStakeOk); await loadData(wallet);
+      } catch (e) { console.error(e); showToast("❌ " + (e?.shortMessage || e?.reason || t.tStakeFail)); }
       finally { setBusyKey("stake", false); }
     },
     requestUnstake: async () => {
-      const signer = await ensureReady(); if (!signer) return;
-      setBusyKey("unstake", true);
-      try {
-        const stk = new Contract(ADDRESSES.staking, STAKING_ABI, signer);
-        const tx = await stk.requestUnstake(); await tx.wait();
-        showToast("⏳ Unstake requested — cooldown started!"); await loadData(wallet);
-      } catch (e) { showToast("❌ " + (e?.shortMessage || e?.reason || "Failed")); }
-      finally { setBusyKey("unstake", false); }
+      const signer = await ensureReady(); if (!signer) return; setBusyKey("unstake", true);
+      try { const stk = new Contract(ADDRESSES.staking, STAKING_ABI, signer); const tx = await stk.requestUnstake(); await tx.wait(); showToast("⏳ "+t.tUnstakeReq); await loadData(wallet); }
+      catch (e) { showToast("❌ " + (e?.shortMessage || e?.reason || t.tFailed)); } finally { setBusyKey("unstake", false); }
     },
     unstake: async () => {
-      const signer = await ensureReady(); if (!signer) return;
-      setBusyKey("unstake", true);
-      try {
-        const stk = new Contract(ADDRESSES.staking, STAKING_ABI, signer);
-        const tx = await stk.unstake(); await tx.wait();
-        showToast("✅ Unstaked — tokens returned!"); await loadData(wallet);
-      } catch (e) { showToast("❌ " + (e?.shortMessage || e?.reason || "Failed")); }
-      finally { setBusyKey("unstake", false); }
+      const signer = await ensureReady(); if (!signer) return; setBusyKey("unstake", true);
+      try { const stk = new Contract(ADDRESSES.staking, STAKING_ABI, signer); const tx = await stk.unstake(); await tx.wait(); showToast("✅ "+t.tUnstakeOk); await loadData(wallet); }
+      catch (e) { showToast("❌ " + (e?.shortMessage || e?.reason || t.tFailed)); } finally { setBusyKey("unstake", false); }
     },
     cancelUnstake: async () => {
-      const signer = await ensureReady(); if (!signer) return;
-      setBusyKey("cancel", true);
-      try {
-        const stk = new Contract(ADDRESSES.staking, STAKING_ABI, signer);
-        const tx = await stk.cancelUnstake(); await tx.wait();
-        showToast("↩️ Unstake cancelled"); await loadData(wallet);
-      } catch (e) { showToast("❌ " + (e?.shortMessage || e?.reason || "Failed")); }
-      finally { setBusyKey("cancel", false); }
+      const signer = await ensureReady(); if (!signer) return; setBusyKey("cancel", true);
+      try { const stk = new Contract(ADDRESSES.staking, STAKING_ABI, signer); const tx = await stk.cancelUnstake(); await tx.wait(); showToast("↩️ "+t.tCancelled); await loadData(wallet); }
+      catch (e) { showToast("❌ " + (e?.shortMessage || e?.reason || t.tFailed)); } finally { setBusyKey("cancel", false); }
     },
     claim: async () => {
-      const signer = await ensureReady(); if (!signer) return;
-      setBusyKey("claim", true);
-      try {
-        const stk = new Contract(ADDRESSES.staking, STAKING_ABI, signer);
-        const tx = await stk.claimReward(); await tx.wait();
-        showToast("💰 Reward claimed!"); await loadData(wallet);
-      } catch (e) { showToast("❌ " + (e?.shortMessage || e?.reason || "Claim failed")); }
-      finally { setBusyKey("claim", false); }
+      const signer = await ensureReady(); if (!signer) return; setBusyKey("claim", true);
+      try { const stk = new Contract(ADDRESSES.staking, STAKING_ABI, signer); const tx = await stk.claimReward(); await tx.wait(); showToast("💰 "+t.tClaimed); await loadData(wallet); }
+      catch (e) { showToast("❌ " + (e?.shortMessage || e?.reason || t.tClaimFail)); } finally { setBusyKey("claim", false); }
     },
   };
 
-  const tabs = [
-    { id:"dashboard", label:"📊 Dash" },
-    { id:"staking",   label:"⚡ Stake" },
-    { id:"referral",  label:"👥 Refer" },
-    { id:"swap",      label:"🔄 Swap" },
-    { id:"messenger", label:"💬 Msg" },
+  const navItems = [
+    ["dashboard", Ico.home, t.dashboard],
+    ["staking", Ico.stake, t.staking],
+    ["referral", Ico.ref, t.referral],
+    ["swap", Ico.swap, t.swap],
+    ["messenger", Ico.chat, t.messenger],
   ];
 
   return (
     <>
-      <style>{styles}</style>
-      <div style={{ minHeight:"100vh", background:bg }}>
-        <Header wallet={wallet} network={network} onConnect={connect} onSwitch={switchNetwork} connecting={connecting}/>
-        <div style={{ maxWidth:560, margin:"0 auto", padding:"16px 14px" }}>
-          <div className="tab-nav" style={{ marginBottom:16 }}>
-            {tabs.map(t => (
-              <button key={t.id} className={`tab-btn ${tab===t.id?"active":""}`} onClick={()=>setTab(t.id)}>{t.label}</button>
-            ))}
+      <style>{STYLES}</style>
+      <div className="osg-app">
+        {/* TOP BAR */}
+        <header className="topbar">
+          <div className="brand">
+            <img className="logo-img" src={LOGO} alt="OSG"/>
+            <div><div className="name">OneX Smart Gold</div><div className="sub">Polygon · OSG</div></div>
           </div>
-
-          {tab==="dashboard" && <Dashboard data={data} wallet={wallet}/>}
-          {tab==="staking"   && <Staking wallet={wallet} data={data} refParam={refParam} actions={actions} busy={busy}/>}
-          {tab==="referral"  && <Referral wallet={wallet} data={data} showToast={showToast}/>}
-          {tab==="swap"      && <Swap/>}
-          {tab==="messenger" && <Messenger/>}
-
-          {!wallet && (
-            <div style={{ textAlign:"center", marginTop:20, fontSize:13, color:"#7b8699" }}>
-              👆 Connect your wallet to see real data
+          <div className="top-right">
+            <div className="lang">
+              <button className="lang-btn" onClick={(e)=>{e.stopPropagation();setLangOpen(o=>!o);}}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                {t.lbl}
+              </button>
+              {langOpen && (
+                <div className="lang-menu" onClick={e=>e.stopPropagation()}>
+                  {LANGS.map(L=>(
+                    <button key={L.id} className={lang===L.id?"sel":""} onClick={()=>{setLang(L.id);setLangOpen(false);}}>
+                      <span>{L.fl}</span> {L.name}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
-        </div>
-        <div style={{ textAlign:"center", padding:16, borderTop:`1px solid ${border}`, marginTop:16 }}>
-          <div style={{ fontSize:10, color:"#3a4458", fontFamily:"'Space Mono',monospace" }}>OSG · Polygon Mainnet · {short(ADDRESSES.token)}</div>
-        </div>
+            {wallet && (network
+              ? <span className="net-pill" style={{ color:C.green,borderColor:"rgba(70,208,138,.33)",background:"rgba(70,208,138,.1)" }}>⬡ Polygon</span>
+              : <span className="net-pill" onClick={switchNetwork} style={{ color:C.red,borderColor:"rgba(242,103,92,.4)",background:"rgba(242,103,92,.1)" }}>⚠ {t.switchNet}</span>)}
+            {wallet
+              ? <div className="wallet-pill"><span className="dot" style={{ background:network?C.green:C.red,boxShadow:network?`0 0 8px ${C.green}`:"none" }}/><span className="addr">{short(wallet)}</span></div>
+              : <button className="btn-gold" onClick={connect} disabled={connecting} style={{ width:"auto",padding:"9px 16px",fontSize:13,borderRadius:99 }}>{connecting?<span className="spin"/>:t.connectWallet}</button>}
+          </div>
+        </header>
+
+        {/* SCREEN */}
+        <main className="screen" onClick={()=>setLangOpen(false)}>
+          {tab==="dashboard" && <Dashboard data={data} wallet={wallet} t={t}/>}
+          {tab==="staking"   && <Staking wallet={wallet} data={data} refParam={refParam} actions={actions} busy={busy} t={t}/>}
+          {tab==="referral"  && <Referral wallet={wallet} data={data} showToast={showToast} t={t}/>}
+          {tab==="swap"      && <Swap t={t}/>}
+          {tab==="messenger" && <Messenger t={t}/>}
+          {!wallet && <div style={{ textAlign:"center",marginTop:20,fontSize:13,color:C.txt3 }}>👆 {t.connectSee}</div>}
+        </main>
+
+        {/* BOTTOM NAV */}
+        <nav className="nav">
+          {navItems.map(([id,icon,label])=>(
+            <button key={id} className={tab===id?"on":""} onClick={()=>setTab(id)}>{icon}<span>{label}</span></button>
+          ))}
+        </nav>
       </div>
       {toast && <div className="toast">{toast}</div>}
     </>
