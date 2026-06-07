@@ -4,6 +4,7 @@ import {
   ADDRESSES, ZERO, POLYGON_CHAIN_ID, POLYGON_PARAMS,
   TOKEN_ABI, STAKING_ABI, MESSENGER_ABI, QUICKSWAP_URL,
 } from "./contracts.js";
+import { deriveKeypair, encryptMessage, decryptMessage, MAX_PLAINTEXT_CHARS } from "./crypto.js";
 
 // ══════════════════════════════════════════════════════════
 //  OSG logo (base64). Replace this string anytime with your
@@ -455,13 +456,71 @@ function Swap({ t }) {
   );
 }
 
+// ══════════════════════════════════════════════════════════
+//  REPLACE the entire existing `function Messenger(...) {...}`
+//  in App.jsx with the version below.
+//
+//  ALSO add this import near the top of App.jsx (after the
+//  contracts.js import):
+//
+//    import { deriveKeypair, encryptMessage, decryptMessage, MAX_PLAINTEXT_CHARS } from "./crypto.js";
+//
+//  Nothing else in App.jsx changes.
+// ══════════════════════════════════════════════════════════
+
 function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) {
   const [to, setTo] = useState("");
   const [text, setText] = useState("");
   const [msgs, setMsgs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
+  const [keypair, setKeypair] = useState(null);   // { priv, pubHex } — kept in memory ONLY
+  const [setupBusy, setSetupBusy] = useState(false);
+  const pubCache = useRef({});                     // address(lowercase) -> pubHex | null
   const endRef = useRef(null);
+
+  // resolve a wallet's on-chain public key (cached). Reads take an
+  // address arg, so provider is fine here (no msg.sender needed).
+  const getPub = useCallback(async (addr) => {
+    if (!addr) return null;
+    const k = addr.toLowerCase();
+    if (k in pubCache.current) return pubCache.current[k];
+    try {
+      const p = getProvider();
+      const c = new Contract(ADDRESSES.messenger, MESSENGER_ABI, p);
+      const pk = await c.publicKeys(addr);
+      pubCache.current[k] = pk && pk.length > 3 ? pk : null;
+    } catch { pubCache.current[k] = null; }
+    return pubCache.current[k];
+  }, [getProvider]);
+
+  // derive my keypair (one free signature) + register my public key
+  // on-chain the first time so others can encrypt to me.
+  const ensureKeypair = useCallback(async (signer) => {
+    if (keypair) return keypair;
+    setSetupBusy(true);
+    try {
+      showToast("🔑 " + (t.tKeySign || "Sign to enable secure messaging…"));
+      const kp = await deriveKeypair(signer);
+      const p = getProvider();
+      let onchain = "";
+      try { onchain = await new Contract(ADDRESSES.messenger, MESSENGER_ABI, p).publicKeys(wallet); } catch {}
+      if (!onchain || onchain.toLowerCase() !== kp.pubHex.toLowerCase()) {
+        showToast("🔑 " + (t.tKeyReg || "Registering your key on-chain…"));
+        const cw = new Contract(ADDRESSES.messenger, MESSENGER_ABI, signer);
+        const tx = await cw.setPublicKey(kp.pubHex);
+        await tx.wait();
+      }
+      pubCache.current[wallet.toLowerCase()] = kp.pubHex;
+      setKeypair(kp);
+      showToast("✅ " + (t.tKeyOk || "Secure messaging enabled"));
+      return kp;
+    } catch (e) {
+      console.error(e);
+      showToast("❌ " + (e?.shortMessage || e?.reason || (t.tKeyFail || "Key setup failed")));
+      return null;
+    } finally { setSetupBusy(false); }
+  }, [keypair, wallet, getProvider, showToast, t]);
 
   const load = useCallback(async () => {
     if (!wallet) return;
@@ -473,30 +532,62 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
       let list = [];
       if (len > 0) {
         const start = len > 50 ? len - 50 : 0;
-        const raw = await c.getMessages(start, 50);
-        list = raw
-          .filter(mm => !mm.isDeleted && mm.fileType === "text")
-          .map(mm => ({ from: mm.from, text: mm.cid, ts: Number(mm.timestamp) }));
+        // FIX: getMessages reads inbox[msg.sender]. With a plain provider
+        // msg.sender = 0x0 → empty. Force from=wallet via staticCall.
+        const raw = await c.getMessages.staticCall(start, 50, { from: wallet });
+        const active = raw.filter(mm => !mm.isDeleted && mm.fileType === "text");
+        list = await Promise.all(active.map(async (mm) => {
+          let body = mm.cid, locked = false, enc = false;
+          if (mm.cid && mm.cid.startsWith("e1:")) {
+            enc = true;
+            if (keypair) {
+              const senderPub = await getPub(mm.from);
+              body = decryptMessage(mm.cid, keypair.priv, senderPub).text;
+            } else {
+              body = "🔒 " + (t.lockedMsg || "Secure message — tap Unlock");
+              locked = true;
+            }
+          }
+          return { from: mm.from, text: body, ts: Number(mm.timestamp), locked, enc };
+        }));
       }
       setMsgs(list);
     } catch (e) { console.error("msg load:", e); }
     finally { setLoading(false); }
-  }, [wallet, getProvider]);
+  }, [wallet, getProvider, keypair, getPub, t]);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { if (!wallet) return; const tm = setInterval(load, 15000); return () => clearInterval(tm); }, [wallet, load]);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
 
+  const unlock = async () => {
+    const signer = await ensureReady(); if (!signer) return;
+    await ensureKeypair(signer);
+  };
+
   const send = async () => {
     if (!isAddress(to)) { showToast("⚠️ " + t.tBadAddr); return; }
-    if (!text.trim()) { showToast("⚠️ " + t.tEmptyMsg); return; }
+    const body = text.trim();
+    if (!body) { showToast("⚠️ " + t.tEmptyMsg); return; }
     const signer = await ensureReady(); if (!signer) return;
     setSending(true);
     try {
+      const kp = await ensureKeypair(signer);
+      if (!kp) return;
+      const theirPub = await getPub(to);
+      if (!theirPub) {
+        showToast("⚠️ " + (t.tNoRecipientKey || "Recipient hasn't enabled secure messaging yet"));
+        return;
+      }
+      const blob = encryptMessage(body, kp.priv, theirPub);
+      if (blob.length > 128) {
+        showToast("⚠️ " + (t.tTooLong || `Too long — max ~${MAX_PLAINTEXT_CHARS} chars`));
+        return;
+      }
       const c = new Contract(ADDRESSES.messenger, MESSENGER_ABI, signer);
       let fee = 0n;
       try { fee = await c.getUserFee(wallet); } catch {}
-      const tx = await c.sendMessage(to, text.trim(), "text", { value: fee });
+      const tx = await c.sendMessage(to, blob, "text", { value: fee });
       await tx.wait();
       showToast("✅ " + t.tSent);
       setText("");
@@ -505,9 +596,22 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
     finally { setSending(false); }
   };
 
+  const over = text.length > MAX_PLAINTEXT_CHARS;
+
   return (
     <div className="page">
       <div className="page-head"><h1>{t.chatTitle}</h1><p>{t.chatSub}</p></div>
+
+      {wallet && !keypair && (
+        <div className="card" style={{ marginBottom:12, display:"flex", gap:12, alignItems:"center", flexWrap:"wrap" }}>
+          <div style={{ flex:1, minWidth:170, fontSize:12, color:C.txt2, lineHeight:1.5 }}>
+            🔒 {t.e2eInfo || "Messages are end-to-end encrypted. Enable once (free signature) to read & send."}
+          </div>
+          <button className="btn-ghost" style={{ width:"auto", padding:"12px 16px" }} disabled={setupBusy} onClick={unlock}>
+            {setupBusy ? <span className="spin"/> : (t.enableSecure || "Enable")}
+          </button>
+        </div>
+      )}
 
       <div className="card" style={{ padding:14 }}>
         <label style={{ fontSize:11,color:C.txt3,textTransform:"uppercase",letterSpacing:".4px" }}>{t.recipient}</label>
@@ -524,8 +628,9 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
           ) : msgs.length===0 ? (
             <div style={{ textAlign:"center",color:C.txt3,fontSize:13,marginTop:30 }}>💬 {t.noMsgs}</div>
           ) : msgs.map((mm,i)=>(
-            <div key={i} style={{ alignSelf:"flex-start", maxWidth:"85%", background:C.card2, border:`1px solid ${C.line}`, borderRadius:"4px 14px 14px 14px", padding:"10px 13px" }}>
-              <div className="mono" style={{ fontSize:10,color:C.gold2,marginBottom:4 }}>{short(mm.from)}</div>
+            <div key={i} onClick={mm.locked?unlock:undefined}
+              style={{ alignSelf:"flex-start", maxWidth:"85%", background:C.card2, border:`1px solid ${C.line}`, borderRadius:"4px 14px 14px 14px", padding:"10px 13px", cursor: mm.locked?"pointer":"default" }}>
+              <div className="mono" style={{ fontSize:10,color:C.gold2,marginBottom:4 }}>{short(mm.from)} {mm.enc && !mm.locked ? "🔒" : ""}</div>
               <div style={{ fontSize:14,color:C.txt,wordBreak:"break-word",lineHeight:1.4 }}>{mm.text}</div>
               <div style={{ fontSize:10,color:C.txt3,marginTop:5,textAlign:"right" }}>{new Date(mm.ts*1000).toLocaleString()}</div>
             </div>
@@ -542,11 +647,15 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
             {sending ? <span className="spin"/> : t.send}
           </button>
         </div>
-        <div style={{ fontSize:10,color:C.txt3,marginTop:8 }}>ⓘ {t.feeNote}</div>
+        <div style={{ fontSize:10,color: over?C.red:C.txt3,marginTop:8, display:"flex", justifyContent:"space-between" }}>
+          <span>🔒 {t.feeNote}</span>
+          <span className="mono">{text.length}/{MAX_PLAINTEXT_CHARS}</span>
+        </div>
       </div>
     </div>
   );
 }
+
 
 // ══════════════ MAIN APP ══════════════
 const EMPTY = {
