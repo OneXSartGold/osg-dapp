@@ -456,17 +456,27 @@ function Swap({ t }) {
   );
 }
 
-// ══════════════════════════════════════════════════════════
-//  REPLACE the entire existing `function Messenger(...) {...}`
-//  in App.jsx with the version below.
-//
-//  ALSO add this import near the top of App.jsx (after the
-//  contracts.js import):
-//
-//    import { deriveKeypair, encryptMessage, decryptMessage, MAX_PLAINTEXT_CHARS } from "./crypto.js";
-//
-//  Nothing else in App.jsx changes.
-// ══════════════════════════════════════════════════════════
+// ── IPFS helpers (talk to our own /api routes; no secrets here) ──
+async function uploadToIpfs(content) {
+  const r = await fetch("/api/pinata-upload", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content }),
+  });
+  if (!r.ok) throw new Error("IPFS upload failed");
+  const data = await r.json();
+  if (!data.cid) throw new Error("No CID returned");
+  return data.cid;
+}
+async function fetchFromIpfs(cid) {
+  const r = await fetch(/api/ipfs-fetch?cid=${encodeURIComponent(cid)});
+  if (!r.ok) throw new Error("IPFS fetch failed");
+  const data = await r.json();
+  return data.osg; // the original "e1:…" encrypted string we stored
+}
+
+// Generous message cap (IPFS removes the old ~65-char on-chain limit).
+const MAX_MSG = 1000;
 
 function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) {
   const [to, setTo] = useState("");
@@ -479,8 +489,7 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
   const pubCache = useRef({});                     // address(lowercase) -> pubHex | null
   const endRef = useRef(null);
 
-  // resolve a wallet's on-chain public key (cached). Reads take an
-  // address arg, so provider is fine here (no msg.sender needed).
+  // resolve a wallet's on-chain public key (cached).
   const getPub = useCallback(async (addr) => {
     if (!addr) return null;
     const k = addr.toLowerCase();
@@ -494,8 +503,7 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
     return pubCache.current[k];
   }, [getProvider]);
 
-  // derive my keypair (one free signature) + register my public key
-  // on-chain the first time so others can encrypt to me.
+  // derive my keypair (one free signature) + register my public key on-chain.
   const ensureKeypair = useCallback(async (signer) => {
     if (keypair) return keypair;
     setSetupBusy(true);
@@ -532,20 +540,28 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
       let list = [];
       if (len > 0) {
         const start = len > 50 ? len - 50 : 0;
-        // FIX: getMessages reads inbox[msg.sender]. With a plain provider
-        // msg.sender = 0x0 → empty. Force from=wallet via staticCall.
+        // getMessages reads inbox[msg.sender]; force from=wallet via staticCall.
         const raw = await c.getMessages.staticCall(start, 50, { from: wallet });
         const active = raw.filter(mm => !mm.isDeleted && mm.fileType === "text");
         list = await Promise.all(active.map(async (mm) => {
           let body = mm.cid, locked = false, enc = false;
-          if (mm.cid && mm.cid.startsWith("e1:")) {
+          const isInline = mm.cid && mm.cid.startsWith("e1:"); // old: ciphertext stored on-chain
+          const isIpfs   = mm.cid && mm.cid.startsWith("e2:"); // new: ciphertext on IPFS, CID on-chain
+          if (isInline || isIpfs) {
             enc = true;
-            if (keypair) {
-              const senderPub = await getPub(mm.from);
-              body = decryptMessage(mm.cid, keypair.priv, senderPub).text;
-            } else {
+            if (!keypair) {
               body = "🔒 " + (t.lockedMsg || "Secure message — tap Unlock");
               locked = true;
+            } else {
+              try {
+                const senderPub = await getPub(mm.from);
+                let payload = mm.cid;                       // inline → already "e1:…"
+                if (isIpfs) payload = await fetchFromIpfs(mm.cid.slice(3)); // → "e1:…"
+                body = decryptMessage(payload, keypair.priv, senderPub).text;
+              } catch (e) {
+                console.error("decrypt/load:", e);
+                body = "🔒 " + (t.decFail || "unable to load message");
+              }
             }
           }
           return { from: mm.from, text: body, ts: Number(mm.timestamp), locked, enc };
@@ -569,6 +585,7 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
     if (!isAddress(to)) { showToast("⚠️ " + t.tBadAddr); return; }
     const body = text.trim();
     if (!body) { showToast("⚠️ " + t.tEmptyMsg); return; }
+    if (body.length > MAX_MSG) { showToast("⚠️ " + (t.tTooLong || Too long — max ${MAX_MSG} chars)); return; }
     const signer = await ensureReady(); if (!signer) return;
     setSending(true);
     try {
@@ -579,15 +596,15 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
         showToast("⚠️ " + (t.tNoRecipientKey || "Recipient hasn't enabled secure messaging yet"));
         return;
       }
-      const blob = encryptMessage(body, kp.priv, theirPub);
-      if (blob.length > 128) {
-        showToast("⚠️ " + (t.tTooLong || `Too long — max ~${MAX_PLAINTEXT_CHARS} chars`));
-        return;
-      }
+      // 1) encrypt  2) pin ciphertext to IPFS  3) store only the short "e2:<cid>" on-chain
+      const blob = encryptMessage(body, kp.priv, theirPub);   // "e1:…" (no length limit now)
+      showToast("📤 " + (t.tUploading || "Encrypting & uploading…"));
+      const cid = await uploadToIpfs(blob);
+      const ref = "e2:" + cid;
       const c = new Contract(ADDRESSES.messenger, MESSENGER_ABI, signer);
       let fee = 0n;
       try { fee = await c.getUserFee(wallet); } catch {}
-      const tx = await c.sendMessage(to, blob, "text", { value: fee });
+      const tx = await c.sendMessage(to, ref, "text", { value: fee });
       await tx.wait();
       showToast("✅ " + t.tSent);
       setText("");
@@ -596,7 +613,7 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
     finally { setSending(false); }
   };
 
-  const over = text.length > MAX_PLAINTEXT_CHARS;
+  const over = text.length > MAX_MSG;
 
   return (
     <div className="page">
@@ -629,7 +646,7 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
             <div style={{ textAlign:"center",color:C.txt3,fontSize:13,marginTop:30 }}>💬 {t.noMsgs}</div>
           ) : msgs.map((mm,i)=>(
             <div key={i} onClick={mm.locked?unlock:undefined}
-              style={{ alignSelf:"flex-start", maxWidth:"85%", background:C.card2, border:`1px solid ${C.line}`, borderRadius:"4px 14px 14px 14px", padding:"10px 13px", cursor: mm.locked?"pointer":"default" }}>
+              style={{ alignSelf:"flex-start", maxWidth:"85%", background:C.card2, border:1px solid ${C.line}, borderRadius:"4px 14px 14px 14px", padding:"10px 13px", cursor: mm.locked?"pointer":"default" }}>
               <div className="mono" style={{ fontSize:10,color:C.gold2,marginBottom:4 }}>{short(mm.from)} {mm.enc && !mm.locked ? "🔒" : ""}</div>
               <div style={{ fontSize:14,color:C.txt,wordBreak:"break-word",lineHeight:1.4 }}>{mm.text}</div>
               <div style={{ fontSize:10,color:C.txt3,marginTop:5,textAlign:"right" }}>{new Date(mm.ts*1000).toLocaleString()}</div>
@@ -649,13 +666,12 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
         </div>
         <div style={{ fontSize:10,color: over?C.red:C.txt3,marginTop:8, display:"flex", justifyContent:"space-between" }}>
           <span>🔒 {t.feeNote}</span>
-          <span className="mono">{text.length}/{MAX_PLAINTEXT_CHARS}</span>
+          <span className="mono">{text.length}/{MAX_MSG}</span>
         </div>
       </div>
     </div>
   );
 }
-
 
 // ══════════════ MAIN APP ══════════════
 const EMPTY = {
