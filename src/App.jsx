@@ -469,7 +469,7 @@ async function uploadToIpfs(content) {
   return data.cid;
 }
 async function fetchFromIpfs(cid) {
-  const r = await fetch(/api/ipfs-fetch?cid=${encodeURIComponent(cid)});
+  const r = await fetch("/api/ipfs-fetch?cid=" + encodeURIComponent(cid));
   if (!r.ok) throw new Error("IPFS fetch failed");
   const data = await r.json();
   return data.osg; // the original "e1:…" encrypted string we stored
