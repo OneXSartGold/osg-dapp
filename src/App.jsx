@@ -585,7 +585,7 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
     if (!isAddress(to)) { showToast("⚠️ " + t.tBadAddr); return; }
     const body = text.trim();
     if (!body) { showToast("⚠️ " + t.tEmptyMsg); return; }
-    if (body.length > MAX_MSG) { showToast("⚠️ " + (t.tTooLong || Too long — max ${MAX_MSG} chars)); return; }
+    if (body.length > MAX_MSG) { showToast("⚠️ " + (t.tTooLong || ("Too long — max " + MAX_MSG + " chars"))); return; }
     const signer = await ensureReady(); if (!signer) return;
     setSending(true);
     try {
