@@ -30,7 +30,7 @@ export default async function handler(req, res) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: Bearer ${jwt},
+        Authorization: "Bearer " + jwt,
       },
       body: JSON.stringify({
         pinataContent: { osg: content },
