@@ -456,12 +456,12 @@ function Swap({ t }) {
   );
 }
 
-// ── IPFS helpers (talk to our own /api routes; no secrets here) ──
+// IPFS helpers (talk to our own /api routes; no secrets here)
 async function uploadToIpfs(content) {
   const r = await fetch("/api/pinata-upload", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content }),
+    body: JSON.stringify({ content: content }),
   });
   if (!r.ok) throw new Error("IPFS upload failed");
   const data = await r.json();
@@ -472,7 +472,7 @@ async function fetchFromIpfs(cid) {
   const r = await fetch("/api/ipfs-fetch?cid=" + encodeURIComponent(cid));
   if (!r.ok) throw new Error("IPFS fetch failed");
   const data = await r.json();
-  return data.osg; // the original "e1:…" encrypted string we stored
+  return data.osg;
 }
 
 // Generous message cap (IPFS removes the old ~65-char on-chain limit).
@@ -482,14 +482,14 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
   const [to, setTo] = useState("");
   const [text, setText] = useState("");
   const [msgs, setMsgs] = useState([]);
+  const [sent, setSent] = useState([]);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
-  const [keypair, setKeypair] = useState(null);   // { priv, pubHex } — kept in memory ONLY
+  const [keypair, setKeypair] = useState(null);
   const [setupBusy, setSetupBusy] = useState(false);
-  const pubCache = useRef({});                     // address(lowercase) -> pubHex | null
+  const pubCache = useRef({});
   const endRef = useRef(null);
 
-  // resolve a wallet's on-chain public key (cached).
   const getPub = useCallback(async (addr) => {
     if (!addr) return null;
     const k = addr.toLowerCase();
@@ -503,7 +503,6 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
     return pubCache.current[k];
   }, [getProvider]);
 
-  // derive my keypair (one free signature) + register my public key on-chain.
   const ensureKeypair = useCallback(async (signer) => {
     if (keypair) return keypair;
     setSetupBusy(true);
@@ -540,13 +539,15 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
       let list = [];
       if (len > 0) {
         const start = len > 50 ? len - 50 : 0;
-        // getMessages reads inbox[msg.sender]; force from=wallet via staticCall.
         const raw = await c.getMessages.staticCall(start, 50, { from: wallet });
-        const active = raw.filter(mm => !mm.isDeleted && mm.fileType === "text");
-        list = await Promise.all(active.map(async (mm) => {
+        const active = raw
+          .map((mm, k) => ({ mm: mm, idx: start + k }))
+          .filter(o => !o.mm.isDeleted && o.mm.fileType === "text");
+        list = await Promise.all(active.map(async (o) => {
+          const mm = o.mm;
           let body = mm.cid, locked = false, enc = false;
-          const isInline = mm.cid && mm.cid.startsWith("e1:"); // old: ciphertext stored on-chain
-          const isIpfs   = mm.cid && mm.cid.startsWith("e2:"); // new: ciphertext on IPFS, CID on-chain
+          const isInline = mm.cid && mm.cid.startsWith("e1:");
+          const isIpfs   = mm.cid && mm.cid.startsWith("e2:");
           if (isInline || isIpfs) {
             enc = true;
             if (!keypair) {
@@ -555,8 +556,8 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
             } else {
               try {
                 const senderPub = await getPub(mm.from);
-                let payload = mm.cid;                       // inline → already "e1:…"
-                if (isIpfs) payload = await fetchFromIpfs(mm.cid.slice(3)); // → "e1:…"
+                let payload = mm.cid;
+                if (isIpfs) payload = await fetchFromIpfs(mm.cid.slice(3));
                 body = decryptMessage(payload, keypair.priv, senderPub).text;
               } catch (e) {
                 console.error("decrypt/load:", e);
@@ -564,7 +565,7 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
               }
             }
           }
-          return { from: mm.from, text: body, ts: Number(mm.timestamp), locked, enc };
+          return { from: mm.from, text: body, ts: Number(mm.timestamp), locked: locked, enc: enc, mine: false, idx: o.idx };
         }));
       }
       setMsgs(list);
@@ -574,7 +575,10 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { if (!wallet) return; const tm = setInterval(load, 15000); return () => clearInterval(tm); }, [wallet, load]);
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
+  useEffect(() => { setSent([]); }, [wallet]);
+
+  const thread = [...msgs, ...sent].sort((a, b) => a.ts - b.ts);
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs, sent]);
 
   const unlock = async () => {
     const signer = await ensureReady(); if (!signer) return;
@@ -588,6 +592,7 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
     if (body.length > MAX_MSG) { showToast("⚠️ " + (t.tTooLong || ("Too long — max " + MAX_MSG + " chars"))); return; }
     const signer = await ensureReady(); if (!signer) return;
     setSending(true);
+    const localId = "s" + Date.now();
     try {
       const kp = await ensureKeypair(signer);
       if (!kp) return;
@@ -596,21 +601,41 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
         showToast("⚠️ " + (t.tNoRecipientKey || "Recipient hasn't enabled secure messaging yet"));
         return;
       }
-      // 1) encrypt  2) pin ciphertext to IPFS  3) store only the short "e2:<cid>" on-chain
-      const blob = encryptMessage(body, kp.priv, theirPub);   // "e1:…" (no length limit now)
+      const blob = encryptMessage(body, kp.priv, theirPub);
       showToast("📤 " + (t.tUploading || "Encrypting & uploading…"));
       const cid = await uploadToIpfs(blob);
       const ref = "e2:" + cid;
+      setSent(prev => [...prev, { id: localId, from: wallet, to: to, text: body, ts: Math.floor(Date.now() / 1000), locked: false, enc: true, mine: true, status: "sending" }]);
+      setText("");
       const c = new Contract(ADDRESSES.messenger, MESSENGER_ABI, signer);
       let fee = 0n;
       try { fee = await c.getUserFee(wallet); } catch {}
       const tx = await c.sendMessage(to, ref, "text", { value: fee });
       await tx.wait();
       showToast("✅ " + t.tSent);
-      setText("");
+      setSent(prev => prev.map(m => m.id === localId ? { ...m, status: "delivered" } : m));
       await load();
-    } catch (e) { console.error(e); showToast("❌ " + (e?.shortMessage || e?.reason || t.tFailed)); }
-    finally { setSending(false); }
+    } catch (e) {
+      console.error(e);
+      showToast("❌ " + (e?.shortMessage || e?.reason || t.tFailed));
+      setSent(prev => prev.map(m => m.id === localId ? { ...m, status: "failed" } : m));
+    } finally { setSending(false); }
+  };
+
+  const removeMsg = async (idx) => {
+    if (idx === undefined || idx === null) return;
+    if (!window.confirm(t.delConfirm || "Delete this message? (only hides it for you)")) return;
+    const signer = await ensureReady(); if (!signer) return;
+    try {
+      const c = new Contract(ADDRESSES.messenger, MESSENGER_ABI, signer);
+      const tx = await c.deleteMessage(idx);
+      await tx.wait();
+      showToast("🗑️ " + (t.delOk || "Message deleted"));
+      await load();
+    } catch (e) {
+      console.error(e);
+      showToast("❌ " + (e?.shortMessage || e?.reason || (t.delFail || "Delete failed")));
+    }
   };
 
   const over = text.length > MAX_MSG;
@@ -636,20 +661,39 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
       </div>
 
       <div className="card" style={{ marginTop:12, minHeight:300, display:"flex", flexDirection:"column" }}>
-        <div className="sec" style={{ marginBottom:10 }}>{t.inbox}{msgs.length?` · ${msgs.length}`:""}</div>
+        <div className="sec" style={{ marginBottom:10 }}>{t.inbox}{thread.length ? " · " + thread.length : ""}</div>
         <div style={{ flex:1, display:"flex", flexDirection:"column", gap:8, maxHeight:340, overflowY:"auto" }}>
           {!wallet ? (
             <div style={{ textAlign:"center",color:C.txt3,fontSize:13,marginTop:30 }}>👆 {t.connectSee}</div>
-          ) : loading && msgs.length===0 ? (
+          ) : loading && thread.length===0 ? (
             <div style={{ textAlign:"center",color:C.txt3,fontSize:13,marginTop:30 }}>{t.loadingMsgs}</div>
-          ) : msgs.length===0 ? (
+          ) : thread.length===0 ? (
             <div style={{ textAlign:"center",color:C.txt3,fontSize:13,marginTop:30 }}>💬 {t.noMsgs}</div>
-          ) : msgs.map((mm,i)=>(
-            <div key={i} onClick={mm.locked?unlock:undefined}
-              style={{ alignSelf:"flex-start", maxWidth:"85%", background:C.card2, border:"1px solid "+C.line, borderRadius:"4px 14px 14px 14px", padding:"10px 13px", cursor: mm.locked?"pointer":"default" }}>
-              <div className="mono" style={{ fontSize:10,color:C.gold2,marginBottom:4 }}>{short(mm.from)} {mm.enc && !mm.locked ? "🔒" : ""}</div>
-              <div style={{ fontSize:14,color:C.txt,wordBreak:"break-word",lineHeight:1.4 }}>{mm.text}</div>
-              <div style={{ fontSize:10,color:C.txt3,marginTop:5,textAlign:"right" }}>{new Date(mm.ts*1000).toLocaleString()}</div>
+          ) : thread.map((mm,i)=>(
+            <div key={mm.id ? mm.id : ("r" + i + "-" + mm.ts)} onClick={mm.locked?unlock:undefined}
+              style={{
+                alignSelf: mm.mine ? "flex-end" : "flex-start",
+                maxWidth:"85%",
+                background: mm.mine ? C.gold3 : C.card2,
+                border:"1px solid " + (mm.mine ? C.gold3 : C.line),
+                borderRadius: mm.mine ? "14px 4px 14px 14px" : "4px 14px 14px 14px",
+                padding:"10px 13px",
+                cursor: mm.locked?"pointer":"default"
+              }}>
+              <div className="mono" style={{ fontSize:10, color: mm.mine ? C.bg : C.gold2, marginBottom:4, display:"flex", justifyContent:"space-between", alignItems:"center", gap:8 }}>
+                <span>{mm.mine ? (t.youLabel || "You") : short(mm.from)} {mm.enc && !mm.locked ? "🔒" : ""}</span>
+                {!mm.mine && mm.idx !== undefined && (
+                  <span onClick={(e)=>{ e.stopPropagation(); removeMsg(mm.idx); }}
+                    style={{ cursor:"pointer", opacity:.6, fontSize:12 }} title={t.delete || "Delete"}>🗑️</span>
+                )}
+              </div>
+              <div style={{ fontSize:14, color: mm.mine ? C.bg : C.txt, wordBreak:"break-word", lineHeight:1.4 }}>{mm.text}</div>
+              <div style={{ fontSize:10, color: mm.mine ? C.bg : C.txt3, marginTop:5, textAlign:"right", opacity: mm.mine ? .7 : 1, display:"flex", gap:5, justifyContent:"flex-end", alignItems:"center" }}>
+                <span>{new Date(mm.ts*1000).toLocaleString()}</span>
+                {mm.mine && mm.status === "sending"   && <span style={{ color:C.bg }}>✓</span>}
+                {mm.mine && mm.status === "delivered" && <span style={{ color:C.green, fontWeight:700 }}>✓✓</span>}
+                {mm.mine && mm.status === "failed"    && <span style={{ color:C.red, fontWeight:700 }}>✕</span>}
+              </div>
             </div>
           ))}
           <div ref={endRef}/>
