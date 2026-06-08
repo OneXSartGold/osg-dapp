@@ -646,7 +646,7 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
             <div style={{ textAlign:"center",color:C.txt3,fontSize:13,marginTop:30 }}>💬 {t.noMsgs}</div>
           ) : msgs.map((mm,i)=>(
             <div key={i} onClick={mm.locked?unlock:undefined}
-              style={{ alignSelf:"flex-start", maxWidth:"85%", background:C.card2, border:1px solid ${C.line}, borderRadius:"4px 14px 14px 14px", padding:"10px 13px", cursor: mm.locked?"pointer":"default" }}>
+              style={{ alignSelf:"flex-start", maxWidth:"85%", background:C.card2, border:"1px solid "+C.line, borderRadius:"4px 14px 14px 14px", padding:"10px 13px", cursor: mm.locked?"pointer":"default" }}>
               <div className="mono" style={{ fontSize:10,color:C.gold2,marginBottom:4 }}>{short(mm.from)} {mm.enc && !mm.locked ? "🔒" : ""}</div>
               <div style={{ fontSize:14,color:C.txt,wordBreak:"break-word",lineHeight:1.4 }}>{mm.text}</div>
               <div style={{ fontSize:10,color:C.txt3,marginTop:5,textAlign:"right" }}>{new Date(mm.ts*1000).toLocaleString()}</div>
