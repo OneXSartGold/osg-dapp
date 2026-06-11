@@ -866,8 +866,41 @@ export default function App() {
     },
     claim: async () => {
       const signer = await ensureReady(); if (!signer) return; setBusyKey("claim", true);
-      try { const stk = new Contract(ADDRESSES.staking, STAKING_ABI, signer); const tx = await stk.claimReward(); await tx.wait(); showToast("💰 "+t.tClaimed); await loadData(wallet); }
-      catch (e) { showToast("❌ " + (e?.shortMessage || e?.reason || t.tClaimFail)); } finally { setBusyKey("claim", false); }
+      try {
+        // ── STEP 1: Staking.claimReward() — pushes pending into RewardStorage ──
+        showToast("1/2 — " + (t.tClaimStep1 || "Moving reward to pool..."));
+        const stk = new Contract(ADDRESSES.staking, STAKING_ABI, signer);
+        try {
+          const tx1 = await stk.claimReward();
+          await tx1.wait();
+        } catch (e1) {
+          // "No rewards" here is OK if storage already holds a balance — keep going.
+          var msg1 = (e1 && (e1.shortMessage || e1.reason || e1.message)) || "";
+          var benign = msg1.toLowerCase().indexOf("no reward") !== -1
+                    || msg1.toLowerCase().indexOf("nothing") !== -1;
+          if (!benign) throw e1;
+        }
+
+        // ── STEP 2: RewardPool.claim() — mints up to 500 OSG from storage to wallet ──
+        showToast("2/2 — " + (t.tClaimStep2 || "Minting OSG to wallet..."));
+        const pool = new Contract(ADDRESSES.pool, POOL_ABI, signer);
+        const tx2 = await pool.claim();
+        await tx2.wait();
+
+        showToast("💰 " + t.tClaimed);
+        await loadData(wallet);
+      } catch (e) {
+        var m = (e && (e.shortMessage || e.reason || e.message)) || "";
+        // Friendly message for the hourly-cap restore case
+        if (m.indexOf("Mint failed") !== -1 || m.indexOf("reward restored") !== -1) {
+          showToast("⏳ " + (t.tCapHit || "Hourly cap reached (500 OSG/hr). Reward is safe — try again in ~1 hour."));
+        } else if (m.toLowerCase().indexOf("no reward") !== -1) {
+          showToast("ℹ️ " + (t.tNoReward || "No claimable reward right now."));
+        } else {
+          showToast("❌ " + (m || t.tClaimFail));
+        }
+        await loadData(wallet);
+      } finally { setBusyKey("claim", false); }
     },
   };
 
