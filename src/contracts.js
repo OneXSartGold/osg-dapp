@@ -85,6 +85,20 @@ export const MESSENGER_ABI = [
   "function publicKeys(address) view returns (string)",
 ];
 
+// ── OSGRewardPool v2 (chunked claim — mints OSG to wallet) ──
+//  The DApp claim now does TWO steps:
+//   1. Staking.claimReward()  → moves pending into RewardStorage
+//   2. RewardPool.claim()     → mints up to 500 OSG/call to wallet
+//  This ABI is what step 2 needs.
+export const POOL_ABI = [
+  // write: pulls reward from storage and mints up to claimChunk (<=500 OSG)
+  "function claim()",
+  // reads (handy for showing the real claimable chunk / pending)
+  "function claimChunk() view returns (uint256)",
+  "function getUserReward(address user) view returns (uint256)",
+  "function paused() view returns (bool)",
+];
+
 // QuickSwap swap link (until liquidity pool exists)
 export const QUICKSWAP_URL =
   "https://quickswap.exchange/#/swap?outputCurrency=" + ADDRESSES.token;
