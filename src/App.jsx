@@ -608,9 +608,32 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
       setSent(prev => [...prev, { id: localId, from: wallet, to: to, text: body, ts: Math.floor(Date.now() / 1000), locked: false, enc: true, mine: true, status: "sending" }]);
       setText("");
       const c = new Contract(ADDRESSES.messenger, MESSENGER_ABI, signer);
-      let fee = 0n;
-      try { fee = await c.getUserFee(wallet); } catch {}
-      const tx = await c.sendMessage(to, ref, "text", { value: fee });
+
+        // ── OSG fee handling (exact approve per message) ──
+        let nativeFee = 0n;
+        try {
+          var useOsg = await c.useOSGFee();
+          if (useOsg) {
+            var osgFee = await c.messagingFeeOSG();
+            if (osgFee > 0n) {
+              var tokenC = new Contract(ADDRESSES.token, TOKEN_ABI, signer);
+              var allow = await tokenC.allowance(wallet, ADDRESSES.messenger);
+              if (allow < osgFee) {
+                showToast("1/2 — " + (t.tApproveOsg || "Approving 0.1 OSG fee..."));
+                var txA = await tokenC.approve(ADDRESSES.messenger, osgFee);
+                await txA.wait();
+              }
+            }
+            nativeFee = 0n;
+          } else {
+            try { nativeFee = await c.getUserFee(wallet); } catch {}
+          }
+        } catch (e) {
+          try { nativeFee = await c.getUserFee(wallet); } catch {}
+        }
+
+        showToast("2/2 — " + (t.tSendingMsg || "Sending message..."));
+        const tx = await c.sendMessage(to, ref, "text", { value: nativeFee });
       await tx.wait();
       showToast("✅ " + t.tSent);
       setSent(prev => prev.map(m => m.id === localId ? { ...m, status: "delivered" } : m));
