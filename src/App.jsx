@@ -813,6 +813,7 @@ export default function App() {
       setData({
         balance: f18(bal),
         staked: si ? f18(si.staked) : "0",
+        storageReward: si ? f18(si.rewardPoolPending) : "0",
         pending: f18(pend),
         totalStaked: f18(totStk),
         activeStakers: pool ? String(pool.currentActiveStakers) : "0",
