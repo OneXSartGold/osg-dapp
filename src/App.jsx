@@ -294,8 +294,7 @@ function Dashboard({ data, wallet, t }) {
         <div className="big">{wallet ? fmt(data.balance) : "—"}<small>OSG</small></div>
         <div className="s mono" style={{ color:C.txt2, marginTop:9, fontSize:12 }}>{t.poolStaked}: {fmt(data.totalStaked)} OSG</div>
       </div>
-      </div>
-
+      
         <div style={{ marginTop:14, background:"linear-gradient(160deg,#1C1A16,#121118)", border:"1px solid rgba(233,185,73,.22)", borderRadius:20, padding:18 }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
             <span style={{ fontSize:12, color:C.txt2, letterSpacing:".3px" }}>{t.osgPrice || "OSG Price"}</span>
