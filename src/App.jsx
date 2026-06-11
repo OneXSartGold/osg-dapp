@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { BrowserProvider, Contract, formatUnits, parseUnits, isAddress } from "ethers";
 import {
   ADDRESSES, ZERO, POLYGON_CHAIN_ID, POLYGON_PARAMS,
-  TOKEN_ABI, STAKING_ABI, MESSENGER_ABI, QUICKSWAP_URL,
+  TOKEN_ABI, STAKING_ABI, POOL_ABI, MESSENGER_ABI, QUICKSWAP_URL,
 } from "./contracts.js";
 import { deriveKeypair, encryptMessage, decryptMessage, MAX_PLAINTEXT_CHARS } from "./crypto.js";
 
