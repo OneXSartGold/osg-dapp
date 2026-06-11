@@ -305,6 +305,18 @@ function Dashboard({ data, wallet, t }) {
             ⓘ {t.refPriceNote || "Launch reference price — this is not the live market price yet. A real market price will appear here once the liquidity pool goes live."}
           </div>
         </div>
+      {wallet && Number(data.storageReward) > 1 && (
+          <div style={{ marginTop:14, background:"rgba(70,208,138,.06)", border:"1px solid rgba(70,208,138,.25)", borderRadius:20, padding:18 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+              <span style={{ fontSize:12, color:C.txt2, letterSpacing:".3px" }}>{t.rewardSafe || "Reward Secured"}</span>
+              <span style={{ fontSize:10, fontWeight:700, color:C.green, background:"rgba(70,208,138,.12)", border:"1px solid rgba(70,208,138,.35)", padding:"3px 9px", borderRadius:99, letterSpacing:".4px" }}>{t.safeTag || "SAFE"}</span>
+            </div>
+            <div className="mono" style={{ fontSize:26, fontWeight:600, color:C.green, letterSpacing:"-.5px", marginTop:8 }}>{fmt(data.storageReward, 2)} OSG</div>
+            <div style={{ fontSize:11.5, color:C.txt3, marginTop:8, lineHeight:1.5 }}>
+              ⓘ {t.rewardSafeNote || "Your reward is safe and held on-chain. To protect the token, up to 500 OSG mints to your wallet per hour — keep claiming and it arrives in full."}
+            </div>
+          </div>
+        )}
 
              <div className="stat-grid">
         <Stat label={t.yourStaked} value={wallet?fmt(data.staked):"—"} sub={t.currentlyLocked} accent={C.blue}/>
