@@ -294,7 +294,20 @@ function Dashboard({ data, wallet, t }) {
         <div className="big">{wallet ? fmt(data.balance) : "—"}<small>OSG</small></div>
         <div className="s mono" style={{ color:C.txt2, marginTop:9, fontSize:12 }}>{t.poolStaked}: {fmt(data.totalStaked)} OSG</div>
       </div>
-      <div className="stat-grid">
+      </div>
+
+        <div style={{ marginTop:14, background:"linear-gradient(160deg,#1C1A16,#121118)", border:"1px solid rgba(233,185,73,.22)", borderRadius:20, padding:18 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+            <span style={{ fontSize:12, color:C.txt2, letterSpacing:".3px" }}>{t.osgPrice || "OSG Price"}</span>
+            <span style={{ fontSize:10, fontWeight:700, color:C.gold2, background:"rgba(233,185,73,.12)", border:"1px solid rgba(233,185,73,.3)", padding:"3px 9px", borderRadius:99, letterSpacing:".4px" }}>{t.refPriceTag || "REFERENCE"}</span>
+          </div>
+          <div className="mono" style={{ fontSize:30, fontWeight:600, color:C.gold1, letterSpacing:"-1px", marginTop:8 }}>1 OSG = 1 POL</div>
+          <div style={{ fontSize:11.5, color:C.txt3, marginTop:8, lineHeight:1.5 }}>
+            ⓘ {t.refPriceNote || "Launch reference price — this is not the live market price yet. A real market price will appear here once the liquidity pool goes live."}
+          </div>
+        </div>
+
+             <div className="stat-grid">
         <Stat label={t.yourStaked} value={wallet?fmt(data.staked):"—"} sub={t.currentlyLocked} accent={C.blue}/>
         <Stat label={t.pendingReward} value={wallet?fmt(data.pending,4):"—"} sub={t.claimable} accent={C.green}/>
         <Stat label={t.osgBalance} value={wallet?fmt(data.balance):"—"} sub="OSG" accent={C.gold2}/>
