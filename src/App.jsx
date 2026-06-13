@@ -287,38 +287,83 @@ function Stat({ label, value, sub, accent }) {
 // ══════════════ PAGES ══════════════
 function Dashboard({ data, wallet, t }) {
   const links = [["OSG Token", ADDRESSES.token],["Staking", ADDRESSES.staking],["Reward Pool", ADDRESSES.pool],["Bond", ADDRESSES.bond],["Messenger", ADDRESSES.messenger]];
+
+  // ============================================================
+  //  OSG MARKET RATE
+  //  When the liquidity pool is live, change only the 5 fields below:
+  //  set live: true, and fill price / change / vol / liq with real
+  //  data (or fetch them here from a DEX / contract).
+  //  Give "change" a number and the green/red styling is automatic.
+  // ============================================================
+  var mkt = {
+    live: false,             // set true when the pool is live
+    price: "1 OSG = 1 POL",  // live e.g. "0.0123 POL"
+    change: null,            // live 24h %: e.g. 2.34 or -1.2  (null = pre-market)
+    vol: "—",                // live e.g. "12.3K"
+    liq: "—",                // live e.g. "4.5K POL"
+  };
+  // ============================================================
+  var _ch = mkt.change, _up = typeof _ch === "number" && _ch > 0, _dn = typeof _ch === "number" && _ch < 0;
+  var _chCol = _up ? C.green : _dn ? C.red : C.txt3;
+  var _chBg  = _up ? "rgba(70,208,138,.12)" : _dn ? "rgba(242,103,92,.12)" : "rgba(255,255,255,.05)";
+  var _chBd  = _up ? "rgba(70,208,138,.3)" : _dn ? "rgba(242,103,92,.3)" : "transparent";
+  var _chTxt = (typeof _ch === "number") ? ((_up ? "▲ +" : _dn ? "▼ " : "") + _ch.toFixed(2) + "%") : "— 0.00%";
+
+  // halving countdown (seconds -> "2y 114d" / "30d" / "5h")
+  var hsecs = Number(data.timeNextHalving) || 0;
+  var hc = "";
+  if (hsecs > 0) {
+    var hd = Math.floor(hsecs / 86400), hy = Math.floor(hd / 365), hrd = hd % 365;
+    hc = hy > 0 ? (hy + "y " + hrd + "d") : (hd > 0 ? (hd + "d") : (Math.floor(hsecs / 3600) + "h"));
+  }
+  var halvingVal = fmt(data.halving,0) + (hc ? ("  ·  " + hc) : "");
+
   return (
     <div className="page stag">
-      <div className="hero">
-        <div className="label">{t.osgBalance}</div>
-        <div className="big">{wallet ? fmt(data.balance) : "—"}<small>OSG</small></div>
-        <div className="s mono" style={{ color:C.txt2, marginTop:9, fontSize:12 }}>{t.poolStaked}: {fmt(data.totalStaked)} OSG</div>
-      </div>
-      
-        <div style={{ marginTop:14, background:"linear-gradient(160deg,#1C1A16,#121118)", border:"1px solid rgba(233,185,73,.22)", borderRadius:20, padding:18 }}>
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-            <span style={{ fontSize:12, color:C.txt2, letterSpacing:".3px" }}>{t.osgPrice || "OSG Price"}</span>
-            <span style={{ fontSize:10, fontWeight:700, color:C.gold2, background:"rgba(233,185,73,.12)", border:"1px solid rgba(233,185,73,.3)", padding:"3px 9px", borderRadius:99, letterSpacing:".4px" }}>{t.refPriceTag || "REFERENCE"}</span>
-          </div>
-          <div className="mono" style={{ fontSize:30, fontWeight:600, color:C.gold1, letterSpacing:"-1px", marginTop:8 }}>1 OSG = 1 POL</div>
-          <div style={{ fontSize:11.5, color:C.txt3, marginTop:8, lineHeight:1.5 }}>
-            ⓘ {t.refPriceNote || "Launch reference price — this is not the live market price yet. A real market price will appear here once the liquidity pool goes live."}
-          </div>
-        </div>
-      {wallet && Number(data.storageReward) > 1 && (
-          <div style={{ marginTop:14, background:"rgba(70,208,138,.06)", border:"1px solid rgba(70,208,138,.25)", borderRadius:20, padding:18 }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-              <span style={{ fontSize:12, color:C.txt2, letterSpacing:".3px" }}>{t.rewardSafe || "Reward Secured"}</span>
-              <span style={{ fontSize:10, fontWeight:700, color:C.green, background:"rgba(70,208,138,.12)", border:"1px solid rgba(70,208,138,.35)", padding:"3px 9px", borderRadius:99, letterSpacing:".4px" }}>{t.safeTag || "SAFE"}</span>
-            </div>
-            <div className="mono" style={{ fontSize:26, fontWeight:600, color:C.green, letterSpacing:"-.5px", marginTop:8 }}>{fmt(data.storageReward, 2)} OSG</div>
-            <div style={{ fontSize:11.5, color:C.txt3, marginTop:8, lineHeight:1.5 }}>
-              ⓘ {t.rewardSafeNote || "Your reward is safe and held on-chain. To protect the token, up to 500 OSG mints to your wallet per hour — keep claiming and it arrives in full."}
-            </div>
-          </div>
-        )}
 
-             <div className="stat-grid">
+      {/* compact OSG Balance */}
+      <div style={{ position:"relative", overflow:"hidden", background:"radial-gradient(140% 120% at 100% 0%,rgba(233,185,73,.16),transparent 55%),linear-gradient(160deg,#1C1A16,#121118)", border:"1px solid rgba(233,185,73,.22)", borderRadius:16, padding:"13px 15px" }}>
+        <div style={{ fontSize:11, color:C.txt2, letterSpacing:".3px" }}>{t.osgBalance}</div>
+        <div className="mono" style={{ fontSize:22, fontWeight:700, color:"#fff", letterSpacing:"-.5px", lineHeight:1, marginTop:5 }}>{wallet ? fmt(data.balance) : "—"}<span style={{ fontSize:12, color:C.gold2, fontWeight:600, marginLeft:5 }}>OSG</span></div>
+        <div className="mono" style={{ fontSize:11, color:C.txt3, marginTop:6 }}>{t.poolStaked}: {fmt(data.totalStaked)} OSG</div>
+      </div>
+
+      {/* OSG Market Rate (live-ready: give change a number for auto red/green) */}
+      <div style={{ marginTop:10, background:"linear-gradient(160deg,#1C1A16,#121118)", border:"1px solid rgba(233,185,73,.2)", borderRadius:16, padding:"13px 15px" }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+          <span style={{ fontSize:11, color:C.txt2, letterSpacing:".3px", display:"flex", alignItems:"center", gap:7 }}>
+            <span style={{ width:7, height:7, borderRadius:"50%", background: mkt.live ? C.green : C.gold2, boxShadow:"0 0 8px " + (mkt.live ? C.green : C.gold2) }}></span>
+            {t.osgRate || "OSG Market Rate"}
+          </span>
+          <span style={{ fontSize:9, fontWeight:700, color: mkt.live ? C.green : C.gold2, background: mkt.live ? "rgba(70,208,138,.12)" : "rgba(233,185,73,.12)", border:"1px solid " + (mkt.live ? "rgba(70,208,138,.35)" : "rgba(233,185,73,.3)"), padding:"3px 9px", borderRadius:99, letterSpacing:".4px" }}>{mkt.live ? (t.liveTag || "LIVE") : (t.preMarketTag || "PRE-MARKET")}</span>
+        </div>
+        <div style={{ display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
+          <div className="mono" style={{ fontSize:22, fontWeight:700, color:C.gold1, letterSpacing:"-.5px", lineHeight:1 }}>{mkt.price}</div>
+          <span className="mono" style={{ fontSize:12, fontWeight:700, color:_chCol, background:_chBg, border:"1px solid " + _chBd, padding:"4px 9px", borderRadius:8 }}>{_chTxt}</span>
+        </div>
+        <div style={{ display:"flex", gap:14, marginTop:9, fontSize:11, color:C.txt3 }}>
+          <span>Vol <b className="mono" style={{ color:C.txt2, fontWeight:600 }}>{mkt.vol}</b></span>
+          <span>Liq <b className="mono" style={{ color:C.txt2, fontWeight:600 }}>{mkt.liq}</b></span>
+        </div>
+        {!mkt.live && (
+          <div style={{ fontSize:11, color:C.txt3, marginTop:7, lineHeight:1.4 }}>ⓘ {t.refPriceNote || "Launch reference rate. Real price + 24h change appear here once the liquidity pool goes live."}</div>
+        )}
+      </div>
+
+      {/* compact Reward Secured */}
+      {wallet && Number(data.storageReward) > 1 && (
+        <div style={{ marginTop:10, background:"rgba(70,208,138,.06)", border:"1px solid rgba(70,208,138,.25)", borderRadius:16, padding:"13px 15px" }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+            <span style={{ fontSize:11, color:C.txt2, letterSpacing:".3px" }}>{t.rewardSafe || "Reward Secured"}</span>
+            <span style={{ fontSize:9, fontWeight:700, color:C.green, background:"rgba(70,208,138,.12)", border:"1px solid rgba(70,208,138,.35)", padding:"3px 9px", borderRadius:99, letterSpacing:".4px" }}>{t.safeTag || "SAFE"}</span>
+          </div>
+          <div className="mono" style={{ fontSize:22, fontWeight:700, color:C.green, letterSpacing:"-.5px", lineHeight:1 }}>{fmt(data.storageReward,2)}<span style={{ fontSize:12, color:C.txt2, fontWeight:600, marginLeft:5 }}>OSG</span></div>
+          <div style={{ fontSize:11, color:C.txt3, marginTop:6, lineHeight:1.4 }}>ⓘ {t.rewardSafeNote || "Safe & held on-chain. Up to 500 OSG/hr mints to your wallet — keep claiming, arrives in full."}</div>
+        </div>
+      )}
+
+      {/* below: unchanged */}
+      <div className="stat-grid">
         <Stat label={t.yourStaked} value={wallet?fmt(data.staked):"—"} sub={t.currentlyLocked} accent={C.blue}/>
         <Stat label={t.pendingReward} value={wallet?fmt(data.pending,4):"—"} sub={t.claimable} accent={C.green}/>
         <Stat label={t.osgBalance} value={wallet?fmt(data.balance):"—"} sub="OSG" accent={C.gold2}/>
@@ -327,7 +372,7 @@ function Dashboard({ data, wallet, t }) {
       <div className="card" style={{ marginTop:14 }}>
         <div className="sec">{t.poolEmission}</div>
         <div className="mini-grid">
-          {[[t.activeStakers,fmt(data.activeStakers,0)],[t.dailyEmission,fmt(data.dailyEmission,2)+" OSG"],[t.yourEarned,fmt(data.totalEarned,4)],[t.yourShare,fmt(data.sharePercent,4)+" %"],[t.halving,fmt(data.halving,0)],[t.rewardDist,fmt(data.rewardDistributed,2)]].map(([k,v])=>(
+          {[[t.activeStakers,fmt(data.activeStakers,0)],[t.dailyEmission,fmt(data.dailyEmission,2)+" OSG"],[t.yourEarned,fmt(data.totalEarned,4)],[t.yourShare,fmt(data.sharePercent,4)+" %"],[t.halving,halvingVal],[t.rewardDist,fmt(data.rewardDistributed,2)]].map(([k,v])=>(
             <div className="mini" key={k}><div className="k">{k}</div><div className="vv">{v}</div></div>
           ))}
         </div>
@@ -335,8 +380,8 @@ function Dashboard({ data, wallet, t }) {
       <div className="card" style={{ marginTop:14 }}>
         <div className="sec">{t.verified}</div>
         {links.map(([n,a])=>(
-          <a className="link-row" key={n} href={`https://polygonscan.com/address/${a}`} target="_blank" rel="noreferrer">
-            <span className="ln">{n}</span><span className="la">{short(a)} ↗</span>
+          <a className="link-row" key={n} href={"https://polygonscan.com/address/" + a} target="_blank" rel="noreferrer">
+            <span className="ln">{n}</span><span className="la">{short(a)} ↗️</span>
           </a>
         ))}
       </div>
@@ -834,6 +879,7 @@ export default function App() {
         totalEarned: si ? f18(si.totalEarned) : "0",
         sharePercent: si ? (Number(si.sharePercent)/100).toString() : "0",
         halving: emis ? String(emis.halvingNumber) : "0",
+        timeNextHalving: emis ? String(emis.timeToNextHalving) : "0",
         stakingInfo: si ? { unstakePending: si.unstakePending, canUnstakeNow: si.canUnstakeNow, unstakeAvailableAt: Number(si.unstakeAvailableAt) } : EMPTY.stakingInfo,
         referralInfo: ri ? { referrer: ri.referrer, totalReferrals: String(ri.totalReferrals), totalReferralEarned: f18(ri.totalReferralEarned), pendingReferral: f18(ri.pendingReferral), teamBonusEarned: f18(ri.teamBonusEarned), totalTeamVolume: f18(ri.totalTeamVolume) } : EMPTY.referralInfo,
         referralChain: chain ? [chain.l1,chain.l2,chain.l3,chain.l4,chain.l5] : EMPTY.referralChain,
