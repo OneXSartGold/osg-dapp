@@ -505,6 +505,23 @@ function Referral({ wallet, data, showToast, t }) {
         <div className="sec">{t.yourReferrer}</div>
         <div className="mono" style={{ fontSize:13,color: r.referrer&&r.referrer!==ZERO?C.gold1:C.txt3 }}>{r.referrer&&r.referrer!==ZERO?short(r.referrer):t.noReferrer}</div>
       </div>
+      <div className="card" style={{ marginTop:14 }}>
+        <div className="sec">{t.yourReferralsTitle || "Your Referrals"}{(data.directReferrals||[]).filter(function(a){return a&&a!==ZERO;}).length ? " · " + (data.directReferrals||[]).filter(function(a){return a&&a!==ZERO;}).length : ""}</div>
+        {(data.directReferrals||[]).filter(function(a){return a&&a!==ZERO;}).length === 0 ? (
+          <div style={{ fontSize:12, color:C.txt3, padding:"6px 0", lineHeight:1.5 }}>
+            {t.noReferralsYet || "No one has joined with your link yet. Share it to grow your team!"}
+          </div>
+        ) : (
+          (data.directReferrals||[]).filter(function(a){return a&&a!==ZERO;}).map(function(addr,i){
+            return (
+              <div className="lvl" key={addr + i}>
+                <div className="n" style={{ color:C.green, borderColor:C.green+"55", background:C.green+"18" }}>{i + 1}</div>
+                <a className="ad" href={"https://polygonscan.com/address/" + addr} target="_blank" rel="noreferrer" style={{ color:C.gold1, textDecoration:"none" }}>{short(addr)} ↗️</a>
+              </div>
+            );
+          })
+        )}
+      </div>
     </div>
   );
 }
@@ -816,6 +833,7 @@ const EMPTY = {
   stakingInfo:{ unstakePending:false, canUnstakeNow:false },
   referralInfo:{ referrer:ZERO, totalReferrals:"0", totalReferralEarned:"0", pendingReferral:"0", teamBonusEarned:"0", totalTeamVolume:"0" },
   referralChain:[ZERO,ZERO,ZERO,ZERO,ZERO],
+  directReferrals: [],
   claim:{ canClaim:false, amount:"0", total:"0", reason:"" },
 };
 
@@ -856,7 +874,7 @@ export default function App() {
       const p = getProvider(); if (!p) return;
       const token = new Contract(ADDRESSES.token, TOKEN_ABI, p);
       const stk = new Contract(ADDRESSES.staking, STAKING_ABI, p);
-      const [bal, si, ri, chain, totStk, pend, claimNow, pool, emis] = await Promise.all([
+      const [bal, si, ri, chain, totStk, pend, claimNow, pool, emis, directs] = await Promise.all([
         account ? token.balanceOf(account) : Promise.resolve(0n),
         account ? stk.getUserStakingInfo(account) : Promise.resolve(null),
         account ? stk.getUserReferralInfo(account) : Promise.resolve(null),
@@ -866,6 +884,7 @@ export default function App() {
         account ? stk.canClaimNow(account) : Promise.resolve([false,0n,0n,""]),
         stk.getPoolInfo(),
         stk.getEmissionSchedule(),
+        account ? stk.getDirectReferrals(account) : Promise.resolve([]),
       ]);
       setData({
         balance: f18(bal),
@@ -879,6 +898,7 @@ export default function App() {
         totalEarned: si ? f18(si.totalEarned) : "0",
         sharePercent: si ? (Number(si.sharePercent)/100).toString() : "0",
         halving: emis ? String(emis.halvingNumber) : "0",
+        directReferrals: directs ? directs : [],
         timeNextHalving: emis ? String(emis.timeToNextHalving) : "0",
         stakingInfo: si ? { unstakePending: si.unstakePending, canUnstakeNow: si.canUnstakeNow, unstakeAvailableAt: Number(si.unstakeAvailableAt) } : EMPTY.stakingInfo,
         referralInfo: ri ? { referrer: ri.referrer, totalReferrals: String(ri.totalReferrals), totalReferralEarned: f18(ri.totalReferralEarned), pendingReferral: f18(ri.pendingReferral), teamBonusEarned: f18(ri.teamBonusEarned), totalTeamVolume: f18(ri.totalTeamVolume) } : EMPTY.referralInfo,
