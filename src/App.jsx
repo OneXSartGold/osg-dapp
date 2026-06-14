@@ -560,6 +560,56 @@ async function fetchFromIpfs(cid) {
   const data = await r.json();
   return data.osg;
 }
+// ===== Media helpers (photo / file in chat) =====
+
+// Read a File as a base64 data URL (small non-image files).
+function fileToDataUrl(file) {
+  return new Promise(function (resolve, reject) {
+    var fr = new FileReader();
+    fr.onload = function () { resolve(fr.result); };
+    fr.onerror = function () { reject(new Error("read failed")); };
+    fr.readAsDataURL(file);
+  });
+}
+
+// Compress an image File via canvas -> base64 data URL (keeps payload small).
+function compressImage(file, maxDim, quality) {
+  if (maxDim === undefined) maxDim = 1024;
+  if (quality === undefined) quality = 0.7;
+  return new Promise(function (resolve, reject) {
+    var url = URL.createObjectURL(file);
+    var img = new Image();
+    img.onload = function () {
+      var w = img.width, h = img.height;
+      if (w > h && w > maxDim) { h = Math.round(h * maxDim / w); w = maxDim; }
+      else if (h >= w && h > maxDim) { w = Math.round(w * maxDim / h); h = maxDim; }
+      var canvas = document.createElement("canvas");
+      canvas.width = w; canvas.height = h;
+      var ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      try { resolve(canvas.toDataURL("image/jpeg", quality)); }
+      catch (e) { reject(e); }
+    };
+    img.onerror = function () { URL.revokeObjectURL(url); reject(new Error("image load failed")); };
+    img.src = url;
+  });
+}
+
+// Turn a selected File into an encrypt-ready payload.
+// Returns { kind:"image"|"file", dataUrl, name }.
+async function fileToPayload(file) {
+  var isImg = file.type && file.type.indexOf("image/") === 0;
+  var dataUrl;
+  if (isImg) {
+    dataUrl = await compressImage(file, 1024, 0.7);
+    if (dataUrl.length > 180000) dataUrl = await compressImage(file, 720, 0.6);
+    if (dataUrl.length > 180000) dataUrl = await compressImage(file, 600, 0.5);
+  } else {
+    dataUrl = await fileToDataUrl(file);
+  }
+  return { kind: isImg ? "image" : "file", dataUrl: dataUrl, name: file.name || (isImg ? "photo.jpg" : "file") };
+}
 
 // Generous message cap (IPFS removes the old ~65-char on-chain limit).
 const MAX_MSG = 1000;
@@ -573,6 +623,8 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
   const [sending, setSending] = useState(false);
   const [keypair, setKeypair] = useState(null);
   const [setupBusy, setSetupBusy] = useState(false);
+  const [attach, setAttach] = useState(null);
+  const fileRef = useRef(null);
   const pubCache = useRef({});
   const endRef = useRef(null);
 
@@ -628,7 +680,7 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
         const raw = await c.getMessages.staticCall(start, 50, { from: wallet });
         const active = raw
           .map((mm, k) => ({ mm: mm, idx: start + k }))
-          .filter(o => !o.mm.isDeleted && o.mm.fileType === "text");
+         .filter(o => !o.mm.isDeleted && (o.mm.fileType === "text" || o.mm.fileType === "image" || o.mm.fileType === "file"));
         list = await Promise.all(active.map(async (o) => {
           const mm = o.mm;
           let body = mm.cid, locked = false, enc = false;
@@ -644,7 +696,17 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
                 const senderPub = await getPub(mm.from);
                 let payload = mm.cid;
                 if (isIpfs) payload = await fetchFromIpfs(mm.cid.slice(3));
-                body = decryptMessage(payload, keypair.priv, senderPub).text;
+                var dec = decryptMessage(payload, keypair.priv, senderPub).text;
+                if (mm.fileType === "image" || mm.fileType === "file") {
+                  try {
+                    var parsed = JSON.parse(dec);
+                    body = parsed.t || "";
+                    var media = { kind: mm.fileType, dataUrl: parsed.d, name: parsed.n };
+                    return { from: mm.from, text: body, media: media, ts: Number(mm.timestamp), locked: locked, enc: enc, mine: false, idx: o.idx };
+                  } catch (e2) { body = dec; }
+                } else {
+                  body = dec;
+                }
               } catch (e) {
                 console.error("decrypt/load:", e);
                 body = "🔒 " + (t.decFail || "unable to load message");
@@ -666,6 +728,26 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
   const thread = [...msgs, ...sent].sort((a, b) => a.ts - b.ts);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs, sent]);
 
+  const pickFile = () => { if (fileRef.current) fileRef.current.click(); };
+
+  const onFilePicked = async (e) => {
+    const f = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!f) return;
+    try {
+      const payload = await fileToPayload(f);
+      if (payload.dataUrl.length > 190000) {
+        showToast("⚠️ " + (t.tFileTooBig || "File too large — try a smaller one"));
+        return;
+      }
+      setAttach(payload);
+    } catch (err) {
+      console.error(err);
+      showToast("❌ " + (t.tFileFail || "Could not read file"));
+    }
+  };
+
+  const clearAttach = () => setAttach(null);
   const unlock = async () => {
     const signer = await ensureReady(); if (!signer) return;
     await ensureKeypair(signer);
@@ -674,7 +756,7 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
   const send = async () => {
     if (!isAddress(to)) { showToast("⚠️ " + t.tBadAddr); return; }
     const body = text.trim();
-    if (!body) { showToast("⚠️ " + t.tEmptyMsg); return; }
+    if (!body && !attach) { showToast("⚠️ " + t.tEmptyMsg); return; }
     if (body.length > MAX_MSG) { showToast("⚠️ " + (t.tTooLong || ("Too long — max " + MAX_MSG + " chars"))); return; }
     const signer = await ensureReady(); if (!signer) return;
     setSending(true);
@@ -687,12 +769,18 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
         showToast("⚠️ " + (t.tNoRecipientKey || "Recipient hasn't enabled secure messaging yet"));
         return;
       }
-      const blob = encryptMessage(body, kp.priv, theirPub);
-      showToast("📤 " + (t.tUploading || "Encrypting & uploading…"));
-      const cid = await uploadToIpfs(blob);
-      const ref = "e2:" + cid;
+      var msgType = "text";
+        var payloadStr = body;
+        if (attach) {
+          msgType = attach.kind;
+          payloadStr = JSON.stringify({ t: body, d: attach.dataUrl, n: attach.name });
+        }
+        const blob = encryptMessage(payloadStr, kp.priv, theirPub);
+        showToast("📤 " + (t.tUploading || "Encrypting & uploading…"));
+        const cid = await uploadToIpfs(blob);
+        const ref = "e2:" + cid;
       setSent(prev => [...prev, { id: localId, from: wallet, to: to, text: body, ts: Math.floor(Date.now() / 1000), locked: false, enc: true, mine: true, status: "sending" }]);
-      setText("");
+     setAttach(null);
       const c = new Contract(ADDRESSES.messenger, MESSENGER_ABI, signer);
 
         // ── OSG fee handling (exact approve per message) ──
@@ -719,7 +807,7 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
         }
 
         showToast("2/2 — " + (t.tSendingMsg || "Sending message..."));
-        const tx = await c.sendMessage(to, ref, "text", { value: nativeFee });
+        const tx = await c.sendMessage(to, ref, msgType, { value: nativeFee });
       await tx.wait();
       showToast("✅ " + t.tSent);
       setSent(prev => prev.map(m => m.id === localId ? { ...m, status: "delivered" } : m));
@@ -796,7 +884,17 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
                     style={{ cursor:"pointer", opacity:.6, fontSize:12 }} title={t.delete || "Delete"}>🗑️</span>
                 )}
               </div>
-              <div style={{ fontSize:14, color: mm.mine ? C.bg : C.txt, wordBreak:"break-word", lineHeight:1.4 }}>{mm.text}</div>
+              {mm.media && mm.media.kind === "image" && (
+                <img src={mm.media.dataUrl} alt={mm.media.name||"image"} onClick={()=>window.open(mm.media.dataUrl,"_blank")}
+                  style={{ maxWidth:"100%", maxHeight:240, borderRadius:10, marginBottom: mm.text?6:0, cursor:"pointer", display:"block" }}/>
+              )}
+              {mm.media && mm.media.kind === "file" && (
+                <a href={mm.media.dataUrl} download={mm.media.name||"file"}
+                  style={{ display:"flex", alignItems:"center", gap:8, marginBottom: mm.text?6:0, color: mm.mine?C.bg:C.gold2, textDecoration:"none", fontSize:13 }}>
+                  📄 <span style={{ textDecoration:"underline", wordBreak:"break-all" }}>{mm.media.name||"file"}</span>
+                </a>
+              )}
+              {mm.text && <div style={{ fontSize:14, color: mm.mine ? C.bg : C.txt, wordBreak:"break-word", lineHeight:1.4 }}>{mm.text}</div>}
               <div style={{ fontSize:10, color: mm.mine ? C.bg : C.txt3, marginTop:5, textAlign:"right", opacity: mm.mine ? .7 : 1, display:"flex", gap:5, justifyContent:"flex-end", alignItems:"center" }}>
                 <span>{new Date(mm.ts*1000).toLocaleString()}</span>
                 {mm.mine && mm.status === "sending"   && <span style={{ color:C.bg }}>✓</span>}
@@ -810,7 +908,18 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
       </div>
 
       <div className="card" style={{ marginTop:12, padding:12 }}>
+        {attach && (
+          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10, padding:8, background:C.card2, border:"1px solid "+C.line, borderRadius:10 }}>
+            {attach.kind === "image"
+              ? <img src={attach.dataUrl} alt="preview" style={{ width:44, height:44, objectFit:"cover", borderRadius:8 }}/>
+              : <span style={{ fontSize:22 }}>📄</span>}
+            <div style={{ flex:1, minWidth:0, fontSize:12, color:C.txt2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{attach.name}</div>
+            <span onClick={clearAttach} style={{ cursor:"pointer", color:C.txt3, fontSize:18, padding:"0 4px" }} title={t.remove || "Remove"}>✕</span>
+          </div>
+        )}
         <div style={{ display:"flex",gap:10,alignItems:"flex-end" }}>
+          <input ref={fileRef} type="file" accept="image/*,application/pdf,.txt,.doc,.docx,.zip" style={{ display:"none" }} onChange={onFilePicked}/>
+          <button className="btn-ghost" style={{ width:"auto", padding:"12px 14px" }} disabled={sending||!wallet} onClick={pickFile} title={t.attach || "Attach"}>📎</button>
           <input className="inp-sm" style={{ marginTop:0 }} placeholder={t.typeMsg} value={text}
             onChange={e=>setText(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter")send(); }}/>
           <button className="btn-gold" style={{ width:"auto",padding:"12px 18px" }} disabled={sending||!wallet} onClick={send}>
