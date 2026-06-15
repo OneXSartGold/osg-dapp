@@ -978,43 +978,68 @@ export default function App() {
     return await p.getSigner();
   };
 
+ 
   const loadData = useCallback(async (account) => {
-    try {
-      const p = getProvider(); if (!p) return;
-      const token = new Contract(ADDRESSES.token, TOKEN_ABI, p);
-      const stk = new Contract(ADDRESSES.staking, STAKING_ABI, p);
-      const [bal, si, ri, chain, totStk, pend, claimNow, pool, emis, directs] = await Promise.all([
-        account ? token.balanceOf(account) : Promise.resolve(0n),
-        account ? stk.getUserStakingInfo(account) : Promise.resolve(null),
-        account ? stk.getUserReferralInfo(account) : Promise.resolve(null),
-        account ? stk.getReferralChain(account) : Promise.resolve([ZERO,ZERO,ZERO,ZERO,ZERO]),
-        stk.totalStaked(),
-        account ? stk.pendingReward(account) : Promise.resolve(0n),
-        account ? stk.canClaimNow(account) : Promise.resolve([false,0n,0n,""]),
-        stk.getPoolInfo(),
-        stk.getEmissionSchedule(),
-        account ? stk.getDirectReferrals(account) : Promise.resolve([]),
-      ]);
-      setData({
-        balance: f18(bal),
-        staked: si ? f18(si.staked) : "0",
-        storageReward: si ? f18(si.rewardPoolPending) : "0",
-        pending: f18(pend),
-        totalStaked: f18(totStk),
-        activeStakers: pool ? String(pool.currentActiveStakers) : "0",
-        dailyEmission: pool ? f18(pool.dailyStakingEmission) : "0",
-        rewardDistributed: pool ? f18(pool.rewardDistributed) : "0",
-        totalEarned: si ? f18(si.totalEarned) : "0",
-        sharePercent: si ? (Number(si.sharePercent)/100).toString() : "0",
-        halving: emis ? String(emis.halvingNumber) : "0",
-        directReferrals: directs ? directs : [],
-        timeNextHalving: emis ? String(emis.timeToNextHalving) : "0",
-        stakingInfo: si ? { unstakePending: si.unstakePending, canUnstakeNow: si.canUnstakeNow, unstakeAvailableAt: Number(si.unstakeAvailableAt) } : EMPTY.stakingInfo,
-        referralInfo: ri ? { referrer: ri.referrer, totalReferrals: String(ri.totalReferrals), totalReferralEarned: f18(ri.totalReferralEarned), pendingReferral: f18(ri.pendingReferral), teamBonusEarned: f18(ri.teamBonusEarned), totalTeamVolume: f18(ri.totalTeamVolume) } : EMPTY.referralInfo,
-        referralChain: chain ? [chain.l1,chain.l2,chain.l3,chain.l4,chain.l5] : EMPTY.referralChain,
-        claim: claimNow ? { canClaim: claimNow.canClaim, amount: f18(claimNow.amount), total: f18(claimNow.total), reason: claimNow.reason } : EMPTY.claim,
-      });
-    } catch (e) { console.error("loadData error:", e); }
+    const p = getProvider(); if (!p) return;
+    const token = new Contract(ADDRESSES.token, TOKEN_ABI, p);
+    const stk = new Contract(ADDRESSES.staking, STAKING_ABI, p);
+
+    // Read each value INDEPENDENTLY so one failing call
+    // (e.g. a staking read reverting for a fresh user) never
+    // blanks out the others — especially the OSG balance.
+    const results = await Promise.allSettled([
+      account ? token.balanceOf(account) : Promise.resolve(0n),         // 0 balance
+      account ? stk.getUserStakingInfo(account) : Promise.resolve(null),// 1
+      account ? stk.getUserReferralInfo(account) : Promise.resolve(null),//2
+      account ? stk.getReferralChain(account) : Promise.resolve(null),  // 3
+      stk.totalStaked(),                                                // 4
+      account ? stk.pendingReward(account) : Promise.resolve(0n),       // 5
+      account ? stk.canClaimNow(account) : Promise.resolve(null),       // 6
+      stk.getPoolInfo(),                                                // 7
+      stk.getEmissionSchedule(),                                        // 8
+      account ? stk.getDirectReferrals(account) : Promise.resolve([]),  // 9
+    ]);
+
+    // helper: value if fulfilled, else fallback
+    const val = (i, d) => (results[i].status === "fulfilled" ? results[i].value : d);
+
+    // debug: log any read that failed (open DevTools console to see)
+    results.forEach(function (r, i) {
+      if (r.status === "rejected") {
+        console.warn("loadData read #" + i + " FAILED:", (r.reason && (r.reason.shortMessage || r.reason.reason || r.reason.message)) || r.reason);
+      }
+    });
+
+    const bal = val(0, 0n);
+    const si = val(1, null);
+    const ri = val(2, null);
+    const chain = val(3, null);
+    const totStk = val(4, 0n);
+    const pend = val(5, 0n);
+    const claimNow = val(6, null);
+    const pool = val(7, null);
+    const emis = val(8, null);
+    const directs = val(9, []);
+
+    setData({
+      balance: f18(bal),
+      staked: si ? f18(si.staked) : "0",
+      storageReward: si ? f18(si.rewardPoolPending) : "0",
+      pending: f18(pend),
+      totalStaked: f18(totStk),
+      activeStakers: pool ? String(pool.currentActiveStakers) : "0",
+      dailyEmission: pool ? f18(pool.dailyStakingEmission) : "0",
+      rewardDistributed: pool ? f18(pool.rewardDistributed) : "0",
+      totalEarned: si ? f18(si.totalEarned) : "0",
+      sharePercent: si ? (Number(si.sharePercent) / 100).toString() : "0",
+      halving: emis ? String(emis.halvingNumber) : "0",
+      directReferrals: directs ? directs : [],
+      timeNextHalving: emis ? String(emis.timeToNextHalving) : "0",
+      stakingInfo: si ? { unstakePending: si.unstakePending, canUnstakeNow: si.canUnstakeNow, unstakeAvailableAt: Number(si.unstakeAvailableAt) } : EMPTY.stakingInfo,
+      referralInfo: ri ? { referrer: ri.referrer, totalReferrals: String(ri.totalReferrals), totalReferralEarned: f18(ri.totalReferralEarned), pendingReferral: f18(ri.pendingReferral), teamBonusEarned: f18(ri.teamBonusEarned), totalTeamVolume: f18(ri.totalTeamVolume) } : EMPTY.referralInfo,
+      referralChain: chain ? [chain.l1, chain.l2, chain.l3, chain.l4, chain.l5] : EMPTY.referralChain,
+      claim: claimNow ? { canClaim: claimNow.canClaim, amount: f18(claimNow.amount), total: f18(claimNow.total), reason: claimNow.reason } : EMPTY.claim,
+    });
   }, []);
 
   const switchNetwork = async () => {
