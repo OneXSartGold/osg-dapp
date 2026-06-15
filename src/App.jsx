@@ -1057,7 +1057,6 @@ export default function App() {
     if (!window.ethereum) { showToast("⚠️ "+t.tInstall); return; }
     setConnecting(true);
     try {
-      aproviderRef.current = null;
       const accs = await window.ethereum.request({ method:"eth_requestAccounts" });
       const cid = await window.ethereum.request({ method:"eth_chainId" });
       setWallet(accs[0]);
