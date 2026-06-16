@@ -489,7 +489,8 @@ function Staking({ wallet, data, refParam, actions, busy, t }) {
           </div>
         );
       })()}
-    
+</div>
+  );    
 }
 
 function Referral({ wallet, data, showToast, t }) {
