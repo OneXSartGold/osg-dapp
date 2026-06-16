@@ -450,18 +450,46 @@ function Staking({ wallet, data, refParam, actions, busy, t }) {
         </div>
       )}
 
-      {tab==="claim" && (
-        <div className="card" style={{ textAlign:"center",padding:24 }}>
-          <div className="sec" style={{ marginBottom:8 }}>{t.claimableReward}</div>
-          <div className="mono" style={{ fontSize:40,fontWeight:600,color:C.green,lineHeight:1 }}>{fmt(data.claim.amount,4)}</div>
-          <div style={{ fontSize:13,color:C.txt3,margin:"6px 0 8px" }}>{t.thisChunk}</div>
-          <div style={{ fontSize:12,color:C.txt2,marginBottom:16 }}>{t.totalPending}: {fmt(data.pending,4)} OSG</div>
-          {!data.claim.canClaim && data.claim.reason && (<div className="note" style={{ marginBottom:14,color:C.red,justifyContent:"center" }}>ⓘ {data.claim.reason}</div>)}
-          <button className="btn-gold" disabled={busy.claim||!data.claim.canClaim} onClick={actions.claim}>{busy.claim?<span className="spin"/>:t.claimReward}</button>
-        </div>
-      )}
-    </div>
-  );
+     {tab==="claim" && (function () {
+        var chunkSize = 500;
+        var totalPend = Number(data.claim.total) || Number(data.pending) || 0;
+        var thisChunk = Number(data.claim.amount) || 0;
+        var claimsLeft = totalPend > 0 ? Math.ceil(totalPend / chunkSize) : 0;
+        var moreAfter = totalPend > chunkSize;
+        return (
+          <div className="card" style={{ textAlign:"center", padding:24 }}>
+            <div className="sec" style={{ marginBottom:8 }}>{t.claimableReward}</div>
+            <div className="mono" style={{ fontSize:40, fontWeight:600, color:C.green, lineHeight:1 }}>{fmt(thisChunk,4)}</div>
+            <div style={{ fontSize:13, color:C.txt3, margin:"6px 0 12px" }}>{t.thisChunk}</div>
+
+            <div style={{ display:"flex", gap:10, marginBottom:14 }}>
+              <div style={{ flex:1, background:C.card2, border:"1px solid "+C.line, borderRadius:12, padding:"10px 8px" }}>
+                <div style={{ fontSize:10, color:C.txt3, textTransform:"uppercase", letterSpacing:".4px" }}>{t.totalPending || "Total pending"}</div>
+                <div className="mono" style={{ fontSize:16, fontWeight:600, color:C.gold1, marginTop:4 }}>{fmt(totalPend,2)}</div>
+              </div>
+              <div style={{ flex:1, background:C.card2, border:"1px solid "+C.line, borderRadius:12, padding:"10px 8px" }}>
+                <div style={{ fontSize:10, color:C.txt3, textTransform:"uppercase", letterSpacing:".4px" }}>{t.claimsLeft || "Claims left"}</div>
+                <div className="mono" style={{ fontSize:16, fontWeight:600, color:C.blue, marginTop:4 }}>{claimsLeft > 0 ? ("~" + claimsLeft) : "0"}</div>
+              </div>
+            </div>
+
+            {moreAfter && (
+              <div className="note" style={{ marginBottom:14, justifyContent:"flex-start", textAlign:"left" }}>
+                ⓘ {t.claimCapNote || "Up to 500 OSG mints per claim (hourly limit). Claim once, then come back in about 1 hour for the next 500. Your reward stays safe on-chain until fully claimed."}
+              </div>
+            )}
+
+            {!data.claim.canClaim && data.claim.reason && (
+              <div className="note" style={{ marginBottom:14, color:C.red, justifyContent:"center" }}>ⓘ {data.claim.reason}</div>
+            )}
+
+            <button className="btn-gold" disabled={busy.claim || !data.claim.canClaim} onClick={actions.claim}>
+              {busy.claim ? <span className="spin"/> : ((t.claimReward || "Claim Reward") + (thisChunk > 0 ? (" " + fmt(thisChunk,2) + " OSG") : ""))}
+            </button>
+          </div>
+        );
+      })()}
+    
 }
 
 function Referral({ wallet, data, showToast, t }) {
