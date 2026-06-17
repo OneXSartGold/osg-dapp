@@ -645,6 +645,17 @@ async function fileToPayload(file) {
 const MAX_MSG = 1000;
 
 function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) {
+  // ── Chat themes (Messages page only) ──
+  const CHAT_THEMES = {
+    midnight: { bg:"linear-gradient(180deg,#0a0a0d,#080809)", head:"linear-gradient(180deg,rgba(240,165,0,.08),rgba(10,10,13,0))", headTxt:"#ffffff", headSub:"#8b93a2", inBg:"#1b1c23", inTxt:"#e9edf3", inEdge:"rgba(255,255,255,.06)", outBg:"linear-gradient(180deg,#332a14,#2b2412)", outTxt:"#f5ecd6", outEdge:"#5a4715", meta:"#8b93a2", outMeta:"#b79a5c", tick:"#f0a500", accent:"#f0a500", barBg:"#15141b", barEdge:"rgba(255,255,255,.07)", inputTxt:"#e9edf3", ph:"#5d6470", sendBg:"linear-gradient(135deg,#ffd66b,#b8841c)", sendTxt:"#1a1205", dayBg:"rgba(255,255,255,.05)", dayTxt:"#8b93a2" },
+    sky: { bg:"linear-gradient(180deg,#eaf6ff,#cfe8ff)", head:"linear-gradient(135deg,#1f8fff,#0f6fe0)", headTxt:"#ffffff", headSub:"rgba(255,255,255,.85)", inBg:"#ffffff", inTxt:"#0b2440", inEdge:"transparent", outBg:"linear-gradient(180deg,#dcf0ff,#cfe8ff)", outTxt:"#0b2440", outEdge:"#bfe2ff", meta:"#5b7693", outMeta:"#5b7693", tick:"#34b7f1", accent:"#1f8fff", barBg:"#ffffff", barEdge:"#d8e8f5", inputTxt:"#0b2440", ph:"#9bb3c9", sendBg:"linear-gradient(135deg,#34a0ff,#0f6fe0)", sendTxt:"#ffffff", dayBg:"rgba(255,255,255,.75)", dayTxt:"#5b7693" },
+    pearl: { bg:"linear-gradient(180deg,#fdfaf2,#f4ecd8)", head:"linear-gradient(135deg,#ffd97a,#e7ab28)", headTxt:"#2a1d00", headSub:"rgba(42,29,0,.62)", inBg:"#ffffff", inTxt:"#2a2417", inEdge:"#efe6cf", outBg:"linear-gradient(180deg,#ffe9ad,#f6d278)", outTxt:"#3a2a05", outEdge:"#e8c662", meta:"#9a8a64", outMeta:"#8a6c22", tick:"#c8911c", accent:"#e0a21f", barBg:"#ffffff", barEdge:"#efe6cf", inputTxt:"#2a2417", ph:"#b3a884", sendBg:"linear-gradient(135deg,#ffd66b,#e0a21f)", sendTxt:"#1a1205", dayBg:"rgba(255,255,255,.8)", dayTxt:"#9a8a64" },
+    ocean: { bg:"linear-gradient(180deg,#effaf6,#d6f2e8)", head:"linear-gradient(135deg,#15c191,#0c9b73)", headTxt:"#ffffff", headSub:"rgba(255,255,255,.85)", inBg:"#ffffff", inTxt:"#08332a", inEdge:"transparent", outBg:"linear-gradient(180deg,#cdf3e6,#bcecdb)", outTxt:"#08332a", outEdge:"#a9e6d2", meta:"#5a8d80", outMeta:"#5a8d80", tick:"#12b886", accent:"#12b886", barBg:"#ffffff", barEdge:"#cdeee2", inputTxt:"#08332a", ph:"#8fb8ad", sendBg:"linear-gradient(135deg,#19cf9b,#0c9b73)", sendTxt:"#ffffff", dayBg:"rgba(255,255,255,.78)", dayTxt:"#5a8d80" }
+  };
+  const [chatTheme, setChatTheme] = useState("midnight");
+  const [themeOpen, setThemeOpen] = useState(false);
+  const [viewer, setViewer] = useState(null);
+  const TH = CHAT_THEMES[chatTheme] || CHAT_THEMES.midnight;
   const [to, setTo] = useState("");
   const [text, setText] = useState("");
   const [msgs, setMsgs] = useState([]);
@@ -866,10 +877,67 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
   };
 
   const over = text.length > MAX_MSG;
+// download a base64 dataURL to the device (works on mobile)
+  const downloadData = (dataUrl, name) => {
+    try {
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = name || "osg-image.jpg";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      showToast("⬇️ " + (t.tSaved || "Saved"));
+    } catch (e) { showToast("❌ " + (t.tSaveFail || "Save failed")); }
+  };
 
+  // long-press to copy a message's text
+  const pressRef = useRef(null);
+  const startPress = (txt) => {
+    clearTimeout(pressRef.current);
+    pressRef.current = setTimeout(() => {
+      if (!txt) return;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt);
+        showToast("📋 " + (t.tCopiedMsg || "Copied"));
+      } catch (e) {}
+    }, 420);
+  };
+  const endPress = () => clearTimeout(pressRef.current);
   return (
     <div className="page">
       <div className="page-head"><h1>{t.chatTitle}</h1><p>{t.chatSub}</p></div>
+      {/* 🎨 theme picker */}
+      <div style={{ display:"flex", justifyContent:"flex-end", marginTop:-6, marginBottom:6, position:"relative" }}>
+        <button onClick={()=>setThemeOpen(o=>!o)} title="Chat theme"
+          style={{ background:"transparent", border:"1px solid "+C.line, color:C.gold1, width:40, height:40, borderRadius:12, fontSize:18, cursor:"pointer" }}>🎨</button>
+        {themeOpen && (
+          <div style={{ position:"absolute", top:46, right:0, zIndex:30, background:C.card2, border:"1px solid "+C.line, borderRadius:12, padding:6, display:"flex", flexDirection:"column", gap:4, minWidth:150, boxShadow:"0 10px 30px rgba(0,0,0,.5)" }}>
+            {[["midnight","Midnight","#f0a500"],["sky","Sky","#1f8fff"],["pearl","Pearl Gold","#e0a21f"],["ocean","Ocean","#12b886"]].map(function(o){
+              return (
+                <button key={o[0]} onClick={()=>{ setChatTheme(o[0]); setThemeOpen(false); }}
+                  style={{ display:"flex", alignItems:"center", gap:9, background: chatTheme===o[0] ? C.card : "transparent", border:"1px solid "+(chatTheme===o[0]?C.gold3:"transparent"), color:C.txt, padding:"9px 11px", borderRadius:9, cursor:"pointer", fontSize:13, textAlign:"left" }}>
+                  <span style={{ width:12, height:12, borderRadius:"50%", background:o[2], display:"inline-block" }}/>{o[1]}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* full-screen image viewer */}
+      {viewer && (
+        <div onClick={()=>setViewer(null)}
+          style={{ position:"fixed", inset:0, zIndex:100, background:"rgba(0,0,0,.92)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:16 }}>
+          <div style={{ position:"absolute", top:14, right:14, display:"flex", gap:10 }}>
+            <button onClick={(e)=>{ e.stopPropagation(); downloadData(viewer.dataUrl, viewer.name); }}
+              style={{ background:C.gold2, color:"#1a1205", border:0, borderRadius:10, padding:"10px 14px", fontWeight:700, cursor:"pointer", fontSize:14 }}>⬇️ Download</button>
+            <button onClick={()=>setViewer(null)}
+              style={{ background:"rgba(255,255,255,.15)", color:"#fff", border:0, borderRadius:10, padding:"10px 14px", fontWeight:700, cursor:"pointer", fontSize:14 }}>✕</button>
+          </div>
+          <img src={viewer.dataUrl} alt={viewer.name||"image"} onClick={(e)=>e.stopPropagation()}
+            style={{ maxWidth:"100%", maxHeight:"82vh", borderRadius:12, objectFit:"contain" }}/>
+        </div>
+      )}
 
       {wallet && !keypair && (
         <div className="card" style={{ marginBottom:12, display:"flex", gap:12, alignItems:"center", flexWrap:"wrap" }}>
@@ -887,27 +955,32 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
         <input className="inp-sm" placeholder="0x…" value={to} onChange={e=>setTo(e.target.value.trim())}/>
       </div>
 
-      <div className="card" style={{ marginTop:12, minHeight:300, display:"flex", flexDirection:"column" }}>
+      <div className="card" style={{ marginTop:12, minHeight:380, display:"flex", flexDirection:"column" }}>
         <div className="sec" style={{ marginBottom:10 }}>{t.inbox}{thread.length ? " · " + thread.length : ""}</div>
-        <div style={{ flex:1, display:"flex", flexDirection:"column", gap:8, maxHeight:340, overflowY:"auto" }}>
+        <div style={{ flex:1, display:"flex", flexDirection:"column", gap:8, maxHeight:440, overflowY:"auto", background:TH.bg, borderRadius:12, padding:"12px 8px" }}>
           {!wallet ? (
-            <div style={{ textAlign:"center",color:C.txt3,fontSize:13,marginTop:30 }}>👆 {t.connectSee}</div>
+            <div style={{ textAlign:"center",color:TH.meta,fontSize:13,marginTop:30 }}>👆 {t.connectSee}</div>
           ) : loading && thread.length===0 ? (
-            <div style={{ textAlign:"center",color:C.txt3,fontSize:13,marginTop:30 }}>{t.loadingMsgs}</div>
+            <div style={{ textAlign:"center",color:TH.meta,fontSize:13,marginTop:30 }}>{t.loadingMsgs}</div>
           ) : thread.length===0 ? (
-            <div style={{ textAlign:"center",color:C.txt3,fontSize:13,marginTop:30 }}>💬 {t.noMsgs}</div>
+            <div style={{ textAlign:"center",color:TH.meta,fontSize:13,marginTop:30 }}>💬 {t.noMsgs}</div>
           ) : thread.map((mm,i)=>(
-            <div key={mm.id ? mm.id : ("r" + i + "-" + mm.ts)} onClick={mm.locked?unlock:undefined}
+            <div key={mm.id ? mm.id : ("r" + i + "-" + mm.ts)}
+              onClick={mm.locked?unlock:undefined}
+              onMouseDown={()=>startPress(mm.text)} onMouseUp={endPress} onMouseLeave={endPress}
+              onTouchStart={()=>startPress(mm.text)} onTouchEnd={endPress} onTouchMove={endPress}
               style={{
                 alignSelf: mm.mine ? "flex-end" : "flex-start",
-                maxWidth:"85%",
-                background: mm.mine ? C.gold3 : C.card2,
-                border:"1px solid " + (mm.mine ? C.gold3 : C.line),
-                borderRadius: mm.mine ? "14px 4px 14px 14px" : "4px 14px 14px 14px",
-                padding:"10px 13px",
-                cursor: mm.locked?"pointer":"default"
+                maxWidth:"82%",
+                background: mm.mine ? TH.outBg : TH.inBg,
+                border:"1px solid " + (mm.mine ? TH.outEdge : TH.inEdge),
+                borderRadius: mm.mine ? "16px 6px 16px 16px" : "6px 16px 16px 16px",
+                padding:"8px 11px",
+                boxShadow:"0 1px 1.5px rgba(0,0,0,.14)",
+                cursor: mm.locked?"pointer":"default",
+                WebkitUserSelect:"none", userSelect:"none"
               }}>
-              <div className="mono" style={{ fontSize:10, color: mm.mine ? C.bg : C.gold2, marginBottom:4, display:"flex", justifyContent:"space-between", alignItems:"center", gap:8 }}>
+              <div className="mono" style={{ fontSize:10, color: mm.mine ? TH.outMeta : TH.meta, marginBottom:4, display:"flex", justifyContent:"space-between", alignItems:"center", gap:8 }}>
                 <span>{mm.mine ? (t.youLabel || "You") : short(mm.from)} {mm.enc && !mm.locked ? "🔒" : ""}</span>
                 {!mm.mine && mm.idx !== undefined && (
                   <span onClick={(e)=>{ e.stopPropagation(); removeMsg(mm.idx); }}
@@ -915,21 +988,22 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
                 )}
               </div>
               {mm.media && mm.media.kind === "image" && (
-                <img src={mm.media.dataUrl} alt={mm.media.name||"image"} onClick={()=>window.open(mm.media.dataUrl,"_blank")}
-                  style={{ maxWidth:"100%", maxHeight:240, borderRadius:10, marginBottom: mm.text?6:0, cursor:"pointer", display:"block" }}/>
+                <img src={mm.media.dataUrl} alt={mm.media.name||"image"}
+                  onClick={(e)=>{ e.stopPropagation(); setViewer({ dataUrl: mm.media.dataUrl, name: mm.media.name }); }}
+                  style={{ maxWidth:"100%", maxHeight:260, borderRadius:12, marginBottom: mm.text?6:0, cursor:"pointer", display:"block" }}/>
               )}
               {mm.media && mm.media.kind === "file" && (
                 <a href={mm.media.dataUrl} download={mm.media.name||"file"}
-                  style={{ display:"flex", alignItems:"center", gap:8, marginBottom: mm.text?6:0, color: mm.mine?C.bg:C.gold2, textDecoration:"none", fontSize:13 }}>
+                  style={{ display:"flex", alignItems:"center", gap:8, marginBottom: mm.text?6:0, color: mm.mine?TH.outTxt:TH.accent, textDecoration:"none", fontSize:13 }}>
                   📄 <span style={{ textDecoration:"underline", wordBreak:"break-all" }}>{mm.media.name||"file"}</span>
                 </a>
               )}
-              {mm.text && <div style={{ fontSize:14, color: mm.mine ? C.bg : C.txt, wordBreak:"break-word", lineHeight:1.4 }}>{mm.text}</div>}
-              <div style={{ fontSize:10, color: mm.mine ? C.bg : C.txt3, marginTop:5, textAlign:"right", opacity: mm.mine ? .7 : 1, display:"flex", gap:5, justifyContent:"flex-end", alignItems:"center" }}>
+              {mm.text && <div style={{ fontSize:15, color: mm.mine ? TH.outTxt : TH.inTxt, wordBreak:"break-word", lineHeight:1.4 }}>{mm.text}</div>}
+              <div style={{ fontSize:10, color: mm.mine ? TH.outMeta : TH.meta, marginTop:4, textAlign:"right", display:"flex", gap:5, justifyContent:"flex-end", alignItems:"center" }}>
                 <span>{new Date(mm.ts*1000).toLocaleString()}</span>
-                {mm.mine && mm.status === "sending"   && <span style={{ color:C.bg }}>✓</span>}
-                {mm.mine && mm.status === "delivered" && <span style={{ color:C.green, fontWeight:700 }}>✓✓</span>}
-                {mm.mine && mm.status === "failed"    && <span style={{ color:C.red, fontWeight:700 }}>✕</span>}
+                {mm.mine && mm.status === "sending"   && <span style={{ color:TH.outMeta }}>✓</span>}
+                {mm.mine && mm.status === "delivered" && <span style={{ color:TH.tick, fontWeight:700 }}>✓✓</span>}
+                {mm.mine && mm.status === "failed"    && <span style={{ color:"#e5484d", fontWeight:700 }}>✕</span>}
               </div>
             </div>
           ))}
@@ -937,29 +1011,53 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
         </div>
       </div>
 
-      <div className="card" style={{ marginTop:12, padding:12 }}>
+      <div className="card" style={{ marginTop:12, padding:12, background:TH.barBg, border:"1px solid "+TH.barEdge }}>
+
         {attach && (
-          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10, padding:8, background:C.card2, border:"1px solid "+C.line, borderRadius:10 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10, padding:8, background:TH.inBg, border:"1px solid "+TH.barEdge, borderRadius:10 }}>
             {attach.kind === "image"
               ? <img src={attach.dataUrl} alt="preview" style={{ width:44, height:44, objectFit:"cover", borderRadius:8 }}/>
               : <span style={{ fontSize:22 }}>📄</span>}
-            <div style={{ flex:1, minWidth:0, fontSize:12, color:C.txt2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{attach.name}</div>
-            <span onClick={clearAttach} style={{ cursor:"pointer", color:C.txt3, fontSize:18, padding:"0 4px" }} title={t.remove || "Remove"}>✕</span>
+            <div style={{ flex:1, minWidth:0, fontSize:12, color:TH.inTxt, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{attach.name}</div>
+            <span onClick={clearAttach} title={t.remove || "Remove"} style={{ cursor:"pointer", color:TH.meta, fontSize:18, padding:"0 4px" }}>✕</span>
           </div>
         )}
-        <div style={{ display:"flex",gap:10,alignItems:"flex-end" }}>
+
+        <div style={{ display:"flex", gap:8, alignItems:"flex-end" }}>
+
           <input ref={fileRef} type="file" accept="image/*,application/pdf,.txt,.doc,.docx,.zip" style={{ display:"none" }} onChange={onFilePicked}/>
-          <button className="btn-ghost" style={{ width:"auto", padding:"12px 14px" }} disabled={sending||!wallet} onClick={pickFile} title={t.attach || "Attach"}>📎</button>
-          <input className="inp-sm" style={{ marginTop:0 }} placeholder={t.typeMsg} value={text}
-            onChange={e=>setText(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter")send(); }}/>
-          <button className="btn-gold" style={{ width:"auto",padding:"12px 18px" }} disabled={sending||!wallet} onClick={send}>
-            {sending ? <span className="spin"/> : t.send}
+
+          <div style={{ flex:1, display:"flex", alignItems:"flex-end", gap:6, background:TH.inBg, border:"1px solid "+TH.barEdge, borderRadius:22, padding:"6px 8px 6px 12px" }}>
+
+            <button onClick={pickFile} title={t.attach || "Attach"} style={{ background:"transparent", border:"none", cursor:"pointer", fontSize:20, lineHeight:1, padding:0, color:TH.meta, flexShrink:0 }}>📎</button>
+
+            <textarea
+              placeholder={t.typeMsg}
+              value={text}
+              onChange={e=>setText(e.target.value)}
+              onKeyDown={e=>{ if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); send(); } }}
+              rows={1}
+              style={{ flex:1, resize:"none", border:"none", outline:"none", background:"transparent", color:TH.inputTxt, fontSize:15, lineHeight:1.4, maxHeight:120, overflowY:"auto", fontFamily:"inherit", padding:"4px 0" }}
+            />
+
+          </div>
+
+          <button onClick={send} disabled={sending || over} title={t.send}
+            style={{ width:46, height:46, flexShrink:0, borderRadius:"50%", border:"none", cursor:(sending||over)?"default":"pointer", background:TH.sendBg, color:TH.sendTxt, display:"flex", alignItems:"center", justifyContent:"center", opacity: over?0.5:1 }}>
+            {sending
+              ? <span className="spin"/>
+              : (text.trim().length>0 || attach)
+                ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>}
           </button>
+
         </div>
-        <div style={{ fontSize:10,color: over?C.red:C.txt3,marginTop:8, display:"flex", justifyContent:"space-between" }}>
+
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:8, fontSize:11, color:TH.meta }}>
           <span>🔒 {t.feeNote}</span>
-          <span className="mono">{text.length}/{MAX_MSG}</span>
+          <span className="mono" style={{ color: over ? "#e5484d" : TH.meta }}>{text.length}/{MAX_MSG}</span>
         </div>
+
       </div>
     </div>
   );
