@@ -631,9 +631,10 @@ async function fileToPayload(file) {
   var isImg = file.type && file.type.indexOf("image/") === 0;
   var dataUrl;
   if (isImg) {
-    dataUrl = await compressImage(file, 1024, 0.7);
-    if (dataUrl.length > 180000) dataUrl = await compressImage(file, 720, 0.6);
-    if (dataUrl.length > 180000) dataUrl = await compressImage(file, 600, 0.5);
+    dataUrl = await compressImage(file, 1600, 0.85);
+    if (dataUrl.length > 400000) dataUrl = await compressImage(file, 1280, 0.8);
+    if (dataUrl.length > 400000) dataUrl = await compressImage(file, 1024, 0.7);
+    if (dataUrl.length > 400000) dataUrl = await compressImage(file, 800, 0.6);
   } else {
     dataUrl = await fileToDataUrl(file);
   }
@@ -765,7 +766,7 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
     if (!f) return;
     try {
       const payload = await fileToPayload(f);
-      if (payload.dataUrl.length > 190000) {
+      if (payload.dataUrl.length > 400000) {
         showToast("⚠️ " + (t.tFileTooBig || "File too large — try a smaller one"));
         return;
       }
