@@ -333,7 +333,7 @@ function Dashboard({ data, wallet, t }) {
         <div style={{ position:"relative", overflow:"hidden", marginTop:10, background:"linear-gradient(165deg,#1B1810,#100F15 70%)", border:"1px solid rgba(233,185,73,.2)", borderRadius:18, padding:"15px 16px", boxShadow:"0 8px 34px rgba(0,0,0,.4)" }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
             <span style={{ fontSize:10.5, color:C.txt2, letterSpacing:".5px", textTransform:"uppercase", fontWeight:600, display:"flex", alignItems:"center", gap:8 }}>
-              <span style={{ width:8, height:8, borderRadius:"50%", background: mkt.live ? C.green : C.gold2, boxShadow:"0 0 0 3px " + (mkt.live ? "rgba(70,208,138,.18)" : "rgba(233,185,73,.18)") + ", 0 0 10px " + (mkt.live ? C.green : C.gold2) }}></span>
+              <span style={{ width:8, height:8, animation:"osgpulse 2s infinite", borderRadius:"50%", background: mkt.live ? C.green : C.gold2, boxShadow:"0 0 0 3px " + (mkt.live ? "rgba(70,208,138,.18)" : "rgba(233,185,73,.18)") + ", 0 0 10px " + (mkt.live ? C.green : C.gold2) }}></span>
               {t.osgRate || "OSG Market Rate"}
             </span>
             <span style={{ fontSize:9, fontWeight:700, letterSpacing:".4px", color: mkt.live ? C.green : C.gold1, background: mkt.live ? "rgba(70,208,138,.12)" : "rgba(233,185,73,.12)", border:"1px solid " + (mkt.live ? "rgba(70,208,138,.35)" : "rgba(233,185,73,.3)"), padding:"4px 10px", borderRadius:99 }}>{mkt.live ? ("● " + (t.liveTag || "LIVE")) : (t.preMarketTag || "PRE-MARKET")}</span>
