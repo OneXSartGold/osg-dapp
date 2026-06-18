@@ -569,7 +569,7 @@ function Swap({ t }) {
       <div style={{ background:"linear-gradient(160deg,#1C1A16,#121118)", border:"1px solid rgba(233,185,73,.2)", borderRadius:16, padding:"13px 15px", marginBottom:10 }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
           <div style={{ display:"flex", alignItems:"center", gap:9 }}>
-            <span style={{ width:8, height:8, borderRadius:"50%", background:C.green, boxShadow:"0 0 0 3px rgba(70,208,138,.18), 0 0 10px " + C.green }}></span>
+            <span style={{ width:8, height:8, animation:"osgpulse 2s infinite", borderRadius:"50%", background:C.green, boxShadow:"0 0 0 3px rgba(70,208,138,.18), 0 0 10px " + C.green }}></span>
             <div>
               <div className="mono" style={{ fontSize:14, fontWeight:700, color:"#fff", lineHeight:1 }}>OSG / WPOL</div>
               <div style={{ fontSize:10, color:C.txt3, marginTop:3, letterSpacing:".3px" }}>Polygon · QuickSwap V2</div>
