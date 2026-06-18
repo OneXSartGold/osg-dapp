@@ -296,18 +296,18 @@ function Dashboard({ data, wallet, t }) {
   //  Give "change" a number and the green/red styling is automatic.
   // ============================================================
   var mkt = {
-    live: false,             // set true when the pool is live
+    live: true,             // set true when the pool is live
     price: "1 OSG = 1 POL",  // live e.g. "0.0123 POL"
     change: null,            // live 24h %: e.g. 2.34 or -1.2  (null = pre-market)
     vol: "—",                // live e.g. "12.3K"
-    liq: "—",                // live e.g. "4.5K POL"
+    liq: "~3,160 POL",                // live e.g. "4.5K POL"
   };
   // ============================================================
   var _ch = mkt.change, _up = typeof _ch === "number" && _ch > 0, _dn = typeof _ch === "number" && _ch < 0;
   var _chCol = _up ? C.green : _dn ? C.red : C.txt3;
   var _chBg  = _up ? "rgba(70,208,138,.12)" : _dn ? "rgba(242,103,92,.12)" : "rgba(255,255,255,.05)";
   var _chBd  = _up ? "rgba(70,208,138,.3)" : _dn ? "rgba(242,103,92,.3)" : "transparent";
-  var _chTxt = (typeof _ch === "number") ? ((_up ? "▲ +" : _dn ? "▼ " : "") + _ch.toFixed(2) + "%") : "— 0.00%";
+  var _chTxt = (typeof _ch === "number") ? ((_up ? "▲ +" : _dn ? "▼ " : "") + _ch.toFixed(2) + "%") : "— New";)
 
   // halving countdown (seconds -> "2y 114d" / "30d" / "5h")
   var hsecs = Number(data.timeNextHalving) || 0;
@@ -328,27 +328,31 @@ function Dashboard({ data, wallet, t }) {
         <div className="mono" style={{ fontSize:11, color:C.txt3, marginTop:6 }}>{t.poolStaked}: {fmt(data.totalStaked)} OSG</div>
       </div>
 
-      {/* OSG Market Rate (live-ready: give change a number for auto red/green) */}
-      <div style={{ marginTop:10, background:"linear-gradient(160deg,#1C1A16,#121118)", border:"1px solid rgba(233,185,73,.2)", borderRadius:16, padding:"13px 15px" }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
-          <span style={{ fontSize:11, color:C.txt2, letterSpacing:".3px", display:"flex", alignItems:"center", gap:7 }}>
-            <span style={{ width:7, height:7, borderRadius:"50%", background: mkt.live ? C.green : C.gold2, boxShadow:"0 0 8px " + (mkt.live ? C.green : C.gold2) }}></span>
-            {t.osgRate || "OSG Market Rate"}
-          </span>
-          <span style={{ fontSize:9, fontWeight:700, color: mkt.live ? C.green : C.gold2, background: mkt.live ? "rgba(70,208,138,.12)" : "rgba(233,185,73,.12)", border:"1px solid " + (mkt.live ? "rgba(70,208,138,.35)" : "rgba(233,185,73,.3)"), padding:"3px 9px", borderRadius:99, letterSpacing:".4px" }}>{mkt.live ? (t.liveTag || "LIVE") : (t.preMarketTag || "PRE-MARKET")}</span>
+      {/* OSG Market Rate — live-market style */}
+        <div style={{ position:"relative", overflow:"hidden", marginTop:10, background:"linear-gradient(165deg,#1B1810,#100F15 70%)", border:"1px solid rgba(233,185,73,.2)", borderRadius:18, padding:"15px 16px", boxShadow:"0 8px 34px rgba(0,0,0,.4)" }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+            <span style={{ fontSize:10.5, color:C.txt2, letterSpacing:".5px", textTransform:"uppercase", fontWeight:600, display:"flex", alignItems:"center", gap:8 }}>
+              <span style={{ width:8, height:8, borderRadius:"50%", background: mkt.live ? C.green : C.gold2, boxShadow:"0 0 0 3px " + (mkt.live ? "rgba(70,208,138,.18)" : "rgba(233,185,73,.18)") + ", 0 0 10px " + (mkt.live ? C.green : C.gold2) }}></span>
+              {t.osgRate || "OSG Market Rate"}
+            </span>
+            <span style={{ fontSize:9, fontWeight:700, letterSpacing:".4px", color: mkt.live ? C.green : C.gold1, background: mkt.live ? "rgba(70,208,138,.12)" : "rgba(233,185,73,.12)", border:"1px solid " + (mkt.live ? "rgba(70,208,138,.35)" : "rgba(233,185,73,.3)"), padding:"4px 10px", borderRadius:99 }}>{mkt.live ? ("● " + (t.liveTag || "LIVE")) : (t.preMarketTag || "PRE-MARKET")}</span>
+          </div>
+          <div style={{ display:"flex", alignItems:"flex-end", gap:11, flexWrap:"wrap", marginTop:13 }}>
+            <div className="mono" style={{ fontSize:27, fontWeight:700, letterSpacing:"-1px", lineHeight:1, background:"linear-gradient(135deg,#fff," + C.gold1 + " 60%," + C.gold2 + ")", WebkitBackgroundClip:"text", backgroundClip:"text", WebkitTextFillColor:"transparent" }}>{mkt.price}</div>
+            <span className="mono" style={{ fontSize:12, fontWeight:700, color:_chCol, background:_chBg, border:"1px solid " + _chBd, padding:"4px 9px", borderRadius:9 }}>{_chTxt}</span>
+          </div>
+          <div style={{ display:"flex", marginTop:14, borderTop:"1px solid rgba(255,255,255,.06)", paddingTop:12 }}>
+            <div style={{ flex:1 }}><div style={{ fontSize:9.5, color:C.txt3, letterSpacing:".4px", textTransform:"uppercase" }}>24h Vol</div><div className="mono" style={{ fontSize:13, fontWeight:600, color:C.txt2, marginTop:2 }}>{mkt.vol}</div></div>
+            <div style={{ flex:1, borderLeft:"1px solid rgba(255,255,255,.06)", paddingLeft:12 }}><div style={{ fontSize:9.5, color:C.txt3, letterSpacing:".4px", textTransform:"uppercase" }}>Liquidity</div><div className="mono" style={{ fontSize:13, fontWeight:600, color:C.txt2, marginTop:2 }}>{mkt.liq}</div></div>
+            <div style={{ flex:1, borderLeft:"1px solid rgba(255,255,255,.06)", paddingLeft:12 }}><div style={{ fontSize:9.5, color:C.txt3, letterSpacing:".4px", textTransform:"uppercase" }}>Pool</div><div className="mono" style={{ fontSize:13, fontWeight:600, color:C.txt2, marginTop:2 }}>QuickSwap</div></div>
+          </div>
+          <div style={{ display:"flex", alignItems:"center", gap:7, marginTop:12, fontSize:10.5, color:C.txt3, lineHeight:1.4, flexWrap:"wrap" }}>
+            {mkt.live
+              ? <span style={{ color:C.gold1 }}>⚠️ Early pool · low liquidity — large trades may move the price sharply.</span>
+              : <span>ⓘ {t.refPriceNote || "Launch reference rate. Real price + 24h change appear here once the liquidity pool goes live."}</span>}
+            {mkt.live && <a href={"https://polygonscan.com/address/0xA15214B09a9b3E1c821b94fB97D6D3bcA8201Cd2"} target="_blank" rel="noreferrer" style={{ marginLeft:"auto", color:C.gold2, textDecoration:"none", fontWeight:600, whiteSpace:"nowrap" }}>View pool ↗️</a>}
+          </div>
         </div>
-        <div style={{ display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
-          <div className="mono" style={{ fontSize:22, fontWeight:700, color:C.gold1, letterSpacing:"-.5px", lineHeight:1 }}>{mkt.price}</div>
-          <span className="mono" style={{ fontSize:12, fontWeight:700, color:_chCol, background:_chBg, border:"1px solid " + _chBd, padding:"4px 9px", borderRadius:8 }}>{_chTxt}</span>
-        </div>
-        <div style={{ display:"flex", gap:14, marginTop:9, fontSize:11, color:C.txt3 }}>
-          <span>Vol <b className="mono" style={{ color:C.txt2, fontWeight:600 }}>{mkt.vol}</b></span>
-          <span>Liq <b className="mono" style={{ color:C.txt2, fontWeight:600 }}>{mkt.liq}</b></span>
-        </div>
-        {!mkt.live && (
-          <div style={{ fontSize:11, color:C.txt3, marginTop:7, lineHeight:1.4 }}>ⓘ {t.refPriceNote || "Launch reference rate. Real price + 24h change appear here once the liquidity pool goes live."}</div>
-        )}
-      </div>
 
       {/* compact Reward Secured */}
       {wallet && Number(data.storageReward) > 1 && (
