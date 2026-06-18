@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { BrowserProvider, Contract, formatUnits, parseUnits, isAddress } from "ethers";
+import { BrowserProvider, JsonRpcProvider, FallbackProvider, Contract, formatUnits, parseUnits, isAddress } from "ethers";
 import {
-  ADDRESSES, ZERO, POLYGON_CHAIN_ID, POLYGON_PARAMS,
+  ADDRESSES, ZERO, POLYGON_CHAIN_ID, POLYGON_PARAMS, RPC_URLS,
   TOKEN_ABI, STAKING_ABI, POOL_ABI, MESSENGER_ABI, QUICKSWAP_URL,
 } from "./contracts.js";
 import { deriveKeypair, encryptMessage, decryptMessage, MAX_PLAINTEXT_CHARS } from "./crypto.js";
@@ -1122,6 +1122,14 @@ export default function App() {
   useEffect(() => { try { const p = new URLSearchParams(window.location.search).get("ref"); if (p && isAddress(p)) setRefParam(p); } catch {} }, []);
   useEffect(() => { document.documentElement.lang = (lang==="zh")?"zh":lang; }, [lang]);
 
+  const readProviderRef = useRef(null);
+  const getReadProvider = () => {
+    if (!readProviderRef.current) {
+      var list = RPC_URLS.map(function(u){ return new JsonRpcProvider(u, 137); });
+      readProviderRef.current = new FallbackProvider(list);
+    }
+    return readProviderRef.current;
+  };
   const getProvider = () => {
     if (!window.ethereum) { showToast("⚠️ "+t.tInstall); return null; }
     if (!providerRef.current) providerRef.current = new BrowserProvider(window.ethereum);
@@ -1136,7 +1144,7 @@ export default function App() {
 
  
   const loadData = useCallback(async (account) => {
-    const p = getProvider(); if (!p) return;
+    const p = getReadProvider();
     const token = new Contract(ADDRESSES.token, TOKEN_ABI, p);
     const stk = new Contract(ADDRESSES.staking, STAKING_ABI, p);
 
