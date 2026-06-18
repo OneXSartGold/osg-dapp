@@ -346,12 +346,11 @@ function Dashboard({ data, wallet, t }) {
             <div style={{ flex:1, borderLeft:"1px solid rgba(255,255,255,.06)", paddingLeft:12 }}><div style={{ fontSize:9.5, color:C.txt3, letterSpacing:".4px", textTransform:"uppercase" }}>Liquidity</div><div className="mono" style={{ fontSize:13, fontWeight:600, color:C.txt2, marginTop:2 }}>{mkt.liq}</div></div>
             <div style={{ flex:1, borderLeft:"1px solid rgba(255,255,255,.06)", paddingLeft:12 }}><div style={{ fontSize:9.5, color:C.txt3, letterSpacing:".4px", textTransform:"uppercase" }}>Pool</div><div className="mono" style={{ fontSize:13, fontWeight:600, color:C.txt2, marginTop:2 }}>QuickSwap</div></div>
           </div>
-          <div style={{ display:"flex", alignItems:"center", gap:7, marginTop:12, fontSize:10.5, color:C.txt3, lineHeight:1.4, flexWrap:"wrap" }}>
-            {mkt.live
-              ? <span style={{ color:C.gold1 }}>⚠️ Early pool · low liquidity — large trades may move the price sharply.</span>
-              : <span>ⓘ {t.refPriceNote || "Launch reference rate. Real price + 24h change appear here once the liquidity pool goes live."}</span>}
-            {mkt.live && <a href={"https://polygonscan.com/address/0xA15214B09a9b3E1c821b94fB97D6D3bcA8201Cd2"} target="_blank" rel="noreferrer" style={{ marginLeft:"auto", color:C.gold2, textDecoration:"none", fontWeight:600, whiteSpace:"nowrap" }}>View pool ↗️</a>}
-          </div>
+          {mkt.live && (
+            <div style={{ display:"flex", alignItems:"center", marginTop:12 }}>
+              <a href={"https://polygonscan.com/address/0xA15214B09a9b3E1c821b94fB97D6D3bcA8201Cd2"} target="_blank" rel="noreferrer" style={{ marginLeft:"auto", color:C.gold2, textDecoration:"none", fontWeight:600, fontSize:10.5, whiteSpace:"nowrap" }}>View pool ↗️</a>
+            </div>
+          )}
         </div>
 
       {/* compact Reward Secured */}
