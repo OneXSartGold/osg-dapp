@@ -560,7 +560,7 @@ function Referral({ wallet, data, showToast, t }) {
 
 function Swap({ t }) {
   var POOL = "0xA15214B09a9b3E1c821b94fB97D6D3bcA8201Cd2";
-  var chartSrc = "https://www.geckoterminal.com/polygon_pos/pools/" + POOL + "?embed=1&info=0&swaps=0&chart_type=price&resolution=15m";
+  var chartSrc = "https://www.geckoterminal.com/polygon_pos/pools/" + POOL + "?embed=1&info=0&swaps=1&chart_type=price&resolution=15m";
   return (
     <div className="page">
       <div className="page-head"><h1>{t.swap}</h1></div>
