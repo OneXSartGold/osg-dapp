@@ -307,7 +307,7 @@ function Dashboard({ data, wallet, t }) {
   var _chCol = _up ? C.green : _dn ? C.red : C.txt3;
   var _chBg  = _up ? "rgba(70,208,138,.12)" : _dn ? "rgba(242,103,92,.12)" : "rgba(255,255,255,.05)";
   var _chBd  = _up ? "rgba(70,208,138,.3)" : _dn ? "rgba(242,103,92,.3)" : "transparent";
-  var _chTxt = (typeof _ch === "number") ? ((_up ? "▲ +" : _dn ? "▼ " : "") + _ch.toFixed(2) + "%") : "— New";)
+  var _chTxt = (typeof _ch === "number") ? ((_up ? "▲ +" : _dn ? "▼ " : "") + _ch.toFixed(2) + "%") : "— New";
 
   // halving countdown (seconds -> "2y 114d" / "30d" / "5h")
   var hsecs = Number(data.timeNextHalving) || 0;
