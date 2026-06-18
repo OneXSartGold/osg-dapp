@@ -26,6 +26,13 @@ export const POLYGON_PARAMS = {
   rpcUrls: ["https://polygon-rpc.com"],
   blockExplorerUrls: ["https://polygonscan.com"],
 };
+// -- Read RPCs (fallback order: first that responds wins) --
+export const RPC_URLS = [
+  "https://polygon.drpc.org",
+  "https://polygon-bor-rpc.publicnode.com",
+  "https://polygon.lava.build",
+  "https://polygon-rpc.com",
+];
 
 // ── ERC20 (OSG Token) ─────────────────────────────────────
 export const TOKEN_ABI = [
