@@ -559,16 +559,40 @@ function Referral({ wallet, data, showToast, t }) {
 }
 
 function Swap({ t }) {
+  var POOL = "0xA15214B09a9b3E1c821b94fB97D6D3bcA8201Cd2";
+  var chartSrc = "https://www.geckoterminal.com/polygon_pos/pools/" + POOL + "?embed=1&info=0&swaps=0&chart_type=price&resolution=15m";
   return (
     <div className="page">
       <div className="page-head"><h1>{t.swap}</h1></div>
-      <div className="card" style={{ textAlign:"center",padding:24 }}>
-        <div style={{ fontSize:40,marginBottom:12 }}>🔄</div>
-        <div className="disp" style={{ fontSize:18,fontWeight:700,color:C.gold1,marginBottom:8 }}>{t.swapTitle}</div>
-        <div style={{ fontSize:13,color:C.txt2,marginBottom:6,lineHeight:1.5 }}>{t.swapDesc}</div>
-        <div style={{ fontSize:12,color:C.txt3,marginBottom:18 }}>{t.swapMeanwhile}</div>
-        <a href={QUICKSWAP_URL} target="_blank" rel="noreferrer"><button className="btn-gold">{t.openQuickswap} ↗</button></a>
-        <div className="mono" style={{ fontSize:11,color:C.txt3,marginTop:12 }}>OSG: {short(ADDRESSES.token)}</div>
+
+      <div style={{ background:"linear-gradient(160deg,#1C1A16,#121118)", border:"1px solid rgba(233,185,73,.2)", borderRadius:16, padding:"13px 15px", marginBottom:10 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:9 }}>
+            <span style={{ width:8, height:8, borderRadius:"50%", background:C.green, boxShadow:"0 0 0 3px rgba(70,208,138,.18), 0 0 10px " + C.green }}></span>
+            <div>
+              <div className="mono" style={{ fontSize:14, fontWeight:700, color:"#fff", lineHeight:1 }}>OSG / WPOL</div>
+              <div style={{ fontSize:10, color:C.txt3, marginTop:3, letterSpacing:".3px" }}>Polygon · QuickSwap V2</div>
+            </div>
+          </div>
+          <span style={{ fontSize:9, fontWeight:700, color:C.green, background:"rgba(70,208,138,.12)", border:"1px solid rgba(70,208,138,.35)", padding:"4px 10px", borderRadius:99, letterSpacing:".4px" }}>● LIVE</span>
+        </div>
+      </div>
+
+      <div style={{ position:"relative", overflow:"hidden", borderRadius:16, border:"1px solid rgba(233,185,73,.18)", background:"#0d0c12", marginBottom:10 }}>
+        <iframe title="OSG live chart" src={chartSrc} style={{ width:"100%", height:420, border:"none", display:"block" }} allow="clipboard-write" allowFullScreen></iframe>
+      </div>
+
+      <div style={{ display:"flex", gap:8, marginBottom:10, flexWrap:"wrap" }}>
+        <a href={"https://dexscreener.com/polygon/" + POOL} target="_blank" rel="noreferrer" style={{ flex:1, textAlign:"center", fontSize:11, fontWeight:600, color:C.txt2, background:"rgba(255,255,255,.04)", border:"1px solid rgba(255,255,255,.08)", borderRadius:10, padding:"9px 6px", textDecoration:"none", whiteSpace:"nowrap" }}>DexScreener ↗️</a>
+        <a href={"https://www.geckoterminal.com/polygon_pos/pools/" + POOL} target="_blank" rel="noreferrer" style={{ flex:1, textAlign:"center", fontSize:11, fontWeight:600, color:C.txt2, background:"rgba(255,255,255,.04)", border:"1px solid rgba(255,255,255,.08)", borderRadius:10, padding:"9px 6px", textDecoration:"none", whiteSpace:"nowrap" }}>GeckoTerminal ↗️</a>
+        <a href={"https://polygonscan.com/address/" + POOL} target="_blank" rel="noreferrer" style={{ flex:1, textAlign:"center", fontSize:11, fontWeight:600, color:C.txt2, background:"rgba(255,255,255,.04)", border:"1px solid rgba(255,255,255,.08)", borderRadius:10, padding:"9px 6px", textDecoration:"none", whiteSpace:"nowrap" }}>Pool ↗️</a>
+      </div>
+
+      <div className="card" style={{ textAlign:"center", padding:"20px 18px" }}>
+        <div className="disp" style={{ fontSize:17, fontWeight:700, color:C.gold1, marginBottom:6 }}>{t.swapTitle}</div>
+        <div style={{ fontSize:12.5, color:C.txt2, marginBottom:16, lineHeight:1.5 }}>{t.swapDesc}</div>
+        <a href={QUICKSWAP_URL} target="_blank" rel="noreferrer"><button className="btn-gold">{t.openQuickswap} ↗️</button></a>
+        <div className="mono" style={{ fontSize:11, color:C.txt3, marginTop:12 }}>OSG: {short(ADDRESSES.token)}</div>
       </div>
     </div>
   );
