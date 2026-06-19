@@ -286,7 +286,9 @@ function Stat({ label, value, sub, accent }) {
 }
 
 // ══════════════ PAGES ══════════════
-function Dashboard({ data, wallet, t }) {
+function Dashboard({ data, wallet, polUsd, t }) {
+  const [calcUsd, setCalcUsd] = useState("100");
+  const [calcOsg, setCalcOsg] = useState("1,298.70");
   const links = [["OSG Token", ADDRESSES.token],["Staking", ADDRESSES.staking],["Reward Pool", ADDRESSES.pool],["Bond", ADDRESSES.bond],["Messenger", ADDRESSES.messenger]];
 
   // ============================================================
@@ -322,37 +324,56 @@ function Dashboard({ data, wallet, t }) {
   return (
     <div className="page stag">
 
-      {/* compact OSG Balance */}
-      <div style={{ position:"relative", overflow:"hidden", background:"radial-gradient(140% 120% at 100% 0%,rgba(233,185,73,.16),transparent 55%),linear-gradient(160deg,#1C1A16,#121118)", border:"1px solid rgba(233,185,73,.22)", borderRadius:16, padding:"13px 15px" }}>
-        <div style={{ fontSize:11, color:C.txt2, letterSpacing:".3px" }}>{t.osgBalance}</div>
-        <div className="mono" style={{ fontSize:22, fontWeight:700, color:"#fff", letterSpacing:"-.5px", lineHeight:1, marginTop:5 }}>{wallet ? fmt(data.balance) : "—"}<span style={{ fontSize:12, color:C.gold2, fontWeight:600, marginLeft:5 }}>OSG</span></div>
-        <div className="mono" style={{ fontSize:11, color:C.txt3, marginTop:6 }}>{t.poolStaked}: {fmt(data.totalStaked)} OSG</div>
-      </div>
-
-      {/* OSG Market Rate — live-market style */}
-        <div style={{ position:"relative", overflow:"hidden", marginTop:10, background:"linear-gradient(165deg,#1B1810,#100F15 70%)", border:"1px solid rgba(233,185,73,.2)", borderRadius:18, padding:"15px 16px", boxShadow:"0 8px 34px rgba(0,0,0,.4)" }}>
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-            <span style={{ fontSize:10.5, color:C.txt2, letterSpacing:".5px", textTransform:"uppercase", fontWeight:600, display:"flex", alignItems:"center", gap:8 }}>
-              <span style={{ width:8, height:8, animation:"osgpulse 2s infinite", borderRadius:"50%", background: mkt.live ? C.green : C.gold2, boxShadow:"0 0 0 3px " + (mkt.live ? "rgba(70,208,138,.18)" : "rgba(233,185,73,.18)") + ", 0 0 10px " + (mkt.live ? C.green : C.gold2) }}></span>
-              {t.osgRate || "OSG Market Rate"}
-            </span>
-            <span style={{ fontSize:9, fontWeight:700, letterSpacing:".4px", color: mkt.live ? C.green : C.gold1, background: mkt.live ? "rgba(70,208,138,.12)" : "rgba(233,185,73,.12)", border:"1px solid " + (mkt.live ? "rgba(70,208,138,.35)" : "rgba(233,185,73,.3)"), padding:"4px 10px", borderRadius:99 }}>{mkt.live ? ("● " + (t.liveTag || "LIVE")) : (t.preMarketTag || "PRE-MARKET")}</span>
-          </div>
-          <div style={{ display:"flex", alignItems:"flex-end", gap:11, flexWrap:"wrap", marginTop:13 }}>
-            <div className="mono" style={{ fontSize:27, fontWeight:700, letterSpacing:"-1px", lineHeight:1, background:"linear-gradient(135deg,#fff," + C.gold1 + " 60%," + C.gold2 + ")", WebkitBackgroundClip:"text", backgroundClip:"text", WebkitTextFillColor:"transparent" }}>{mkt.price}</div>
-            <span className="mono" style={{ fontSize:12, fontWeight:700, color:_chCol, background:_chBg, border:"1px solid " + _chBd, padding:"4px 9px", borderRadius:9 }}>{_chTxt}</span>
-          </div>
-          <div style={{ display:"flex", marginTop:14, borderTop:"1px solid rgba(255,255,255,.06)", paddingTop:12 }}>
-            <div style={{ flex:1 }}><div style={{ fontSize:9.5, color:C.txt3, letterSpacing:".4px", textTransform:"uppercase" }}>24h Vol</div><div className="mono" style={{ fontSize:13, fontWeight:600, color:C.txt2, marginTop:2 }}>{mkt.vol}</div></div>
-            <div style={{ flex:1, borderLeft:"1px solid rgba(255,255,255,.06)", paddingLeft:12 }}><div style={{ fontSize:9.5, color:C.txt3, letterSpacing:".4px", textTransform:"uppercase" }}>Liquidity</div><div className="mono" style={{ fontSize:13, fontWeight:600, color:C.txt2, marginTop:2 }}>{mkt.liq}</div></div>
-            <div style={{ flex:1, borderLeft:"1px solid rgba(255,255,255,.06)", paddingLeft:12 }}><div style={{ fontSize:9.5, color:C.txt3, letterSpacing:".4px", textTransform:"uppercase" }}>Pool</div><div className="mono" style={{ fontSize:13, fontWeight:600, color:C.txt2, marginTop:2 }}>QuickSwap</div></div>
-          </div>
-          {mkt.live && (
-            <div style={{ display:"flex", alignItems:"center", marginTop:12 }}>
-              <a href={"https://polygonscan.com/address/0xA15214B09a9b3E1c821b94fB97D6D3bcA8201Cd2"} target="_blank" rel="noreferrer" style={{ marginLeft:"auto", color:C.gold2, textDecoration:"none", fontWeight:600, fontSize:10.5, whiteSpace:"nowrap" }}>View pool ↗️</a>
+      {/* MARKET HERO — balance + market + calculator */}
+      {(function(){
+        var OSG_PER_POL = 1;
+        var pol = (typeof polUsd === "number" && polUsd > 0) ? polUsd : 0.077;
+        var cnum = function(s){ var n = parseFloat(String(s).replace(/,/g,"")); return n > 0 ? n : 0; };
+        var cfmt = function(n){ return Number(n).toLocaleString("en-US",{ minimumFractionDigits:2, maximumFractionDigits:2 }); };
+        return (
+          <div style={{ position:"relative", overflow:"hidden", background:"linear-gradient(165deg,#16140C 0%,#121118 60%)", border:"1px solid rgba(233,185,73,.2)", borderRadius:20, padding:"18px 16px 16px", boxShadow:"0 8px 34px rgba(0,0,0,.4)" }}>
+            <div style={{ position:"absolute", top:0, left:0, right:0, height:1, background:"linear-gradient(90deg,transparent," + C.gold2 + ",transparent)" }}></div>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+              <span style={{ display:"flex", alignItems:"center", gap:9 }}>
+                <span style={{ width:9, height:9, animation:"osgpulse 2.2s infinite", borderRadius:"50%", background: mkt.live ? C.green : C.gold2 }}></span>
+                <span className="mono" style={{ fontSize:11.5, fontWeight:600, letterSpacing:".5px", color:C.txt2 }}>OSG / WPOL · QuickSwap V2</span>
+              </span>
+              <span style={{ fontSize:9, fontWeight:700, letterSpacing:".5px", color: mkt.live ? C.green : C.gold1, background: mkt.live ? "rgba(70,208,138,.12)" : "rgba(233,185,73,.12)", border:"1px solid " + (mkt.live ? "rgba(70,208,138,.35)" : "rgba(233,185,73,.3)"), padding:"4px 9px", borderRadius:30 }}>{mkt.live ? "● LIVE" : "PRE-MARKET"}</span>
             </div>
-          )}
-        </div>
+            <div style={{ display:"flex", alignItems:"flex-end", gap:12, flexWrap:"wrap", marginTop:15 }}>
+              <span className="mono" style={{ fontWeight:700, fontSize:32, letterSpacing:"-1px", lineHeight:1, background:"linear-gradient(135deg,#fff," + C.gold1 + " 55%," + C.gold2 + ")", WebkitBackgroundClip:"text", backgroundClip:"text", WebkitTextFillColor:"transparent" }}>{mkt.price}</span>
+            </div>
+            <div className="mono" style={{ fontSize:11.5, color:C.txt3, marginTop:8 }}>≈ ${pol.toFixed(4)} per OSG · 1 POL ≈ ${pol.toFixed(4)}</div>
+            <div style={{ display:"flex", marginTop:15, borderTop:"1px solid " + C.line, borderBottom:"1px solid " + C.line, padding:"11px 0" }}>
+              <div style={{ flex:1 }}><div style={{ fontSize:9, letterSpacing:".4px", textTransform:"uppercase", color:C.txt3, fontWeight:600 }}>Liquidity</div><div className="mono" style={{ fontSize:13.5, color:C.txt, marginTop:4 }}>{mkt.liq}</div></div>
+              <div style={{ flex:1, borderLeft:"1px solid " + C.line, paddingLeft:12 }}><div style={{ fontSize:9, letterSpacing:".4px", textTransform:"uppercase", color:C.txt3, fontWeight:600 }}>Pool</div><div className="mono" style={{ fontSize:13.5, color:C.txt, marginTop:4 }}>QuickSwap</div></div>
+              <div style={{ flex:1, borderLeft:"1px solid " + C.line, paddingLeft:12 }}><div style={{ fontSize:9, letterSpacing:".4px", textTransform:"uppercase", color:C.txt3, fontWeight:600 }}>Pool Staked</div><div className="mono" style={{ fontSize:13.5, color:C.txt, marginTop:4 }}>{fmt(data.totalStaked,0)}</div></div>
+            </div>
+            <div style={{ marginTop:13, background:C.bg2, border:"1px solid " + C.line, borderRadius:13, padding:"11px 12px" }}>
+              <div style={{ fontSize:8.5, letterSpacing:"1px", textTransform:"uppercase", color:C.txt3, fontWeight:600, marginBottom:4 }}>You spend</div>
+              <div style={{ display:"flex", alignItems:"center", gap:6, background:"#000", border:"1px solid " + C.line2, borderRadius:9, padding:"8px 11px" }}>
+                <span className="mono" style={{ color:C.gold2, fontSize:15, fontWeight:600 }}>$</span>
+                <input className="mono" inputMode="decimal" value={calcUsd} onChange={function(e){ var v = e.target.value.replace(/[^0-9.]/g,""); setCalcUsd(v); setCalcOsg(cfmt((cnum(v)/pol)*OSG_PER_POL)); }} style={{ flex:1, width:"100%", minWidth:0, background:"none", border:"none", outline:"none", color:C.txt, fontSize:16, fontWeight:700 }}/>
+              </div>
+              <div style={{ textAlign:"center", color:C.txt3, fontSize:13, margin:"5px 0" }}>↓</div>
+              <div style={{ fontSize:8.5, letterSpacing:"1px", textTransform:"uppercase", color:C.txt3, fontWeight:600, marginBottom:4 }}>You get (estimate)</div>
+              <div style={{ display:"flex", alignItems:"center", gap:6, background:"rgba(70,208,138,.07)", border:"1px solid rgba(70,208,138,.25)", borderRadius:9, padding:"8px 11px" }}>
+                <input className="mono" inputMode="decimal" value={calcOsg} onChange={function(e){ var v = e.target.value.replace(/[^0-9.]/g,""); setCalcOsg(v); setCalcUsd(cfmt((cnum(v)/OSG_PER_POL)*pol)); }} style={{ flex:1, width:"100%", minWidth:0, background:"none", border:"none", outline:"none", color:C.green, fontSize:16, fontWeight:700 }}/>
+                <span style={{ fontSize:10, color:C.green, opacity:.8 }}>OSG</span>
+              </div>
+              <div style={{ marginTop:8, fontSize:9.5, color:C.txt3, display:"flex", alignItems:"center", gap:6 }}>1 POL ≈ <span className="mono" style={{ color:C.txt2 }}>${pol.toFixed(4)}</span> · {mkt.live ? "live rate" : "est. rate"}</div>
+            </div>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginTop:13, paddingTop:12, borderTop:"1px solid " + C.line }}>
+              <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+                <div style={{ display:"flex", flexDirection:"column", gap:2 }}><span style={{ fontSize:9, letterSpacing:"1px", textTransform:"uppercase", color:C.gold2, fontWeight:700 }}>OSG</span><span className="mono" style={{ fontSize:15, fontWeight:600, color:C.txt }}>{wallet ? fmt(data.balance) : "—"}</span></div>
+                <div style={{ width:1, height:22, background:C.line2 }}></div>
+                <div style={{ display:"flex", flexDirection:"column", gap:2 }}><span style={{ fontSize:9, letterSpacing:"1px", textTransform:"uppercase", color:C.gold2, fontWeight:700 }}>POL</span><span className="mono" style={{ fontSize:15, fontWeight:600, color:C.txt }}>{wallet ? fmt(data.polBalance) : "—"}</span></div>
+              </div>
+              <a href={"https://polygonscan.com/address/0xA15214B09a9b3E1c821b94fB97D6D3bcA8201Cd2"} target="_blank" rel="noreferrer" style={{ color:C.gold2, fontWeight:600, fontSize:13, textDecoration:"none" }}>View pool ↗️</a>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* compact Reward Secured */}
       {wallet && Number(data.storageReward) > 1 && (
@@ -1365,7 +1386,7 @@ export default function App() {
 
         {/* SCREEN */}
         <main className="screen" onClick={()=>setLangOpen(false)}>
-          {tab==="dashboard" && <Dashboard data={data} wallet={wallet} t={t}/>}
+          {tab==="dashboard" && <Dashboard data={data} wallet={wallet} polUsd={polUsd} t={t}/>}
           {tab==="staking"   && <Staking wallet={wallet} data={data} refParam={refParam} actions={actions} busy={busy} t={t}/>}
           {tab==="referral"  && <Referral wallet={wallet} data={data} showToast={showToast} t={t}/>}
           {tab==="swap"      && <Swap t={t}/>}
