@@ -28,10 +28,10 @@ export const POLYGON_PARAMS = {
 };
 // -- Read RPCs (fallback order: first that responds wins) --
 export const RPC_URLS = [
-  "https://polygon.drpc.org",
   "https://polygon-bor-rpc.publicnode.com",
+  "https://polygon.llamarpc.com",
   "https://polygon.lava.build",
-  "https://polygon-rpc.com",
+  "https://1rpc.io/matic",
 ];
 
 // ── ERC20 (OSG Token) ─────────────────────────────────────
