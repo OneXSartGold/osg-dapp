@@ -1162,6 +1162,7 @@ export default function App() {
       stk.getPoolInfo(),                                                // 7
       stk.getEmissionSchedule(),                                        // 8
       account ? stk.getDirectReferrals(account) : Promise.resolve([]),  // 9
+      account ? p.getBalance(account) : Promise.resolve(0n),            // 10 POL balance
     ]);
 
     // helper: value if fulfilled, else fallback
@@ -1184,9 +1185,10 @@ export default function App() {
     const pool = val(7, null);
     const emis = val(8, null);
     const directs = val(9, []);
-
+    const polBal = val(10, 0n);
     setData({
       balance: f18(bal),
+      polBalance: f18(polBal),
       staked: si ? f18(si.staked) : "0",
       storageReward: si ? f18(si.rewardPoolPending) : "0",
       pending: f18(pend),
