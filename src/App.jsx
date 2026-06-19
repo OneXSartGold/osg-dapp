@@ -1187,9 +1187,9 @@ export default function App() {
       stk.getEmissionSchedule(),                                        // 8
       account ? stk.getDirectReferrals(account) : Promise.resolve([]),  // 9
       account ? p.getBalance(account) : Promise.resolve(0n),            // 10 POL balance
-      new Contract("0xA15214B09a9b3E1c821b94fB97D6D3bcA8201Cd2", ["function getReserves() view returns (uint112,uint112,uint32)"], _lpP).getReserves().catch(function(){ return null; }),   // 11 LP reserves
-        new Contract("0xA15214B09a9b3E1c821b94fB97D6D3bcA8201Cd2", ["function token0() view returns (address)"], _lpP).token0().catch(function(){ return null; }),   // 12 LP token0
-    ]);
+      new Contract("0xA15214B09a9b3E1c821b94fB97D6D3bcA8201Cd2", ["function getReserves() view returns (uint112,uint112,uint32)"], p).getReserves().catch(function(){ return null; }),
+        new Contract("0xA15214B09a9b3E1c821b94fB97D6D3bcA8201Cd2", ["function token0() view returns (address)"], p).token0().catch(function(){ return null; }),
+      ]);
 
     // helper: value if fulfilled, else fallback
     const val = (i, d) => (results[i].status === "fulfilled" ? results[i].value : d);
