@@ -1223,6 +1223,7 @@ export default function App() {
             var _osgRes = _osgIsToken0 ? _r0 : _r1;
             var _polRes = _osgIsToken0 ? _r1 : _r0;
             if (_osgRes > 0) osgPerPol = _polRes / _osgRes;
+            console.log("LP_DEBUG", { res: _lpRes, t0: _lpT0, r0: _r0, r1: _r1, osgIsT0: _osgIsToken0, osgPerPol: osgPerPol });
           }
         } catch (e) { osgPerPol = 1; }
     setData({
