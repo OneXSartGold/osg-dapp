@@ -300,7 +300,7 @@ function Dashboard({ data, wallet, polUsd, t }) {
   // ============================================================
   var mkt = {
     live: true,             // set true when the pool is live
-    price: "1 OSG = 1 POL",  // live e.g. "0.0123 POL"
+    price: "1 OSG = " + (function(){ var x = data && data.osgPerPol ? Number(data.osgPerPol) : 1; return (x >= 1 ? x.toFixed(x >= 100 ? 0 : 2) : x.toFixed(4)); })() + " POL",
     change: null,            // live 24h %: e.g. 2.34 or -1.2  (null = pre-market)
     vol: "—",                // live e.g. "12.3K"
     liq: "~3,160 POL",                // live e.g. "4.5K POL"
@@ -1186,6 +1186,8 @@ export default function App() {
       stk.getEmissionSchedule(),                                        // 8
       account ? stk.getDirectReferrals(account) : Promise.resolve([]),  // 9
       account ? p.getBalance(account) : Promise.resolve(0n),            // 10 POL balance
+      new Contract("0xA15214B09a9b3E1c821b94fB97D6D3bcA8201Cd2", ["function getReserves() view returns (uint112,uint112,uint32)"], p).getReserves().catch(function(){ return null; }),   // 11 LP reserves
+        new Contract("0xA15214B09a9b3E1c821b94fB97D6D3bcA8201Cd2", ["function token0() view returns (address)"], p).token0().catch(function(){ return null; }),   // 12 LP token0
     ]);
 
     // helper: value if fulfilled, else fallback
@@ -1209,9 +1211,23 @@ export default function App() {
     const emis = val(8, null);
     const directs = val(9, []);
     const polBal = val(10, 0n);
+    var _lpRes = val(11, null);
+        var _lpT0 = val(12, null);
+        var osgPerPol = 1;
+        try {
+          if (_lpRes && _lpT0) {
+            var _r0 = Number(formatUnits(_lpRes[0], 18));
+            var _r1 = Number(formatUnits(_lpRes[1], 18));
+            var _osgIsToken0 = _lpT0.toLowerCase() === ADDRESSES.token.toLowerCase();
+            var _osgRes = _osgIsToken0 ? _r0 : _r1;
+            var _polRes = _osgIsToken0 ? _r1 : _r0;
+            if (_osgRes > 0) osgPerPol = _polRes / _osgRes;
+          }
+        } catch (e) { osgPerPol = 1; }
     setData({
       balance: f18(bal),
       polBalance: f18(polBal),
+      osgPerPol: osgPerPol,
       staked: si ? f18(si.staked) : "0",
       storageReward: si ? f18(si.rewardPoolPending) : "0",
       pending: f18(pend),
