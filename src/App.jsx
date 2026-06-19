@@ -1113,6 +1113,7 @@ export default function App() {
   const [data, setData] = useState(EMPTY);
   const [busy, setBusy] = useState({});
   const [refParam, setRefParam] = useState(null);
+  const [polUsd, setPolUsd] = useState(0.077);
   const providerRef = useRef(null);
   const t = I18N[lang] || I18N.en;
 
@@ -1121,6 +1122,7 @@ export default function App() {
 
   useEffect(() => { try { const p = new URLSearchParams(window.location.search).get("ref"); if (p && isAddress(p)) setRefParam(p); } catch {} }, []);
   useEffect(() => { document.documentElement.lang = (lang==="zh")?"zh":lang; }, [lang]);
+  useEffect(() => { var go = function(){ fetch("https://api.coingecko.com/api/v3/simple/price?ids=polygon-ecosystem-token&vs_currencies=usd").then(function(r){ return r.json(); }).then(function(d){ var p = d && d["polygon-ecosystem-token"] && d["polygon-ecosystem-token"].usd; if (p > 0) setPolUsd(p); }).catch(function(){}); }; go(); var id = setInterval(go, 60000); return function(){ clearInterval(id); }; }, []);
 
   const readProviderRef = useRef(null);
   const getReadProvider = () => {
