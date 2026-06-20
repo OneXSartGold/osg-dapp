@@ -1137,6 +1137,7 @@ export default function App() {
   const [busy, setBusy] = useState({});
   const [refParam, setRefParam] = useState(null);
   const [polUsd, setPolUsd] = useState(0.077);
+  const [holders, setHolders] = useState(null);
   const providerRef = useRef(null);
   const t = I18N[lang] || I18N.en;
 
