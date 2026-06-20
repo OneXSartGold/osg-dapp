@@ -175,7 +175,7 @@ body{font-family:'Hanken Grotesk',sans-serif;background:${C.bg};color:${C.txt}}
 .logo-img{width:42px;height:42px;border-radius:12px;object-fit:cover;border:1px solid rgba(233,185,73,.25);box-shadow:0 6px 22px -6px rgba(233,185,73,.45)}
 .brand .name{font-family:'Bricolage Grotesque';font-weight:800;font-size:15px;letter-spacing:-.3px}
 .brand .sub{font-size:10px;color:${C.txt3};letter-spacing:1.5px;text-transform:uppercase;margin-top:2px}
-.top-right{display:flex;align-items:center;gap:8px}
+.top-right{display:flex;align-items:center;gap:8px;height:42px;align-self:flex-start}
 .lang{position:relative}
 .lang-btn{display:flex;align-items:center;gap:6px;background:${C.card};border:1px solid ${C.line2};height:42px;padding:0 14px;border-radius:12px;cursor:pointer;font-size:12px;font-weight:600;color:${C.txt};font-family:'Hanken Grotesk'}
 .lang-btn svg{width:14px;height:14px;color:${C.gold2}}
