@@ -1375,7 +1375,7 @@ export default function App() {
         <header className="topbar">
           <div className="brand">
             <img className="logo-img" src={LOGO} alt="OSG"/>
-            <div><div className="name">OneX Smart Gold</div><div className="sub">Polygon · OSG</div></div>
+            <div><div className="name" style={{ fontSize:20, letterSpacing:".5px", background:C.grad, WebkitBackgroundClip:"text", backgroundClip:"text", color:"transparent" }}>OSG</div><div className="sub" style={{ color:C.green, fontSize:8.5, letterSpacing:"2px" }}>ONEX SMART GOLD</div></div>
           </div>
           <div className="top-right">
             <div className="lang">
