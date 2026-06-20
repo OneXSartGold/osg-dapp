@@ -1187,8 +1187,8 @@ export default function App() {
       stk.getEmissionSchedule(),                                        // 8
       account ? stk.getDirectReferrals(account) : Promise.resolve([]),  // 9
       account ? p.getBalance(account) : Promise.resolve(0n),            // 10 POL balance
-      new Contract("0xA15214B09a9b3E1c821b94fB97D6D3bcA8201Cd2", ["function getReserves() view returns (uint112,uint112,uint32)"], p).getReserves().catch(function(){ return null; }),
-        new Contract("0xA15214B09a9b3E1c821b94fB97D6D3bcA8201Cd2", ["function token0() view returns (address)"], p).token0().catch(function(){ return null; }),
+      new Contract("0xA15214B09a9b3E1c821b94fB97D6D3bcA8201Cd2", ["function getReserves() view returns (uint112,uint112,uint32)"], _lpP).getReserves().catch(function(e){ console.warn("getReserves FAIL:", (e && (e.shortMessage || e.message)) || e); return null; }),
+        new Contract("0xA15214B09a9b3E1c821b94fB97D6D3bcA8201Cd2", ["function token0() view returns (address)"], _lpP).token0().catch(function(e){ console.warn("token0 FAIL:", (e && (e.shortMessage || e.message)) || e); return null; }),
       ]);
 
     // helper: value if fulfilled, else fallback
@@ -1223,9 +1223,9 @@ export default function App() {
             var _osgRes = _osgIsToken0 ? _r0 : _r1;
             var _polRes = _osgIsToken0 ? _r1 : _r0;
             if (_osgRes > 0) osgPerPol = _polRes / _osgRes;
-            console.log("LP_DEBUG", { res: _lpRes, t0: _lpT0, r0: _r0, r1: _r1, osgIsT0: _osgIsToken0, osgPerPol: osgPerPol });
-          }
+            }
         } catch (e) { osgPerPol = 1; }
+    console.log("LP_DEBUG", { resNull: !_lpRes, t0Null: !_lpT0, osgPerPol: osgPerPol });
     setData({
       balance: f18(bal),
       polBalance: f18(polBal),
