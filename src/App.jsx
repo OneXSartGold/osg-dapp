@@ -160,7 +160,7 @@ const C = {
 
 const STYLES = `
 @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@500;700&family=Noto+Sans+Devanagari:wght@500;700&display=swap');
-@keyframes osgpulse{0%{box-shadow:0 0 0 0 rgba(70,208,138,.5),0 0 8px rgba(70,208,138,.6)}70%{box-shadow:0 0 0 7px rgba(70,208,138,0),0 0 8px rgba(70,208,138,.6)}100%{box-shadow:0 0 0 0 rgba(70,208,138,0),0 0 8px rgba(70,208,138,.6)}}
+@keyframes osgpulse{0%{box-shadow:0 0 0 0 rgba(70,208,138,.5),0 0 8px rgba(70,208,138,.6)}70%{box-shadow:0 0 0 7px rgba(70,208,138,0),0 0 8px rgba(70,208,138,.6)}100%{box-shadow:0 0 0 0 rgba(70,208,138,0),0 0 8px rgba(70,208,138,.6)}}@keyframes shine{0%{background-position:120% 0}100%{background-position:-120% 0}}
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 body{font-family:'Hanken Grotesk',sans-serif;background:${C.bg};color:${C.txt}}
 :lang(zh){font-family:'Noto Sans SC','Hanken Grotesk',sans-serif}
@@ -1375,7 +1375,7 @@ export default function App() {
         <header className="topbar">
           <div className="brand">
             <img className="logo-img" src={LOGO} alt="OSG"/>
-            <div className="name" style={{ fontSize:15, letterSpacing:".5px", background:C.grad, WebkitBackgroundClip:"text", backgroundClip:"text", color:"transparent" }}>OSG</div>
+            <div className="name" style={{ fontSize:18, letterSpacing:"3.5px", background:"linear-gradient(110deg," + C.gold3 + " 20%," + C.gold1 + " 40%,#fff7e0 50%," + C.gold1 + " 60%," + C.gold3 + " 80%)", backgroundSize:"220% 100%", WebkitBackgroundClip:"text", backgroundClip:"text", color:"transparent", animation:"shine 3.2s linear infinite", filter:"drop-shadow(0 0 10px rgba(233,185,73,.35))" }}>OSG</div><div style={{ fontSize:6.5, letterSpacing:"2.5px", textTransform:"uppercase", color:C.green, fontWeight:600, marginTop:1 }}>OneX Smart Gold</div>
           </div>
           <div className="top-right">
             <div className="lang">
