@@ -160,7 +160,7 @@ const C = {
 
 const STYLES = `
 @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@500;700&family=Noto+Sans+Devanagari:wght@500;700&display=swap');
-@keyframes osgpulse{0%{box-shadow:0 0 0 0 rgba(70,208,138,.5),0 0 8px rgba(70,208,138,.6)}70%{box-shadow:0 0 0 7px rgba(70,208,138,0),0 0 8px rgba(70,208,138,.6)}100%{box-shadow:0 0 0 0 rgba(70,208,138,0),0 0 8px rgba(70,208,138,.6)}}@keyframes shine{0%{background-position:120% 0}100%{background-position:-120% 0}}
+@keyframes osgpulse{0%{box-shadow:0 0 0 0 rgba(70,208,138,.5),0 0 8px rgba(70,208,138,.6)}70%{box-shadow:0 0 0 7px rgba(70,208,138,0),0 0 8px rgba(70,208,138,.6)}100%{box-shadow:0 0 0 0 rgba(70,208,138,0),0 0 8px rgba(70,208,138,.6)}}@keyframes shine{0%{background-position:120% 0}100%{background-position:-120% 0}}@keyframes osgping{0%{transform:scale(.6);opacity:.9}100%{transform:scale(2);opacity:0}}
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 body{font-family:'Hanken Grotesk',sans-serif;background:${C.bg};color:${C.txt}}
 :lang(zh){font-family:'Noto Sans SC','Hanken Grotesk',sans-serif}
