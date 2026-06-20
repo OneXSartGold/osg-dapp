@@ -343,7 +343,7 @@ function Dashboard({ data, wallet, polUsd, t }) {
             <div style={{ display:"flex", alignItems:"flex-end", gap:12, flexWrap:"wrap", marginTop:15 }}>
               <span className="mono" style={{ fontWeight:700, fontSize:32, letterSpacing:"-1px", lineHeight:1, background:"linear-gradient(135deg,#fff," + C.gold1 + " 55%," + C.gold2 + ")", WebkitBackgroundClip:"text", backgroundClip:"text", WebkitTextFillColor:"transparent" }}>{mkt.price}</span>
             </div>
-            <div className="mono" style={{ fontSize:11.5, color:C.txt3, marginTop:8 }}>≈ ${pol.toFixed(4)} per OSG · 1 POL ≈ ${pol.toFixed(4)}</div>
+            <div className="mono" style={{ fontSize:11.5, color:C.txt3, marginTop:8 }}>≈ ${((wallet&&data&&data.osgPerPol?Number(data.osgPerPol):0)*pol).toFixed(4)} per OSG · 1 POL ≈ ${pol.toFixed(4)}</div>
             <div style={{ display:"flex", marginTop:15, borderTop:"1px solid " + C.line, borderBottom:"1px solid " + C.line, padding:"11px 0" }}>
               <div style={{ flex:1 }}><div style={{ fontSize:9, letterSpacing:".4px", textTransform:"uppercase", color:C.txt3, fontWeight:600 }}>Liquidity</div><div className="mono" style={{ fontSize:13.5, color:C.txt, marginTop:4 }}>{mkt.liq}</div></div>
               <div style={{ flex:1, borderLeft:"1px solid " + C.line, paddingLeft:12 }}><div style={{ fontSize:9, letterSpacing:".4px", textTransform:"uppercase", color:C.txt3, fontWeight:600 }}>Pool</div><div className="mono" style={{ fontSize:13.5, color:C.txt, marginTop:4 }}>QuickSwap</div></div>
