@@ -171,7 +171,7 @@ body{font-family:'Hanken Grotesk',sans-serif;background:${C.bg};color:${C.txt}}
 .disp{font-family:'Bricolage Grotesque',sans-serif}
 .mono{font-family:'JetBrains Mono',monospace}
 .topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:rgba(8,8,11,.78);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-bottom:1px solid ${C.line}}
-.brand{display:flex;align-items:center;gap:11px}
+.brand{display:flex;flex-direction:column;align-items:center;gap:5px}
 .logo-img{width:42px;height:42px;border-radius:12px;object-fit:cover;border:1px solid rgba(233,185,73,.25);box-shadow:0 6px 22px -6px rgba(233,185,73,.45)}
 .brand .name{font-family:'Bricolage Grotesque';font-weight:800;font-size:15px;letter-spacing:-.3px}
 .brand .sub{font-size:10px;color:${C.txt3};letter-spacing:1.5px;text-transform:uppercase;margin-top:2px}
@@ -1375,7 +1375,7 @@ export default function App() {
         <header className="topbar">
           <div className="brand">
             <img className="logo-img" src={LOGO} alt="OSG"/>
-            <div><div className="name" style={{ fontSize:20, letterSpacing:".5px", background:C.grad, WebkitBackgroundClip:"text", backgroundClip:"text", color:"transparent" }}>OSG</div><div className="sub" style={{ color:C.green, fontSize:8.5, letterSpacing:"2px" }}>ONEX SMART GOLD</div></div>
+            <div className="name" style={{ fontSize:15, letterSpacing:".5px", background:C.grad, WebkitBackgroundClip:"text", backgroundClip:"text", color:"transparent" }}>OSG</div>
           </div>
           <div className="top-right">
             <div className="lang">
