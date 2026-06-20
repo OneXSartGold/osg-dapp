@@ -303,7 +303,9 @@ function Dashboard({ data, wallet, polUsd, t }) {
     price: "1 OSG = " + (function(){ if(!wallet || !(data && data.osgPerPol)) return "0.00"; var x = Number(data.osgPerPol); return (x >= 1 ? x.toFixed(x >= 100 ? 0 : 2) : x.toFixed(4)); })() + " POL",
     change: null,            // live 24h %: e.g. 2.34 or -1.2  (null = pre-market)
     vol: "—",                // live e.g. "12.3K"
-    liq: "~3,160 POL",                // live e.g. "4.5K POL"
+    liq: "~3,160 POL",
+    priceNum: (function(){ if(!wallet || !(data && data.osgPerPol)) return "0.00"; var x = Number(data.osgPerPol); return (x >= 1 ? x.toFixed(x >= 100 ? 0 : 2) : x.toFixed(4)); })(),
+    holders: "22",
   };
   // ============================================================
   var _ch = mkt.change, _up = typeof _ch === "number" && _ch > 0, _dn = typeof _ch === "number" && _ch < 0;
