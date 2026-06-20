@@ -286,7 +286,7 @@ function Stat({ label, value, sub, accent }) {
 }
 
 // ══════════════ PAGES ══════════════
-function Dashboard({ data, wallet, polUsd, t }) {
+function Dashboard({ data, wallet, polUsd, holders, t }) {
   const [calcUsd, setCalcUsd] = useState("100");
   const [calcOsg, setCalcOsg] = useState("1,298.70");
   const links = [["OSG Token", ADDRESSES.token],["Staking", ADDRESSES.staking],["Reward Pool", ADDRESSES.pool],["Bond", ADDRESSES.bond],["Messenger", ADDRESSES.messenger]];
@@ -305,7 +305,7 @@ function Dashboard({ data, wallet, polUsd, t }) {
     vol: "—",                // live e.g. "12.3K"
     liq: "~3,160 POL",
     priceNum: (function(){ if(!wallet || !(data && data.osgPerPol)) return "0.00"; var x = Number(data.osgPerPol); return (x >= 1 ? x.toFixed(x >= 100 ? 0 : 2) : x.toFixed(4)); })(),
-    holders: "22",
+    holders: (wallet && holders) ? String(holders) : "—",
   };
   // ============================================================
   var _ch = mkt.change, _up = typeof _ch === "number" && _ch > 0, _dn = typeof _ch === "number" && _ch < 0;
