@@ -177,14 +177,14 @@ body{font-family:'Hanken Grotesk',sans-serif;background:${C.bg};color:${C.txt}}
 .brand .sub{font-size:10px;color:${C.txt3};letter-spacing:1.5px;text-transform:uppercase;margin-top:2px}
 .top-right{display:flex;align-items:center;gap:8px}
 .lang{position:relative}
-.lang-btn{display:flex;align-items:center;gap:5px;background:${C.card};border:1px solid ${C.line2};padding:8px 10px;border-radius:99px;cursor:pointer;font-size:12px;font-weight:600;color:${C.txt};font-family:'Hanken Grotesk'}
+.lang-btn{display:flex;align-items:center;gap:6px;background:${C.card};border:1px solid ${C.line2};height:42px;padding:0 14px;border-radius:12px;cursor:pointer;font-size:12px;font-weight:600;color:${C.txt};font-family:'Hanken Grotesk'}
 .lang-btn svg{width:14px;height:14px;color:${C.gold2}}
 .lang-menu{position:absolute;top:44px;right:0;background:${C.card2};border:1px solid ${C.line2};border-radius:14px;padding:6px;min-width:150px;z-index:60;box-shadow:0 18px 40px -12px rgba(0,0,0,.7)}
 .lang-menu button{display:flex;align-items:center;gap:9px;width:100%;background:none;border:none;color:${C.txt2};font-size:13.5px;font-weight:600;padding:10px 11px;border-radius:9px;cursor:pointer;text-align:left;font-family:'Hanken Grotesk'}
 .lang-menu button:hover{background:${C.card};color:${C.txt}}
 .lang-menu button.sel{color:${C.gold1}}
 .net-pill{padding:5px 10px;border-radius:99px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid}
-.wallet-pill{display:flex;align-items:center;gap:7px;background:${C.card};border:1px solid ${C.line2};padding:8px 12px;border-radius:99px;cursor:pointer}
+.wallet-pill{display:flex;align-items:center;gap:7px;background:${C.card};border:1px solid ${C.line2};height:42px;padding:0 14px;border-radius:12px;cursor:pointer}
 .wallet-pill .dot{width:7px;height:7px;border-radius:50%}
 .wallet-pill .addr{font-family:'JetBrains Mono';font-size:11.5px;font-weight:500}
 .btn-gold{width:100%;border:none;cursor:pointer;font-family:'Hanken Grotesk';font-weight:700;font-size:15px;color:#1A1407;background:${C.grad};border-radius:14px;padding:15px;letter-spacing:.2px;transition:.18s;box-shadow:0 10px 30px -10px rgba(233,185,73,.55)}
