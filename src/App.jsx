@@ -369,7 +369,7 @@ function Dashboard({ data, wallet, polUsd, t }) {
                 <div style={{ width:1, height:22, background:C.line2 }}></div>
                 <div style={{ display:"flex", flexDirection:"column", gap:2 }}><span style={{ fontSize:9, letterSpacing:"1px", textTransform:"uppercase", color:C.gold2, fontWeight:700 }}>POL</span><span className="mono" style={{ fontSize:15, fontWeight:600, color:C.txt }}>{wallet ? fmt(data.polBalance) : "—"}</span></div>
               </div>
-              <a href={"https://polygonscan.com/address/0xA15214B09a9b3E1c821b94fB97D6D3bcA8201Cd2"} target="_blank" rel="noreferrer" style={{ color:C.gold2, fontWeight:600, fontSize:13, textDecoration:"none" }}>View pool ↗️</a>
+              <a href={"https://polygonscan.com/address/0xA15214B09a9b3E1c821B94fB97d6d3BcA8201Cd2"} target="_blank" rel="noreferrer" style={{ color:C.gold2, fontWeight:600, fontSize:13, textDecoration:"none" }}>View pool ↗️</a>
             </div>
           </div>
         );
@@ -581,7 +581,7 @@ function Referral({ wallet, data, showToast, t }) {
 }
 
 function Swap({ t }) {
-  var POOL = "0xA15214B09a9b3E1c821b94fB97D6D3bcA8201Cd2";
+  var POOL = "0xA15214B09a9b3E1c821B94fB97d6d3BcA8201Cd2";
   var chartSrc = "https://www.geckoterminal.com/polygon_pos/pools/" + POOL + "?embed=1&info=0&swaps=1&chart_type=price&resolution=15m";
   return (
     <div className="page">
@@ -1187,8 +1187,8 @@ export default function App() {
       stk.getEmissionSchedule(),                                        // 8
       account ? stk.getDirectReferrals(account) : Promise.resolve([]),  // 9
       account ? p.getBalance(account) : Promise.resolve(0n),            // 10 POL balance
-      new Contract("0xA15214B09a9b3E1c821b94fB97D6D3bcA8201Cd2", ["function getReserves() view returns (uint112,uint112,uint32)"], _lpP).getReserves().catch(function(e){ console.warn("getReserves FAIL:", (e && (e.shortMessage || e.message)) || e); return null; }),
-        new Contract("0xA15214B09a9b3E1c821b94fB97D6D3bcA8201Cd2", ["function token0() view returns (address)"], _lpP).token0().catch(function(e){ console.warn("token0 FAIL:", (e && (e.shortMessage || e.message)) || e); return null; }),
+      new Contract("0xA15214B09a9b3E1c821B94fB97d6d3BcA8201Cd2", ["function getReserves() view returns (uint112,uint112,uint32)"], _lpP).getReserves().catch(function(e){ console.warn("getReserves FAIL:", (e && (e.shortMessage || e.message)) || e); return null; }),
+        new Contract("0xA15214B09a9b3E1c821B94fB97d6d3BcA8201Cd2", ["function token0() view returns (address)"], _lpP).token0().catch(function(e){ console.warn("token0 FAIL:", (e && (e.shortMessage || e.message)) || e); return null; }),
       ]);
 
     // helper: value if fulfilled, else fallback
