@@ -1138,6 +1138,7 @@ export default function App() {
   const [refParam, setRefParam] = useState(null);
   const [polUsd, setPolUsd] = useState(0.077);
   const [holders, setHolders] = useState(null);
+  const [chg24, setChg24] = useState(null);
   const providerRef = useRef(null);
   const t = I18N[lang] || I18N.en;
 
@@ -1147,6 +1148,7 @@ export default function App() {
   useEffect(() => { try { const p = new URLSearchParams(window.location.search).get("ref"); if (p && isAddress(p)) setRefParam(p); } catch {} }, []);
   useEffect(() => { document.documentElement.lang = (lang==="zh")?"zh":lang; }, [lang]);
   useEffect(() => { var go = function(){ fetch("https://api.coingecko.com/api/v3/simple/price?ids=polygon-ecosystem-token&vs_currencies=usd").then(function(r){ return r.json(); }).then(function(d){ var p = d && d["polygon-ecosystem-token"] && d["polygon-ecosystem-token"].usd; if (p > 0) setPolUsd(p); }).catch(function(){}); }; go(); var id = setInterval(go, 60000); return function(){ clearInterval(id); }; }, []);
+  useEffect(() => { var go = function(){ fetch("https://api.dexscreener.com/latest/dex/tokens/0xba05176748347944cc26900c821abfebebc57415").then(function(r){ return r.json(); }).then(function(d){ var pr = d && d.pairs && d.pairs[0]; var c = pr && pr.priceChange && pr.priceChange.h24; if (c !== undefined && c !== null) setChg24(Number(c)); }).catch(function(){}); }; go(); var id = setInterval(go, 120000); return function(){ clearInterval(id); }; }, []);
   useEffect(() => { var go = function(){ fetch("https://api.gopluslabs.io/api/v1/token_security/137?contract_addresses=0xba05176748347944cc26900c821abfebebc57415").then(function(r){ return r.json(); }).then(function(d){ var res = d && d.result && d.result["0xba05176748347944cc26900c821abfebebc57415"]; var h = res && res.holder_count; if (h) setHolders(parseInt(h, 10)); }).catch(function(){}); }; go(); var id = setInterval(go, 120000); return function(){ clearInterval(id); }; }, []);
 
   const readProviderRef = useRef(null);
