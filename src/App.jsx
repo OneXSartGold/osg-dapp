@@ -1406,7 +1406,7 @@ export default function App() {
 
         {/* SCREEN */}
         <main className="screen" onClick={()=>setLangOpen(false)}>
-          {tab==="dashboard" && <Dashboard data={data} wallet={wallet} polUsd={polUsd} t={t}/>}
+          {tab==="dashboard" && <Dashboard data={data} wallet={wallet} polUsd={polUsd} holders={holders} t={t}/>}
           {tab==="staking"   && <Staking wallet={wallet} data={data} refParam={refParam} actions={actions} busy={busy} t={t}/>}
           {tab==="referral"  && <Referral wallet={wallet} data={data} showToast={showToast} t={t}/>}
           {tab==="swap"      && <Swap t={t}/>}
