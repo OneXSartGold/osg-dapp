@@ -358,16 +358,16 @@ function Dashboard({ data, wallet, polUsd, t }) {
               <div style={{ textAlign:"center", color:C.txt3, fontSize:13, margin:"5px 0" }}>↓</div>
               <div style={{ fontSize:8.5, letterSpacing:"1px", textTransform:"uppercase", color:C.txt3, fontWeight:600, marginBottom:4 }}>You get (estimate)</div>
               <div style={{ display:"flex", alignItems:"center", gap:6, background:"rgba(70,208,138,.07)", border:"1px solid rgba(70,208,138,.25)", borderRadius:9, padding:"8px 11px" }}>
+                <span className="mono" style={{ fontSize:13, color:C.green, fontWeight:600, opacity:.9 }}>OSG</span>
                 <input className="mono" inputMode="decimal" value={calcOsg} onChange={function(e){ var v = e.target.value.replace(/[^0-9.]/g,""); setCalcOsg(v); setCalcUsd(cfmt((cnum(v)/OSG_PER_POL)*pol)); }} style={{ flex:1, width:"100%", minWidth:0, background:"none", border:"none", outline:"none", color:C.green, fontSize:16, fontWeight:700 }}/>
-                <span style={{ fontSize:10, color:C.green, opacity:.8 }}>OSG</span>
               </div>
               <div style={{ marginTop:8, fontSize:9.5, color:C.txt3, display:"flex", alignItems:"center", gap:6 }}>1 POL ≈ <span className="mono" style={{ color:C.txt2 }}>${pol.toFixed(4)}</span> · {mkt.live ? "live rate" : "est. rate"}</div>
             </div>
             <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginTop:13, paddingTop:12, borderTop:"1px solid " + C.line }}>
               <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-                <div style={{ display:"flex", flexDirection:"column", gap:2 }}><span style={{ fontSize:9, letterSpacing:"1px", textTransform:"uppercase", color:C.gold2, fontWeight:700 }}>OSG</span><span className="mono" style={{ fontSize:15, fontWeight:600, color:C.txt }}>{wallet ? fmt(data.balance) : "—"}</span></div>
+                <div style={{ display:"flex", flexDirection:"column", gap:2 }}><span style={{ fontSize:9, letterSpacing:"1px", textTransform:"uppercase", color:C.gold2, fontWeight:700 }}>OSG</span><span className="mono" style={{ fontSize:15, fontWeight:600, color:C.txt }}>{wallet ? fmt(data.balance) : "0.00"}</span></div>
                 <div style={{ width:1, height:22, background:C.line2 }}></div>
-                <div style={{ display:"flex", flexDirection:"column", gap:2 }}><span style={{ fontSize:9, letterSpacing:"1px", textTransform:"uppercase", color:C.gold2, fontWeight:700 }}>POL</span><span className="mono" style={{ fontSize:15, fontWeight:600, color:C.txt }}>{wallet ? fmt(data.polBalance) : "—"}</span></div>
+                <div style={{ display:"flex", flexDirection:"column", gap:2 }}><span style={{ fontSize:9, letterSpacing:"1px", textTransform:"uppercase", color:C.gold2, fontWeight:700 }}>POL</span><span className="mono" style={{ fontSize:15, fontWeight:600, color:C.txt }}>{wallet ? fmt(data.polBalance) : "0.00"}</span></div>
               </div>
               <a href={"https://polygonscan.com/address/0xA15214B09a9b3E1c821B94fB97d6d3BcA8201Cd2"} target="_blank" rel="noreferrer" style={{ color:C.gold2, fontWeight:600, fontSize:13, textDecoration:"none" }}>View pool ↗️</a>
             </div>
