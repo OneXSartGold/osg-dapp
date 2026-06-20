@@ -1396,7 +1396,7 @@ export default function App() {
            
             {wallet
               ? <div className="wallet-pill"><span className="dot" style={{ background:network?C.green:C.red,boxShadow:network?`0 0 8px ${C.green}`:"none" }}/><span className="addr">{short(wallet)}</span></div>
-              : <button className="btn-gold" onClick={connect} disabled={connecting} style={{ width:"auto",padding:"9px 16px",fontSize:13,borderRadius:99 }}>{connecting?<span className="spin"/>:t.connectWallet}</button>}
+              : <button className="btn-gold" onClick={connect} disabled={connecting} style={{ width:"auto", height:42, padding:"0 20px", fontSize:13.5, borderRadius:12, background:"linear-gradient(135deg,#FCE9B0 0%," + C.gold1 + " 30%," + C.gold2 + " 65%," + C.gold3 + " 100%)", boxShadow:"0 8px 24px -6px rgba(233,185,73,.6), inset 0 1px 0 rgba(255,255,255,.45)" }}>{connecting?<span className="spin"/>:t.connectWallet}</button>}
           </div>
         </header>
 
