@@ -1393,9 +1393,7 @@ export default function App() {
                 </div>
               )}
             </div>
-            {wallet && (network
-              ? <span className="net-pill" style={{ color:C.green,borderColor:"rgba(70,208,138,.33)",background:"rgba(70,208,138,.1)" }}>⬡ Polygon</span>
-              : <span className="net-pill" onClick={switchNetwork} style={{ color:C.red,borderColor:"rgba(242,103,92,.4)",background:"rgba(242,103,92,.1)" }}>⚠ {t.switchNet}</span>)}
+           
             {wallet
               ? <div className="wallet-pill"><span className="dot" style={{ background:network?C.green:C.red,boxShadow:network?`0 0 8px ${C.green}`:"none" }}/><span className="addr">{short(wallet)}</span></div>
               : <button className="btn-gold" onClick={connect} disabled={connecting} style={{ width:"auto",padding:"9px 16px",fontSize:13,borderRadius:99 }}>{connecting?<span className="spin"/>:t.connectWallet}</button>}
