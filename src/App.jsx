@@ -286,7 +286,7 @@ function Stat({ label, value, sub, accent }) {
 }
 
 // ══════════════ PAGES ══════════════
-function Dashboard({ data, wallet, polUsd, holders, t }) {
+function Dashboard({ data, wallet, polUsd, holders, chg24, t }) {
   const [calcUsd, setCalcUsd] = useState("100");
   const [calcOsg, setCalcOsg] = useState("1,298.70");
   const links = [["OSG Token", ADDRESSES.token],["Staking", ADDRESSES.staking],["Reward Pool", ADDRESSES.pool],["Bond", ADDRESSES.bond],["Messenger", ADDRESSES.messenger]];
@@ -301,7 +301,7 @@ function Dashboard({ data, wallet, polUsd, holders, t }) {
   var mkt = {
     live: true,             // set true when the pool is live
     price: "1 OSG = " + (function(){ if(!wallet || !(data && data.osgPerPol)) return "0.00"; var x = Number(data.osgPerPol); return (x >= 1 ? x.toFixed(x >= 100 ? 0 : 2) : x.toFixed(4)); })() + " POL",
-    change: null,            // live 24h %: e.g. 2.34 or -1.2  (null = pre-market)
+    change: (typeof chg24 === "number") ? chg24 : null,            // live 24h %: e.g. 2.34 or -1.2  (null = pre-market)
     vol: "—",                // live e.g. "12.3K"
     liq: "~3,160 POL",
     priceNum: (function(){ if(!wallet || !(data && data.osgPerPol)) return "0.00"; var x = Number(data.osgPerPol); return (x >= 1 ? x.toFixed(x >= 100 ? 0 : 2) : x.toFixed(4)); })(),
@@ -1408,7 +1408,7 @@ export default function App() {
 
         {/* SCREEN */}
         <main className="screen" onClick={()=>setLangOpen(false)}>
-          {tab==="dashboard" && <Dashboard data={data} wallet={wallet} polUsd={polUsd} holders={holders} t={t}/>}
+          {tab==="dashboard" && <Dashboard data={data} wallet={wallet} polUsd={polUsd} holders={holders} chg24={chg24} t={t}/>}
           {tab==="staking"   && <Staking wallet={wallet} data={data} refParam={refParam} actions={actions} busy={busy} t={t}/>}
           {tab==="referral"  && <Referral wallet={wallet} data={data} showToast={showToast} t={t}/>}
           {tab==="swap"      && <Swap t={t}/>}
