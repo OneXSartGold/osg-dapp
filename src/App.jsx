@@ -355,13 +355,13 @@ function Dashboard({ data, wallet, polUsd, holders, chg24, t }) {
               <div style={{ fontSize:8.5, letterSpacing:"1px", textTransform:"uppercase", color:C.txt3, fontWeight:600, marginBottom:4 }}>You spend</div>
               <div style={{ display:"flex", alignItems:"center", gap:6, background:"#000", border:"1px solid " + C.line2, borderRadius:9, padding:"8px 11px" }}>
                 <span className="mono" style={{ color:C.gold2, fontSize:15, fontWeight:600 }}>$</span>
-                <input className="mono" inputMode="decimal" value={calcUsd} onChange={function(e){ var v = e.target.value.replace(/[^0-9.]/g,""); setCalcUsd(v); setCalcOsg(cfmt((cnum(v)/pol)*OSG_PER_POL)); }} style={{ flex:1, width:"100%", minWidth:0, background:"none", border:"none", outline:"none", color:C.txt, fontSize:16, fontWeight:700 }}/>
+                <input className="mono" inputMode="decimal" placeholder="0.00" value={calcUsd} onChange={function(e){ var v = e.target.value.replace(/[^0-9.]/g,""); setCalcUsd(v); setCalcOsg(cfmt((cnum(v)/pol)*OSG_PER_POL)); }} style={{ flex:1, width:"100%", minWidth:0, background:"none", border:"none", outline:"none", color:C.txt, fontSize:16, fontWeight:700 }}/>
               </div>
               <div style={{ textAlign:"center", color:C.txt3, fontSize:13, margin:"5px 0" }}>↓</div>
               <div style={{ fontSize:8.5, letterSpacing:"1px", textTransform:"uppercase", color:C.txt3, fontWeight:600, marginBottom:4 }}>You get (estimate)</div>
               <div style={{ display:"flex", alignItems:"center", gap:6, background:"rgba(70,208,138,.07)", border:"1px solid rgba(70,208,138,.25)", borderRadius:9, padding:"8px 11px" }}>
                 <span className="mono" style={{ fontSize:13, color:C.green, fontWeight:600, opacity:.9 }}>OSG</span>
-                <input className="mono" inputMode="decimal" value={calcOsg} onChange={function(e){ var v = e.target.value.replace(/[^0-9.]/g,""); setCalcOsg(v); setCalcUsd(cfmt((cnum(v)/OSG_PER_POL)*pol)); }} style={{ flex:1, width:"100%", minWidth:0, background:"none", border:"none", outline:"none", color:C.green, fontSize:16, fontWeight:700 }}/>
+                <input className="mono" inputMode="decimal" placeholder="0.00" value={calcOsg} onChange={function(e){ var v = e.target.value.replace(/[^0-9.]/g,""); setCalcOsg(v); setCalcUsd(cfmt((cnum(v)/OSG_PER_POL)*pol)); }} style={{ flex:1, width:"100%", minWidth:0, background:"none", border:"none", outline:"none", color:C.green, fontSize:16, fontWeight:700 }}/>
               </div>
               <div style={{ marginTop:8, fontSize:9.5, color:C.txt3, display:"flex", alignItems:"center", gap:6 }}>1 POL ≈ <span className="mono" style={{ color:C.txt2 }}>${pol.toFixed(4)}</span> · {mkt.live ? "live rate" : "est. rate"}</div>
             </div>
