@@ -328,7 +328,7 @@ function Dashboard({ data, wallet, polUsd, holders, chg24, t }) {
 
       {/* MARKET HERO — balance + market + calculator */}
       {(function(){
-        var OSG_PER_POL = 1;
+        var OSG_PER_POL = (data && Number(data.osgPerPol) > 0) ? (1 / Number(data.osgPerPol)) : 0;
         var pol = (typeof polUsd === "number" && polUsd > 0) ? polUsd : 0.077;
         var cnum = function(s){ var n = parseFloat(String(s).replace(/,/g,"")); return n > 0 ? n : 0; };
         var cfmt = function(n){ return Number(n).toLocaleString("en-US",{ minimumFractionDigits:2, maximumFractionDigits:2 }); };
