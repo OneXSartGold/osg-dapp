@@ -338,7 +338,7 @@ function Dashboard({ data, wallet, polUsd, holders, chg24, t }) {
             <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
               <span style={{ display:"flex", alignItems:"center", gap:9 }}>
                 <span style={{ position:"relative", width:9, height:9, display:"inline-flex" }}><span style={{ position:"absolute", inset:-4, borderRadius:"50%", border:"2px solid " + (mkt.live ? C.green : C.gold2), animation:"osgping 1.6s ease-out infinite" }}></span><span style={{ position:"relative", width:9, height:9, borderRadius:"50%", background: mkt.live ? C.green : C.gold2, boxShadow:"0 0 8px " + (mkt.live ? C.green : C.gold2) }}></span></span>
-                <span className="mono" style={{ fontSize:11.5, fontWeight:600, letterSpacing:".5px", color:C.txt2 }}>OSG / WPOL · QuickSwap V2</span>
+                <span style={{ fontSize:11.5, fontWeight:600, letterSpacing:".5px", color:C.txt2 }}>OSG / WPOL · QuickSwap V2</span>
               </span>
               <span style={{ fontSize:9, fontWeight:700, letterSpacing:".5px", color: mkt.live ? C.green : C.gold1, background: mkt.live ? "rgba(70,208,138,.12)" : "rgba(233,185,73,.12)", border:"1px solid " + (mkt.live ? "rgba(70,208,138,.35)" : "rgba(233,185,73,.3)"), padding:"4px 9px", borderRadius:30 }}>{mkt.live ? "● LIVE" : "PRE-MARKET"}</span>
             </div>
