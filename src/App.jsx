@@ -289,6 +289,7 @@ function Stat({ label, value, sub, accent }) {
 function Dashboard({ data, wallet, polUsd, holders, chg24, t }) {
   const [calcUsd, setCalcUsd] = useState("");
   const [calcOsg, setCalcOsg] = useState("");
+  const [calcUnit, setCalcUnit] = useState("USD");
   const links = [["OSG Token", ADDRESSES.token],["Staking", ADDRESSES.staking],["Reward Pool", ADDRESSES.pool],["Bond", ADDRESSES.bond],["Messenger", ADDRESSES.messenger]];
 
   // ============================================================
