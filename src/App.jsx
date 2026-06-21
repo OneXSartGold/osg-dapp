@@ -287,8 +287,8 @@ function Stat({ label, value, sub, accent }) {
 
 // ══════════════ PAGES ══════════════
 function Dashboard({ data, wallet, polUsd, holders, chg24, t }) {
-  const [calcUsd, setCalcUsd] = useState("100");
-  const [calcOsg, setCalcOsg] = useState("1,298.70");
+  const [calcUsd, setCalcUsd] = useState("");
+  const [calcOsg, setCalcOsg] = useState("");
   const links = [["OSG Token", ADDRESSES.token],["Staking", ADDRESSES.staking],["Reward Pool", ADDRESSES.pool],["Bond", ADDRESSES.bond],["Messenger", ADDRESSES.messenger]];
 
   // ============================================================
