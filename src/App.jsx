@@ -585,7 +585,7 @@ function Referral({ wallet, data, showToast, t }) {
 
 function Swap({ t, data, wallet, polUsd, holders, chg24 }) {
   var POOL = "0xA15214B09a9b3E1c821B94fB97d6d3BcA8201Cd2";   var hasRate = wallet && data && data.osgPerPol;   var osgPol = hasRate ? Number(data.osgPerPol) : 0;   var priceUsd = hasRate ? (osgPol * polUsd) : 0;   var priceUsdStr = hasRate ? ("$" + (priceUsd >= 1 ? priceUsd.toFixed(2) : priceUsd.toFixed(4))) : "$0.00";   var rateStr = hasRate ? ("1 OSG = " + (osgPol >= 1 ? osgPol.toFixed(2) : osgPol.toFixed(4)) + " POL") : "—";   var chgNum = (typeof chg24 === "number") ? chg24 : null;   var chgUp = (chgNum !== null) && chgNum >= 0;   var chgStr = (chgNum !== null) ? ((chgUp ? "+" : "") + chgNum.toFixed(2) + "%") : "—";   var holderStr = (wallet && holders) ? String(holders) : "—";
-  var chartSrc = "https://www.geckoterminal.com/polygon_pos/pools/" + POOL + "?embed=1&info=0&swaps=1&chart_type=price&resolution=15m";
+  var chartSrc = "https://www.geckoterminal.com/polygon_pos/pools/" + POOL + "?embed=1&info=0&swaps=0&grayscale=0&chart_type=price&resolution=15m";
   return (
     <div className="page">
       <div className="page-head"><h1>{t.swap}</h1></div>
@@ -625,7 +625,7 @@ function Swap({ t, data, wallet, polUsd, holders, chg24 }) {
       </div>
 
       <div style={{ position:"relative", overflow:"hidden", borderRadius:16, border:"1px solid rgba(233,185,73,.18)", background:"#0d0c12", marginBottom:10 }}>
-        <iframe title="OSG live chart" src={chartSrc} style={{ width:"100%", height:420, border:"none", display:"block" }} allow="clipboard-write" allowFullScreen></iframe>
+        <iframe title="OSG live chart" src={chartSrc} style={{ width:"100%", height:460, border:"none", display:"block" }} allow="clipboard-write" allowFullScreen></iframe>
       </div>
 
       <div style={{ display:"flex", gap:8, marginBottom:10, flexWrap:"wrap" }}>
