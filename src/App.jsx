@@ -583,8 +583,8 @@ function Referral({ wallet, data, showToast, t }) {
   );
 }
 
-function Swap({ t }) {
-  var POOL = "0xA15214B09a9b3E1c821B94fB97d6d3BcA8201Cd2";
+function Swap({ t, data, wallet, polUsd, holders, chg24 }) {
+  var POOL = "0xA15214B09a9b3E1c821B94fB97d6d3BcA8201Cd2";   var hasRate = wallet && data && data.osgPerPol;   var osgPol = hasRate ? Number(data.osgPerPol) : 0;   var priceUsd = hasRate ? (osgPol * polUsd) : 0;   var priceUsdStr = hasRate ? ("$" + (priceUsd >= 1 ? priceUsd.toFixed(2) : priceUsd.toFixed(4))) : "$0.00";   var rateStr = hasRate ? ("1 OSG = " + (osgPol >= 1 ? osgPol.toFixed(2) : osgPol.toFixed(4)) + " POL") : "—";   var chgNum = (typeof chg24 === "number") ? chg24 : null;   var chgUp = (chgNum !== null) && chgNum >= 0;   var chgStr = (chgNum !== null) ? ((chgUp ? "+" : "") + chgNum.toFixed(2) + "%") : "—";   var holderStr = (wallet && holders) ? String(holders) : "—";
   var chartSrc = "https://www.geckoterminal.com/polygon_pos/pools/" + POOL + "?embed=1&info=0&swaps=1&chart_type=price&resolution=15m";
   return (
     <div className="page">
@@ -600,6 +600,27 @@ function Swap({ t }) {
             </div>
           </div>
           <span style={{ fontSize:9, fontWeight:700, color:C.green, background:"rgba(70,208,138,.12)", border:"1px solid rgba(70,208,138,.35)", padding:"4px 10px", borderRadius:99, letterSpacing:".4px" }}>● LIVE</span>
+        </div>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginTop:14 }}>
+          <div>
+            <div className="mono" style={{ fontSize:30, fontWeight:800, color:C.gold1, lineHeight:1 }}>{priceUsdStr}</div>
+            <div style={{ fontSize:11, color:C.txt3, marginTop:5 }}>{rateStr}</div>
+          </div>
+          <div style={{ fontSize:13, fontWeight:700, color: chgUp ? C.green : C.red }}>{chgStr}</div>
+        </div>
+        <div style={{ display:"flex", gap:8, marginTop:14 }}>
+          <div style={{ flex:1, background:"rgba(255,255,255,.03)", border:"1px solid rgba(255,255,255,.06)", borderRadius:10, padding:"9px 10px" }}>
+            <div style={{ fontSize:9, color:C.txt3, letterSpacing:".4px", textTransform:"uppercase" }}>Holders</div>
+            <div className="mono" style={{ fontSize:14, fontWeight:700, color:"#fff", marginTop:3 }}>{holderStr}</div>
+          </div>
+          <div style={{ flex:1, background:"rgba(255,255,255,.03)", border:"1px solid rgba(255,255,255,.06)", borderRadius:10, padding:"9px 10px" }}>
+            <div style={{ fontSize:9, color:C.txt3, letterSpacing:".4px", textTransform:"uppercase" }}>Network</div>
+            <div className="mono" style={{ fontSize:14, fontWeight:700, color:"#fff", marginTop:3 }}>Polygon</div>
+          </div>
+          <div style={{ flex:1, background:"rgba(255,255,255,.03)", border:"1px solid rgba(255,255,255,.06)", borderRadius:10, padding:"9px 10px" }}>
+            <div style={{ fontSize:9, color:C.txt3, letterSpacing:".4px", textTransform:"uppercase" }}>DEX</div>
+            <div className="mono" style={{ fontSize:14, fontWeight:700, color:"#fff", marginTop:3 }}>QuickSwap</div>
+          </div>
         </div>
       </div>
 
