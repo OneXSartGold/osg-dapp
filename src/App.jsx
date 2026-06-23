@@ -677,11 +677,41 @@ function Swap({ t, data, wallet, polUsd, holders, chg24 }) {
         <a href={"https://polygonscan.com/address/" + POOL} target="_blank" rel="noreferrer" style={{ flex:1, textAlign:"center", fontSize:11, fontWeight:600, color:C.txt2, background:"rgba(255,255,255,.04)", border:"1px solid rgba(255,255,255,.08)", borderRadius:10, padding:"9px 6px", textDecoration:"none", whiteSpace:"nowrap" }}>Pool ↗️</a>
       </div>
 
-      <div className="card" style={{ textAlign:"center", padding:"20px 18px" }}>
-        <div className="disp" style={{ fontSize:17, fontWeight:700, color:C.gold1, marginBottom:6 }}>{t.swapTitle}</div>
-        <div style={{ fontSize:12.5, color:C.txt2, marginBottom:16, lineHeight:1.5 }}>{t.swapDesc}</div>
-        <a href={QUICKSWAP_URL} target="_blank" rel="noreferrer"><button className="btn-gold">{t.openQuickswap} ↗️</button></a>
-        <div className="mono" style={{ fontSize:11, color:C.txt3, marginTop:12 }}>OSG: {short(ADDRESSES.token)}</div>
+      <div className="cert">
+        <span className="cert-frame1"></span><span className="cert-frame2"></span>
+        <span className="cert-corner tl">◆</span><span className="cert-corner tr">◆</span>
+        <span className="cert-corner bl">◆</span><span className="cert-corner br">◆</span>
+        <div className="cert-in">
+          <div className="cert-eyebrow">Certificate of Authenticity</div>
+          <div className="cert-medal"><img src={LOGO} alt="OSG" /><span className="cert-shine"></span></div>
+          <div className="cert-title">OneX Smart Gold</div>
+          <div className="cert-ticker">O S G &nbsp;·&nbsp; P O L Y G O N</div>
+          <div className="cert-rule"><span className="ln"></span><span className="dot">◆</span><span className="ln"></span></div>
+          <div className="cert-fine">
+            <div className="col"><div className="k">Fine Supply</div><div className="v mono" style={{ color:C.gold1 }}>23,000,000</div></div>
+            <div className="vline"></div>
+            <div className="col"><div className="k">Buy / Sell</div><div className="v gr">0.00%</div></div>
+            <div className="vline"></div>
+            <div className="col"><div className="k">Source</div><div className="v gr">Open ✓</div></div>
+          </div>
+          <div className="cert-serial">
+            <div className="k">Serial № · Contract</div>
+            <div className="row">
+              <span className="v">{short(ADDRESSES.token)}</span>
+              <button className="cert-cp" onClick={(e)=>{ navigator.clipboard.writeText(ADDRESSES.token); const b=e.currentTarget; b.textContent="✓ COPIED"; setTimeout(function(){ b.textContent="COPY"; },1300); }}>COPY</button>
+            </div>
+          </div>
+          <div className="cert-issued">Issued 2026 · Hallmarked on-chain <span className="pipe">|</span> <b>Verified on Polygonscan ↗️</b></div>
+          <div className="cert-acts">
+            <button className="cert-mm" onClick={async ()=>{ try { await window.ethereum.request({ method:"wallet_watchAsset", params:{ type:"ERC20", options:{ address:ADDRESSES.token, symbol:"OSG", decimals:18 } } }); } catch(err){} }}>Add OSG to MetaMask</button>
+            <a href={QUICKSWAP_URL} target="_blank" rel="noreferrer" style={{ textDecoration:"none" }}><button className="cert-q" style={{ width:"100%" }}>{t.openQuickswap} ↗️</button></a>
+          </div>
+          <div className="cert-links">
+            <a href={"https://dexscreener.com/polygon/" + POOL} target="_blank" rel="noreferrer">DexScreener</a>
+            <a href={"https://www.geckoterminal.com/polygon_pos/pools/" + POOL} target="_blank" rel="noreferrer">GeckoTerminal</a>
+            <a href={"https://polygonscan.com/address/" + POOL} target="_blank" rel="noreferrer">Pool</a>
+          </div>
+        </div>
       </div>
     </div>
   );
