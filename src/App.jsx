@@ -162,6 +162,49 @@ const STYLES = `
 @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@500;700&family=Noto+Sans+Devanagari:wght@500;700&display=swap');
 @keyframes osgpulse{0%{box-shadow:0 0 0 0 rgba(70,208,138,.5),0 0 8px rgba(70,208,138,.6)}70%{box-shadow:0 0 0 7px rgba(70,208,138,0),0 0 8px rgba(70,208,138,.6)}100%{box-shadow:0 0 0 0 rgba(70,208,138,0),0 0 8px rgba(70,208,138,.6)}}@keyframes shine{0%{background-position:120% 0}100%{background-position:-120% 0}}@keyframes osgping{0%{transform:scale(.6);opacity:.9}100%{transform:scale(2);opacity:0}}
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+/* ===== Assay Certificate ===== */
+.cert{position:relative;border-radius:20px;padding:24px 22px 22px;overflow:hidden;background:repeating-linear-gradient(45deg,rgba(233,185,73,.022) 0 1px,transparent 1px 8px),repeating-linear-gradient(-45deg,rgba(233,185,73,.022) 0 1px,transparent 1px 8px),radial-gradient(130% 80% at 50% -10%,#1d1812 0%,#14110d 45%,#0e0c14 100%);border:1px solid rgba(233,185,73,.30);box-shadow:0 0 0 1px rgba(0,0,0,.7) inset,0 0 60px rgba(233,185,73,.04) inset,0 22px 50px rgba(0,0,0,.5)}
+.cert-frame1,.cert-frame2{position:absolute;border-radius:13px;pointer-events:none}
+.cert-frame1{inset:8px;border:1px solid rgba(233,185,73,.24)}
+.cert-frame2{inset:12px;border:1px solid rgba(233,185,73,.10)}
+.cert-corner{position:absolute;color:${C.gold3};font-size:9px;opacity:.7;z-index:2}
+.cert-corner.tl{top:14px;left:16px}.cert-corner.tr{top:14px;right:16px}.cert-corner.bl{bottom:14px;left:16px}.cert-corner.br{bottom:14px;right:16px}
+.cert-in{position:relative;z-index:1}
+.cert-eyebrow{text-align:center;font-size:9px;letter-spacing:3.5px;text-transform:uppercase;color:${C.gold3};font-weight:700}
+.cert-medal{margin:13px auto 0;width:104px;height:104px;position:relative;display:flex;align-items:center;justify-content:center}
+.cert-medal::before{content:"";position:absolute;inset:-6px;border-radius:50%;z-index:0;background:radial-gradient(circle,rgba(233,185,73,.30) 0%,rgba(233,185,73,.08) 45%,transparent 72%)}
+.cert-medal img{width:104px;height:104px;object-fit:contain;position:relative;z-index:1;filter:drop-shadow(0 6px 14px rgba(0,0,0,.55))}
+.cert-shine{position:absolute;inset:0;border-radius:50%;overflow:hidden;z-index:2;pointer-events:none}
+.cert-shine::after{content:"";position:absolute;top:-60%;left:-30%;width:40%;height:220%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.30),transparent);transform:rotate(18deg);animation:certsweep 4.5s ease-in-out infinite}
+@keyframes certsweep{0%,72%{left:-40%}86%,100%{left:130%}}
+.cert-title{text-align:center;font-family:'Bricolage Grotesque';font-size:23px;font-weight:800;margin-top:13px;letter-spacing:.2px;background:${C.grad};-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.cert-ticker{text-align:center;font-size:10px;letter-spacing:5px;color:${C.txt3};margin-top:4px;font-weight:600}
+.cert-rule{display:flex;align-items:center;gap:10px;margin:18px 4px}
+.cert-rule .ln{flex:1;height:1px;background:linear-gradient(90deg,transparent,rgba(233,185,73,.32),transparent)}
+.cert-rule .dot{color:${C.gold3};font-size:8px}
+.cert-fine{display:flex;align-items:stretch;margin:2px 0 4px}
+.cert-fine .col{flex:1;text-align:center;padding:2px 4px}
+.cert-fine .k{font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:${C.txt3};font-weight:700}
+.cert-fine .v{font-size:15px;font-weight:700;margin-top:6px}
+.cert-fine .v.gr{color:${C.green}}
+.cert-fine .vline{width:1px;background:linear-gradient(180deg,transparent,rgba(233,185,73,.22),transparent)}
+.cert-serial{margin:16px 0 0;text-align:center}
+.cert-serial .k{font-size:8px;letter-spacing:2.5px;text-transform:uppercase;color:${C.txt3};margin-bottom:8px}
+.cert-serial .row{display:inline-flex;align-items:center;gap:11px;background:linear-gradient(180deg,rgba(0,0,0,.45),rgba(0,0,0,.25));border:1px solid rgba(233,185,73,.22);border-radius:10px;padding:9px 9px 9px 14px}
+.cert-serial .v{font-family:'JetBrains Mono';font-size:13px;color:${C.gold1};letter-spacing:.5px}
+.cert-cp{font-size:9px;font-weight:800;letter-spacing:.5px;color:#2a1d04;border:none;cursor:pointer;border-radius:7px;padding:6px 11px;background:linear-gradient(180deg,#FCEAB0,${C.gold2});box-shadow:0 1px 0 rgba(255,255,255,.5) inset}
+.cert-issued{text-align:center;font-size:9.5px;color:${C.txt3};margin-top:11px;letter-spacing:.4px}
+.cert-issued b{color:${C.green};font-weight:700}
+.cert-issued .pipe{color:rgba(233,185,73,.3);margin:0 7px}
+.cert-acts{display:flex;flex-direction:column;gap:9px;margin-top:18px}
+.cert-mm{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;background:linear-gradient(180deg,#23232e,#181820);border:1px solid rgba(255,255,255,.12);color:${C.txt};font-weight:700;font-size:13.5px;padding:13px;border-radius:12px;cursor:pointer}
+.cert-mm:hover{filter:brightness(1.15)}
+.cert-q{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:none;cursor:pointer;font-weight:800;font-size:15px;padding:14px;border-radius:12px;color:#2a1d04;background:linear-gradient(180deg,#FCEAB0,#E9B949 55%,#C4912E);box-shadow:0 1px 0 rgba(255,255,255,.45) inset,0 -2px 7px rgba(120,80,10,.4) inset,0 7px 20px rgba(201,145,46,.3)}
+.cert-q:hover{filter:brightness(1.06)}
+.cert-mm svg,.cert-q svg{width:18px;height:18px;flex:none}
+.cert-links{display:flex;gap:7px;margin-top:13px}
+.cert-links a{flex:1;text-align:center;font-size:10.5px;font-weight:600;color:${C.gold1};text-decoration:none;border:1px solid rgba(233,185,73,.20);border-radius:9px;padding:9px 4px;background:rgba(233,185,73,.04)}
+.cert-links a:hover{background:rgba(233,185,73,.10)}
 body{font-family:'Hanken Grotesk',sans-serif;background:${C.bg};color:${C.txt}}
 :lang(zh){font-family:'Noto Sans SC','Hanken Grotesk',sans-serif}
 .osg-app{position:relative;width:100%;max-width:460px;margin:0 auto;min-height:100dvh;
