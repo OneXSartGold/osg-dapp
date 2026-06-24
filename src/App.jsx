@@ -1304,6 +1304,45 @@ const EMPTY = {
   claim:{ canClaim:false, amount:"0", total:"0", reason:"" },
 };
 
+function OSGScan({ wallet, data, holders, polUsd, chg24, t }) {
+  const spark = () => [4,7,5,9,7,12,9,13,10,15].map((h,i)=>(
+    <i key={i} style={{ height:h+"px" }}/>
+  ));
+  return (
+    <div className="scan">
+
+      {/* header */}
+      <div className="scan-head">
+        <img src={LOGO} alt="OSG"/>
+        <div>
+          <div className="scan-eyebrow">On-chain Transparency</div>
+          <div className="scan-h1">OSGScan</div>
+          <div className="scan-sub"><span className="scan-dot"/> Live · Polygon Mainnet</div>
+        </div>
+      </div>
+
+      {/* live trio */}
+      <div className="scan-trio">
+        <div className="scan-stat">
+          <div className="k">Holders</div>
+          <div className="v g">{holders!=null && holders!=="" ? holders : "—"}</div>
+          <div className="scan-spark">{spark()}</div>
+        </div>
+        <div className="scan-stat">
+          <div className="k">Market Cap</div>
+          <div className="v">—</div>
+          <div className="scan-spark">{spark()}</div>
+        </div>
+        <div className="scan-stat">
+          <div className="k">Liquidity</div>
+          <div className="v">—</div>
+          <div className="scan-spark">{spark()}</div>
+        </div>
+      </div>
+
+    </div>
+  );
+}
 export default function App() {
   const [lang, setLang] = useState("en");
   const [langOpen, setLangOpen] = useState(false);
@@ -1591,7 +1630,7 @@ export default function App() {
           {tab==="staking"   && <Staking wallet={wallet} data={data} refParam={refParam} actions={actions} busy={busy} t={t}/>}
           {tab==="referral"  && <Referral wallet={wallet} data={data} showToast={showToast} t={t}/>}
           {tab==="swap"      && <Swap t={t} data={data} wallet={wallet} polUsd={polUsd} holders={holders} chg24={chg24}/>}
-          {tab==="messenger" && <Messenger wallet={wallet} network={network} getProvider={getProvider} ensureReady={ensureReady} showToast={showToast} t={t}/>}{tab==="osgscan" && <div style={{ padding:"64px 18px", textAlign:"center", color:C.txt2, fontSize:14 }}>OSGScan — building next 🛠️</div>}
+          {tab==="messenger" && <Messenger wallet={wallet} network={network} getProvider={getProvider} ensureReady={ensureReady} showToast={showToast} t={t}/>}{tab==="osgscan" && <OSGScan wallet={wallet} data={data} holders={holders} polUsd={polUsd} chg24={chg24} t={t}/>}
           {!wallet && <div style={{ textAlign:"center",marginTop:20,fontSize:13,color:C.txt3 }}>👆 {t.connectSee}</div>}
         </main>
 
