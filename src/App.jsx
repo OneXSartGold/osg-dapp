@@ -671,11 +671,7 @@ function Swap({ t, data, wallet, polUsd, holders, chg24 }) {
         <iframe title="OSG live chart" src={chartSrc} style={{ width:"100%", height:460, border:"none", display:"block" }} allow="clipboard-write" allowFullScreen></iframe>
       </div>
 
-      <div style={{ display:"flex", gap:8, marginBottom:10, flexWrap:"wrap" }}>
-        <a href={"https://dexscreener.com/polygon/" + POOL} target="_blank" rel="noreferrer" style={{ flex:1, textAlign:"center", fontSize:11, fontWeight:600, color:C.txt2, background:"rgba(255,255,255,.04)", border:"1px solid rgba(255,255,255,.08)", borderRadius:10, padding:"9px 6px", textDecoration:"none", whiteSpace:"nowrap" }}>DexScreener ↗️</a>
-        <a href={"https://www.geckoterminal.com/polygon_pos/pools/" + POOL} target="_blank" rel="noreferrer" style={{ flex:1, textAlign:"center", fontSize:11, fontWeight:600, color:C.txt2, background:"rgba(255,255,255,.04)", border:"1px solid rgba(255,255,255,.08)", borderRadius:10, padding:"9px 6px", textDecoration:"none", whiteSpace:"nowrap" }}>GeckoTerminal ↗️</a>
-        <a href={"https://polygonscan.com/address/" + POOL} target="_blank" rel="noreferrer" style={{ flex:1, textAlign:"center", fontSize:11, fontWeight:600, color:C.txt2, background:"rgba(255,255,255,.04)", border:"1px solid rgba(255,255,255,.08)", borderRadius:10, padding:"9px 6px", textDecoration:"none", whiteSpace:"nowrap" }}>Pool ↗️</a>
-      </div>
+      
 
       <div className="cert">
         <span className="cert-frame1"></span><span className="cert-frame2"></span>
