@@ -1308,6 +1308,33 @@ function OSGScan({ wallet, data, holders, polUsd, chg24, t }) {
   const spark = () => [4,7,5,9,7,12,9,13,10,15].map((h,i)=>(
     <i key={i} style={{ height:h+"px" }}/>
   ));
+  const [scanData, setScanData] = useState({ price:null, liq:null, circ:null });
+  useEffect(function(){
+    var alive = true;
+    function load(){
+      fetch("https://api.dexscreener.com/latest/dex/tokens/0xba05176748347944cc26900c821abfebebc57415")
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+          if (!alive) return;
+          var pr = d && d.pairs && d.pairs[0];
+          var price = pr && pr.priceUsd ? Number(pr.priceUsd) : null;
+          var liq = pr && pr.liquidity && pr.liquidity.usd != null ? Number(pr.liquidity.usd) : null;
+          setScanData(function(s){ return Object.assign({}, s, { price:price, liq:liq }); });
+        }).catch(function(){});
+      try {
+        var p = new JsonRpcProvider(RPC_URLS[0], 137);
+        new Contract(ADDRESSES.token, ["function totalSupply() view returns (uint256)"], p)
+          .totalSupply()
+          .then(function(ts){ if (alive) setScanData(function(s){ return Object.assign({}, s, { circ:Number(f18(ts)) }); }); })
+          .catch(function(){});
+      } catch (e) {}
+    }
+    load();
+    var id = setInterval(load, 120000);
+    return function(){ alive = false; clearInterval(id); };
+  }, []);
+  var mcap = (scanData.price != null && scanData.circ != null) ? scanData.price * scanData.circ : null;
+  var cUsd = function(n){ if (n == null) return "—"; if (n >= 1e9) return "$" + (n/1e9).toFixed(2) + "B"; if (n >= 1e6) return "$" + (n/1e6).toFixed(2) + "M"; if (n >= 1e3) return "$" + (n/1e3).toFixed(2) + "K"; return "$" + n.toFixed(2); };
   return (
     <div className="scan">
 
@@ -1330,12 +1357,12 @@ function OSGScan({ wallet, data, holders, polUsd, chg24, t }) {
         </div>
         <div className="scan-stat">
           <div className="k">Market Cap</div>
-          <div className="v">—</div>
+          <div className="v">{cUsd(mcap)}</div>
           <div className="scan-spark">{spark()}</div>
         </div>
         <div className="scan-stat">
           <div className="k">Liquidity</div>
-          <div className="v">—</div>
+          <div className="v">{cUsd(scanData.liq)}</div>
           <div className="scan-spark">{spark()}</div>
         </div>
       </div>
