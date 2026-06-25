@@ -1373,16 +1373,16 @@ function OSGScan({ wallet, data, holders, polUsd, chg24, t }) {
           <div className="tag">Max · 23,000,000</div>
         </div>
         <div className="scan-supwrap">
-          <div className="scan-big">—</div>
-          <div className="scan-supmeta">Circulating<br/>— % of max</div>
+          <div className="scan-big">{scanData.circ != null ? fmt(scanData.circ, 0) : "—"}</div>
+          <div className="scan-supmeta">Circulating<br/>{scanData.circ != null ? (scanData.circ/23000000*100).toFixed(2) : "—"} % of max</div>
         </div>
         <div className="scan-bar">
-          <div className="circ" style={{ width:"0%" }}/>
+          <div className="circ" style={{ width: (scanData.circ != null ? (scanData.circ/23000000*100).toFixed(2) : 0) + "%" }}/>
           <div className="burn" style={{ width:"0%" }}/>
         </div>
         <div className="scan-legend">
-          <div className="scan-sg"><i style={{ background:C.gold2 }}/>Circulating<div className="n">—</div></div>
-          <div className="scan-sg"><i style={{ background:C.red }}/>Burned<div className="n">—</div></div>
+          <div className="scan-sg"><i style={{ background:C.gold2 }}/>Circulating<div className="n">{scanData.circ != null ? fmt(scanData.circ, 0) : "—"}</div></div>
+          <div className="scan-sg"><i style={{ background:C.red }}/>Burned<div className="n">0</div></div>
         </div>
       </div>
       {/* wallet check (static — live handler तुकडा 5) */}
