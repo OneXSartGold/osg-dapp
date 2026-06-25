@@ -1399,6 +1399,45 @@ function OSGScan({ wallet, data, holders, polUsd, chg24, t }) {
           );
         })}
       </div>
+      {/* token facts */}
+      <div className="scan-card">
+        <div className="scan-ctitle">
+          <div className="t">Token Facts</div>
+          <div className="tag">ERC-20</div>
+        </div>
+        {[
+          ["Network", "Polygon · 137"],
+          ["Decimals", "18"],
+          ["Buy / Sell Tax", "0% / 0%"],
+          ["Honeypot", "No"],
+          ["Hourly Mint Cap", "500 OSG"],
+          ["Max Supply", "23,000,000"],
+        ].map(function(f){
+          return (
+            <div className="scan-row" key={f[0]}>
+              <div className="lbl">{f[0]}</div>
+              <div className="addr">{f[1]}</div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* explore links */}
+      <div className="scan-card">
+        <div className="scan-ctitle">
+          <div className="t">Explore</div>
+          <div className="tag">Links</div>
+        </div>
+        <div className="scan-links">
+          <a href={"https://dexscreener.com/polygon/0xA15214B09a9b3E1c821B94fB97d6d3BcA8201Cd2"} target="_blank" rel="noreferrer">DexScreener</a>
+          <a href={"https://www.geckoterminal.com/polygon_pos/pools/0xA15214B09a9b3E1c821B94fB97d6d3BcA8201Cd2"} target="_blank" rel="noreferrer">GeckoTerminal</a>
+          <a href={"https://polygonscan.com/token/"+ADDRESSES.token} target="_blank" rel="noreferrer">Polygonscan</a>
+          <a href={"https://onexsartgold.github.io/osg-whitepaper/"} target="_blank" rel="noreferrer">Whitepaper</a>
+        </div>
+      </div>
+
+      {/* BUDS footer */}
+      <div className="scan-foot">OSG does not promise returns. Do your own research (DYOR).</div>
 
     </div>
   );
