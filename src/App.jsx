@@ -1358,6 +1358,47 @@ function OSGScan({ wallet, data, holders, polUsd, chg24, t }) {
           <div className="scan-sg"><i style={{ background:C.red }}/>Burned<div className="n">—</div></div>
         </div>
       </div>
+      {/* wallet check (static — live handler तुकडा 5) */}
+      <div className="scan-card">
+        <div className="scan-ctitle">
+          <div className="t">Wallet Check</div>
+          <div className="tag">balanceOf</div>
+        </div>
+        <div className="scan-inpwrap">
+          <input className="scan-inp" placeholder="0x… paste any address"/>
+          <button className="scan-btn">Check</button>
+        </div>
+        <div className="scan-note">Read-only · कोणत्याही wallet चा OSG balance on-chain बघा</div>
+      </div>
+
+      {/* verified contracts ledger */}
+      <div className="scan-card">
+        <div className="scan-ctitle">
+          <div className="t">Verified Contracts</div>
+          <div className="tag">8 · Polygon</div>
+        </div>
+        {[
+          ["OSG Token", ADDRESSES.token],
+          ["Staking", ADDRESSES.staking],
+          ["Reward Pool", ADDRESSES.pool],
+          ["Reward Storage", ADDRESSES.rewardStorage],
+          ["TimelockDAO", ADDRESSES.timelock],
+          ["Bond", ADDRESSES.bond],
+          ["Messenger", ADDRESSES.messenger],
+          ["Media Storage", ADDRESSES.mediaStorage],
+        ].map(function(row){
+          return (
+            <div className="scan-row" key={row[1]}>
+              <div className="lbl">{row[0]}</div>
+              <div className="addr">{short(row[1])}</div>
+              <div className="acts">
+                <div className="scan-ic" onClick={(e)=>{ navigator.clipboard.writeText(row[1]); const b=e.currentTarget; const o=b.textContent; b.textContent="✓"; setTimeout(function(){ b.textContent=o; },1200); }}>⧉</div>
+                <a className="scan-ic" style={{ textDecoration:"none" }} href={"https://polygonscan.com/address/"+row[1]} target="_blank" rel="noreferrer">↗️</a>
+              </div>
+            </div>
+          );
+        })}
+      </div>
 
     </div>
   );
