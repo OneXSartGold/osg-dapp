@@ -1339,6 +1339,25 @@ function OSGScan({ wallet, data, holders, polUsd, chg24, t }) {
           <div className="scan-spark">{spark()}</div>
         </div>
       </div>
+      {/* supply */}
+      <div className="scan-card">
+        <div className="scan-ctitle">
+          <div className="t">Supply</div>
+          <div className="tag">Max · 23,000,000</div>
+        </div>
+        <div className="scan-supwrap">
+          <div className="scan-big">—</div>
+          <div className="scan-supmeta">Circulating<br/>— % of max</div>
+        </div>
+        <div className="scan-bar">
+          <div className="circ" style={{ width:"0%" }}/>
+          <div className="burn" style={{ width:"0%" }}/>
+        </div>
+        <div className="scan-legend">
+          <div className="scan-sg"><i style={{ background:C.gold2 }}/>Circulating<div className="n">—</div></div>
+          <div className="scan-sg"><i style={{ background:C.red }}/>Burned<div className="n">—</div></div>
+        </div>
+      </div>
 
     </div>
   );
