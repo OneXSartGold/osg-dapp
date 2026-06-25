@@ -1335,6 +1335,20 @@ function OSGScan({ wallet, data, holders, polUsd, chg24, t }) {
   }, []);
   var mcap = (scanData.price != null && scanData.circ != null) ? scanData.price * scanData.circ : null;
   var cUsd = function(n){ if (n == null) return "—"; if (n >= 1e9) return "$" + (n/1e9).toFixed(2) + "B"; if (n >= 1e6) return "$" + (n/1e6).toFixed(2) + "M"; if (n >= 1e3) return "$" + (n/1e3).toFixed(2) + "K"; return "$" + n.toFixed(2); };
+  const [wcInput, setWcInput] = useState("");
+  const [wcBusy, setWcBusy] = useState(false);
+  const [wcRes, setWcRes] = useState(null);
+  function wcCheck(){
+    var a = (wcInput || "").trim();
+    if (!isAddress(a)) { setWcRes({ ok:false }); return; }
+    setWcBusy(true); setWcRes(null);
+    var p = new JsonRpcProvider(RPC_URLS[0], 137);
+    new Contract(ADDRESSES.token, ["function balanceOf(address) view returns (uint256)"], p)
+      .balanceOf(a)
+      .then(function(bal){ setWcRes({ ok:true, addr:a, bal:Number(f18(bal)) }); })
+      .catch(function(){ setWcRes({ ok:false }); })
+      .finally(function(){ setWcBusy(false); });
+  }
   return (
     <div className="scan">
 
@@ -1385,17 +1399,39 @@ function OSGScan({ wallet, data, holders, polUsd, chg24, t }) {
           <div className="scan-sg"><i style={{ background:C.red }}/>Burned<div className="n">0</div></div>
         </div>
       </div>
-      {/* wallet check (static — live handler तुकडा 5) */}
+      {/* wallet check — live balanceOf */}
       <div className="scan-card">
         <div className="scan-ctitle">
           <div className="t">Wallet Check</div>
           <div className="tag">balanceOf</div>
         </div>
         <div className="scan-inpwrap">
-          <input className="scan-inp" placeholder="0x… paste any address"/>
-          <button className="scan-btn">Check</button>
+          <input className="scan-inp" placeholder="0x… paste any address" value={wcInput} onChange={function(e){ setWcInput(e.target.value); }}/>
+          {wcInput ? <button onClick={function(){ setWcInput(""); setWcRes(null); }} style={{ border:"none", cursor:"pointer", borderRadius:10, padding:"0 13px", fontSize:17, color:C.txt2, background:"#0e0e16" }}>×</button> : null}
+          <button className="scan-btn" onClick={wcCheck} disabled={wcBusy}>{wcBusy ? "…" : "Check"}</button>
         </div>
-        <div className="scan-note">Read-only · कोणत्याही wallet चा OSG balance on-chain बघा</div>
+        {wcRes ? (wcRes.ok ? (
+          <div className="scan-res">
+            <div className="top">
+              <div className="a">{short(wcRes.addr)}</div>
+              <div className="scan-pill">VALID</div>
+            </div>
+            <div className="grid">
+              <div className="cell">
+                <div className="k">OSG Balance</div>
+                <div className="v gold">{fmt(wcRes.bal, 2)}</div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="scan-res">
+            <div className="top">
+              <div className="a">Invalid address</div>
+              <div className="scan-pill" style={{ color:C.red, background:"rgba(242,103,92,.12)", borderColor:"rgba(242,103,92,.3)" }}>ERROR</div>
+            </div>
+          </div>
+        )) : null}
+        <div className="scan-note">Read-only · check any wallet's OSG balance on-chain</div>
       </div>
 
       {/* verified contracts ledger */}
