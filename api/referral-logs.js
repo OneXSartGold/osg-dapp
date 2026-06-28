@@ -34,14 +34,25 @@ export default async function handler(req, res) {
   }
 
   const key = process.env.POLYGONSCAN_KEY || "";
+  if (!key) {
+    return res.status(200).json({
+      ok: false,
+      error: "No API key set (POLYGONSCAN_KEY)",
+      referrers: [],
+    });
+  }
+
+  // Etherscan V2 unified endpoint — Polygon = chainid 137.
+  // (Old api.polygonscan.com endpoint is retired; V2 needs a key.)
   const base =
-    "https://api.polygonscan.com/api" +
-    "?module=logs&action=getLogs" +
+    "https://api.etherscan.io/v2/api" +
+    "?chainid=137" +
+    "&module=logs&action=getLogs" +
     "&address=" + STAKING +
     "&topic0=" + topic0 +
     "&fromBlock=" + FROM_BLOCK +
     "&toBlock=latest" +
-    (key ? "&apikey=" + key : "");
+    "&apikey=" + key;
 
   try {
     const r = await getWithTimeout(base, 12000);
