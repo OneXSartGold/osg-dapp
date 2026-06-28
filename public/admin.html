@@ -231,6 +231,7 @@ const CHAIN_ID     = 137n;
 // Known referrer(s) — always shown even if the event scan is thin.
 // New referrers are discovered automatically via the Polygonscan API.
 const SEED_REFERRERS = [
+  "0x9DEc921E00f8F866fF2719D2c28ED3489Deb8386",
   "0xd249Baa59DA62a3212EAB038533C647d4f20b99B",
 ];
 const RPCS = [
@@ -461,22 +462,23 @@ async function scanReferrers(p,staking,dist){
   reconcile();
 }
 
-/* Reconcile: sum(owed) should equal totalPendingReferral - already-distributed-still-claimable.
-   We compare sum(pending) to totalPendingReferral as a coverage check. */
+/* Reconcile: compare the sum of pending across listed referrers to the
+   contract's totalPendingReferral. If they match, the list is complete.
+   If not, some referrers aren't in the list yet — use Manual lookup to pay them. */
 function reconcile(){
   if(!referrers.length || window._totPend===undefined) return;
   let sumPending=0n; for(const r of referrers) sumPending+=r.pending;
   const tot=window._totPend;
   const rec=E("recon"); rec.classList.remove("hidden");
-  // allow tiny rounding; compare formatted
   const a=parseFloat(ethers.formatUnits(sumPending,18));
   const b=parseFloat(ethers.formatUnits(tot,18));
   if(Math.abs(a-b) < Math.max(1, b*0.005)){
     rec.className="recon ok";
-    rec.innerHTML="✓ Reconciled — scanned referrers cover the full pending referral total ("+f18(tot)+" OSG). No one is missing.";
+    rec.innerHTML="✓ Complete — the listed referrers cover the full pending referral total ("+f18(tot)+" OSG). No one is missing.";
   }else{
+    const missing = b - a;
     rec.className="recon bad";
-    rec.innerHTML="⚠️ Mismatch — scanned pending = <b>"+f18(sumPending)+"</b> OSG but contract totalPendingReferral = <b>"+f18(tot)+"</b> OSG. The event scan may be incomplete (RPC range limit). Refresh, or widen the scan range before paying.";
+    rec.innerHTML="⚠️ Partial list — listed referrers' pending = <b>"+f18(sumPending)+"</b> OSG, but the contract holds <b>"+f18(tot)+"</b> OSG pending. About <b>"+missing.toLocaleString(undefined,{maximumFractionDigits:2})+" OSG</b> belongs to referrers not in this list yet. Pay the listed ones here; use <b>Manual lookup</b> below for any address not shown.";
   }
 }
 
