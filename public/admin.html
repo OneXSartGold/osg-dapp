@@ -224,9 +224,15 @@ const ADDR = {
   distributor: "0x4f1eFf6Fc4A0271096dD78B6F6284D4c9f1904F1",
   owner:       "0xF8acaA5617DfF6DB3d0cb44ca8de0E50A449BB83", // OSG-MAIN
 };
-const DEPLOY_BLOCK = 89256272;     // distributor / referral scan start
-const SCAN_FROM    = 80000000;     // staking events likely after this; safe lower bound
+const DEPLOY_BLOCK = 89256272;     // distributor deploy
+const SCAN_FROM    = 88000000;     // staking went live early June; tighter range = faster
 const CHAIN_ID     = 137n;
+
+// Known referrer(s) — always shown even if the event scan is thin.
+// New referrers are discovered automatically via the Polygonscan API.
+const SEED_REFERRERS = [
+  "0xd249Baa59DA62a3212EAB038533C647d4f20b99B",
+];
 const RPCS = [
   "https://polygon-bor-rpc.publicnode.com",
   "https://rpc.ankr.com/polygon",
@@ -376,48 +382,63 @@ async function loadHealth(dist){
   }catch(e){ logLine("health read failed: "+e.message,"warn"); }
 }
 
-/* Scan ReferralAccrued logs → unique referrers → owed/paid/pending each */
+/* Collect referrer addresses, then read owed/paid/pending for each.
+   Strategy order:
+     1) Polygonscan free log API (handles full range server-side, no key)
+     2) RPC getLogs in small chunks (bonus if the public RPC allows it)
+     3) SEED list of already-known referrers (always included)
+   Any address that produces owed/pending > 0 is shown even if the scan was thin. */
 async function scanReferrers(p,staking,dist){
-  E("sRefsSub").textContent="scanning events…";
-  logLine("Scanning ReferralAccrued events…");
-  const latest=await p.getBlockNumber();
+  E("sRefsSub").textContent="scanning…";
   const topic=ethers.id("ReferralAccrued(address,address,uint256,uint8)");
-  const STEP=200000;            // block chunk per getLogs (RPC-safe)
   const set=new Set();
-  let from=SCAN_FROM, scanned=0, chunks=0;
 
-  while(from<=latest){
-    const to=Math.min(from+STEP-1, latest);
-    try{
-      const logs=await p.getLogs({
-        address:ADDR.staking, fromBlock:from, toBlock:to,
-        topics:[topic]   // topic[1]=referrer(indexed)
-      });
-      for(const lg of logs){
-        // referrer is first indexed param → topics[1]
-        const ref="0x"+lg.topics[1].slice(26);
-        set.add(ethers.getAddress(ref));
+  // always include known referrers so the list is never empty
+  for(const a of SEED_REFERRERS){ try{ set.add(ethers.getAddress(a)); }catch(_){ } }
+
+  // ── 1) Polygonscan free API ──
+  let gotApi=false;
+  try{
+    logLine("Fetching referral events via Polygonscan API…");
+    const url="https://api.polygonscan.com/api?module=logs&action=getLogs"
+      +"&address="+ADDR.staking
+      +"&topic0="+topic
+      +"&fromBlock="+SCAN_FROM+"&toBlock=latest";
+    const r=await fetch(url);
+    const j=await r.json();
+    if(j && j.status==="1" && Array.isArray(j.result)){
+      for(const lg of j.result){
+        if(lg.topics && lg.topics[1]) set.add(ethers.getAddress("0x"+lg.topics[1].slice(26)));
       }
-      scanned+=logs.length; chunks++;
-    }catch(e){
-      logLine("chunk "+from+"-"+to+" failed, retry smaller","warn");
-      // retry this range at smaller step
-      const SMALL=40000;
-      for(let f2=from; f2<=to; f2+=SMALL){
-        const t2=Math.min(f2+SMALL-1,to);
-        try{
-          const logs=await p.getLogs({address:ADDR.staking,fromBlock:f2,toBlock:t2,topics:[topic]});
-          for(const lg of logs){ set.add(ethers.getAddress("0x"+lg.topics[1].slice(26))); }
-        }catch(_){ logLine("sub-chunk "+f2+"-"+t2+" failed (skipped)","warn"); }
-      }
+      gotApi=true;
+      logLine("Polygonscan API: "+j.result.length+" event(s).","ok");
+    }else{
+      logLine("Polygonscan API returned no rows ("+(j&&j.message?j.message:"?")+")","warn");
     }
-    from=to+1;
+  }catch(e){ logLine("Polygonscan API failed: "+e.message,"warn"); }
+
+  // ── 2) RPC getLogs fallback (only if API gave nothing) ──
+  if(!gotApi){
+    try{
+      const latest=await p.getBlockNumber();
+      const STEP=10000;
+      let from=SCAN_FROM, ok=0;
+      for(; from<=latest; from+=STEP){
+        const to=Math.min(from+STEP-1, latest);
+        try{
+          const logs=await p.getLogs({address:ADDR.staking,fromBlock:from,toBlock:to,topics:[topic]});
+          for(const lg of logs){ set.add(ethers.getAddress("0x"+lg.topics[1].slice(26))); }
+          ok++;
+        }catch(_){ /* silent: many public RPCs reject getLogs */ }
+      }
+      if(ok) logLine("RPC getLogs: "+ok+" chunk(s) ok","ok");
+    }catch(_){}
   }
-  logLine("Found "+set.size+" unique referrer(s) from "+scanned+" event(s).","ok");
 
   const list=[...set];
+  logLine("Total referrers to check: "+list.length,"ok");
   E("sRefs").textContent=list.length;
-  E("sRefsSub").textContent="from referral events";
+  E("sRefsSub").textContent= gotApi ? "from referral events" : "known + scanned";
   E("listMeta").textContent="("+list.length+")";
 
   // Fetch owed / paid / pending for each
