@@ -397,26 +397,20 @@ async function scanReferrers(p,staking,dist){
   // always include known referrers so the list is never empty
   for(const a of SEED_REFERRERS){ try{ set.add(ethers.getAddress(a)); }catch(_){ } }
 
-  // ── 1) Polygonscan free API ──
+  // ── 1) Our own serverless proxy (server-side Polygonscan → no CORS) ──
   let gotApi=false;
   try{
-    logLine("Fetching referral events via Polygonscan API…");
-    const url="https://api.polygonscan.com/api?module=logs&action=getLogs"
-      +"&address="+ADDR.staking
-      +"&topic0="+topic
-      +"&fromBlock="+SCAN_FROM+"&toBlock=latest";
-    const r=await fetch(url);
+    logLine("Fetching referral events via server proxy…");
+    const r=await fetch("/api/referral-logs?topic0="+topic);
     const j=await r.json();
-    if(j && j.status==="1" && Array.isArray(j.result)){
-      for(const lg of j.result){
-        if(lg.topics && lg.topics[1]) set.add(ethers.getAddress("0x"+lg.topics[1].slice(26)));
-      }
+    if(j && j.ok && Array.isArray(j.referrers)){
+      for(const a of j.referrers){ try{ set.add(ethers.getAddress(a)); }catch(_){ } }
       gotApi=true;
-      logLine("Polygonscan API: "+j.result.length+" event(s).","ok");
+      logLine("Server proxy: "+j.count+" event(s), "+j.referrers.length+" referrer(s).","ok");
     }else{
-      logLine("Polygonscan API returned no rows ("+(j&&j.message?j.message:"?")+")","warn");
+      logLine("Proxy returned no rows ("+((j&&j.error)||"?")+")","warn");
     }
-  }catch(e){ logLine("Polygonscan API failed: "+e.message,"warn"); }
+  }catch(e){ logLine("Server proxy failed: "+e.message,"warn"); }
 
   // ── 2) RPC getLogs fallback (only if API gave nothing) ──
   if(!gotApi){
