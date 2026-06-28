@@ -1495,7 +1495,7 @@ function OSGScan({ wallet, data, holders, polUsd, chg24, t }) {
           <a href={"https://dexscreener.com/polygon/0xA15214B09a9b3E1c821B94fB97d6d3BcA8201Cd2"} target="_blank" rel="noreferrer">DexScreener</a>
           <a href={"https://www.geckoterminal.com/polygon_pos/pools/0xA15214B09a9b3E1c821B94fB97d6d3BcA8201Cd2"} target="_blank" rel="noreferrer">GeckoTerminal</a>
           <a href={"https://polygonscan.com/token/"+ADDRESSES.token} target="_blank" rel="noreferrer">Polygonscan</a>
-          <a href={"https://onexsartgold.github.io/osg-whitepaper/"} target="_blank" rel="noreferrer">Whitepaper</a>
+          <a href={"https://onexsartgold.github.io/osg-whitepaper/OSGWhitepaper.pdf"} target="_blank" rel="noreferrer">Whitepaper</a>
         </div>
       </div>
 
