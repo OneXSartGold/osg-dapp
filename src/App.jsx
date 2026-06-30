@@ -4,7 +4,7 @@ import {
   ADDRESSES, ZERO, POLYGON_CHAIN_ID, POLYGON_PARAMS, RPC_URLS,
   TOKEN_ABI, STAKING_ABI, POOL_ABI, MESSENGER_ABI, QUICKSWAP_URL,
 } from "./contracts.js";
-import { deriveKeypair, encryptMessage, decryptMessage, MAX_PLAINTEXT_CHARS } from "./crypto.js";
+import { deriveKeypair, encryptMessage, decryptMessage, MAX_PLAINTEXT_CHARS } from "./crypto.js"; import NewsPopup from "./NewsPopup.jsx";
 
 // ══════════════════════════════════════════════════════════
 //  OSG logo (base64). Replace this string anytime with your
@@ -1788,7 +1788,7 @@ export default function App() {
 
         {/* SCREEN */}
         <main className="screen" onClick={()=>setLangOpen(false)}>
-          {tab==="dashboard" && <Dashboard data={data} wallet={wallet} polUsd={polUsd} holders={holders} chg24={chg24} t={t}/>}
+          <NewsPopup osgPerPol={data && data.osgPerPol} polUsd={polUsd} chg24={chg24} />         {tab==="dashboard" && <Dashboard data={data} wallet={wallet} polUsd={polUsd} holders={holders} chg24={chg24} t={t}/>}
           {tab==="staking"   && <Staking wallet={wallet} data={data} refParam={refParam} actions={actions} busy={busy} t={t}/>}
           {tab==="referral"  && <Referral wallet={wallet} data={data} showToast={showToast} t={t}/>}
           {tab==="swap"      && <Swap t={t} data={data} wallet={wallet} polUsd={polUsd} holders={holders} chg24={chg24}/>}
