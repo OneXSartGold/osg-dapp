@@ -258,9 +258,9 @@ export default function NewsPopup(props) {
           mask-image: radial-gradient(circle at 50% 0%, #000 0%, transparent 70%);
         }
         .osgnews-x {
-          position: absolute; top: 10px; right: 12px; z-index: 2;
-          background: transparent; border: none; color: ${TXT3};
-          font-size: 16px; cursor: pointer; padding: 4px 8px;
+          position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 3;
+background: #111722; border: 1px solid #1d2733; border-radius: 999px;
+color: #e6edf3; font-size: 18px; line-height: 1; cursor: pointer; padding: 6px 14px; font-weight: 700;
         }
         .osgnews-ticker {
           position: relative; z-index: 1;
