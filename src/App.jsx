@@ -1534,7 +1534,7 @@ export default function App() {
   const readProviderRef = useRef(null);
   const getReadProvider = () => {
     if (!readProviderRef.current) {
-      var list = RPC_URLS.map(function(u, i){ return { provider: new JsonRpcProvider(u, 137), priority: i + 1, weight: 1, stallTimeout: 1500 }; });
+      var list = RPC_URLS.map(function(u, i){ return { provider: new JsonRpcProvider(u, 137), priority: i + 1, weight: 1, stallTimeout: 900 }; });
       readProviderRef.current = new FallbackProvider(list, 137, { quorum: 1 });
     }
     return readProviderRef.current;
