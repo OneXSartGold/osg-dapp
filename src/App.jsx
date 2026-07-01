@@ -690,7 +690,7 @@ function Referral({ wallet, data, showToast, getProvider, t }) {
         ))}
       </div>
       <div className="card" style={{ marginTop:14 }}>
-        <div className="sec">{t.yourReferrer}</div>
+        <div className="sec">{t.yourReferrer}</div>{levelStats && (<div className="card" style={{ marginTop:14 }}><div className="sec">{t.teamSummary || "Team Summary"}</div><div className="stat-grid"><Stat label={t.teamSize || "Team Size"} value={String(levelStats.reduce(function(s,l){return s+l.count;},0))} sub={t.allLevels || "5 Levels"} accent={C.green}/><Stat label={t.teamStaked || "Team Staked"} value={fmt(f18(levelStats.reduce(function(s,l){return s+l.staked;},0n)))} sub="OSG" accent={C.gold2}/></div></div>)}{levelStats && levelStats.map(function(lvl,i){ return (<div className="card" style={{ marginTop:14 }} key={"lvl"+i}><div className="sec" style={{ color:colors[i] }}>{labels[i]}</div><div className="stat-grid"><Stat label={t.members || "Members"} value={String(lvl.count)} accent={colors[i]}/><Stat label={t.staked2 || "Staked"} value={fmt(f18(lvl.staked))} sub="OSG" accent={colors[i]}/><Stat label={t.active || "Active"} value={lvl.active + "/" + lvl.count} accent={C.green}/></div></div>); })}
         <div className="mono" style={{ fontSize:13,color: r.referrer&&r.referrer!==ZERO?C.gold1:C.txt3 }}>{r.referrer&&r.referrer!==ZERO?short(r.referrer):t.noReferrer}</div>
       </div>
       <div className="card" style={{ marginTop:14 }}>
