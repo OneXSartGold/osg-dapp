@@ -344,7 +344,7 @@ body{font-family:'Hanken Grotesk',sans-serif;background:${C.bg};color:${C.txt}}
 .stat{background:${C.card};border:1px solid ${C.line};border-radius:14px;padding:15px;position:relative;overflow:hidden}
 .stat .bar{position:absolute;top:0;left:0;right:0;height:2px}
 .stat .t{font-size:10.5px;color:${C.txt3};letter-spacing:.4px;text-transform:uppercase}
-.stat .v{font-family:'JetBrains Mono';font-size:20px;font-weight:600;margin-top:8px;letter-spacing:-.5px;word-break:break-all}
+.stat .v{font-family:'JetBrains Mono';font-size:17px;font-weight:600;margin-top:8px;letter-spacing:-.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .stat .s{font-size:11px;color:${C.txt3};margin-top:3px}
 .sec{font-size:11px;color:${C.txt3};text-transform:uppercase;letter-spacing:1px;font-weight:700;font-family:'Bricolage Grotesque';margin-bottom:12px}
 .mini-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
