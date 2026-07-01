@@ -374,8 +374,8 @@ body{font-family:'Hanken Grotesk',sans-serif;background:${C.bg};color:${C.txt}}
 .lvl .n{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;font-family:'JetBrains Mono';font-weight:600;font-size:12px;border:1px solid}
 .lvl .ad{flex:1;font-family:'JetBrains Mono';font-size:12.5px}
 .ref-link{display:flex;gap:8px;align-items:center;margin-top:8px}
-.ref-link .code{flex:1;background:${C.bg2};border:1px dashed ${C.line2};border-radius:11px;padding:11px 13px;font-family:'JetBrains Mono';font-size:11px;color:${C.txt2};overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.copy-btn{background:${C.grad};color:#1A1407;border:none;border-radius:11px;padding:0 16px;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap}
+.ref-link .code{flex:1;background:${C.bg2};border:1px dashed rgba(233,185,73,.4);border-radius:11px;padding:11px 13px;font-family:'JetBrains Mono';font-size:11px;color:${C.txt2};overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.copy-btn{background:${C.grad};color:#1A1407;border:none;border-radius:11px;padding:0 18px;font-weight:800;font-size:13px;cursor:pointer;white-space:nowrap;box-shadow:0 4px 14px rgba(233,185,73,.3)}
 .msg-wrap{position:relative;overflow:hidden;border-radius:20px;min-height:430px;background:${C.bg2};border:1px solid rgba(233,185,73,.18)}
 .msg-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(233,185,73,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(233,185,73,.05) 1px,transparent 1px);background-size:40px 40px;animation:gm 20s linear infinite}
 @keyframes gm{to{background-position:40px 40px}}
