@@ -682,12 +682,12 @@ function Referral({ wallet, data, showToast, getProvider, t }) {
       </div>
       <div className="card" style={{ marginTop:14 }}>
         <div className="sec">{t.upline}</div>
-        {chain.map((addr,i)=>(
+        {chain.map((addr,i)=>({addr,i})).filter(function(x){return x.addr&&x.addr!==ZERO;}).map(function(x){var addr=x.addr,i=x.i; return (
           <div className="lvl" key={i}>
             <div className="n" style={{ color:colors[i],borderColor:colors[i]+"55",background:colors[i]+"18" }}>{labels[i]}</div>
             <span className="ad" style={{ color: addr&&addr!==ZERO?C.txt:C.txt3 }}>{addr&&addr!==ZERO?short(addr):t.empty}</span>
           </div>
-        ))}
+        );})}
       </div>
       <div className="card" style={{ marginTop:14 }}>
         <div className="sec">{t.yourReferrer}</div>{levelStats && (<div className="card" style={{ marginTop:14 }}><div className="sec">{t.teamSummary || "Team Summary"}</div><div className="stat-grid"><Stat label={t.teamSize || "Team Size"} value={String(levelStats.reduce(function(s,l){return s+l.count;},0))} sub={t.allLevels || "5 Levels"} accent={C.green}/><Stat label={t.teamStaked || "Team Staked"} value={fmt(f18(levelStats.reduce(function(s,l){return s+l.staked;},0n)))} sub="OSG" accent={C.gold2}/></div></div>)}{levelStats && levelStats.map(function(lvl,i){ return (<div className="card" style={{ marginTop:14 }} key={"lvl"+i}><div className="sec" style={{ color:colors[i] }}>{labels[i]}</div><div className="stat-grid" style={{ gridTemplateColumns:"1fr 1fr 1fr" }}><Stat label={t.members || "Members"} value={String(lvl.count)} accent={colors[i]}/><Stat label={t.staked2 || "Staked"} value={fmt(f18(lvl.staked))} sub="OSG" accent={colors[i]}/><Stat label={t.active || "Active"} value={lvl.active + "/" + lvl.count} accent={C.green}/></div></div>); })}
