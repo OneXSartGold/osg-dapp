@@ -652,7 +652,7 @@ function Staking({ wallet, data, refParam, actions, busy, t }) {
   );    
 }
 
-function Referral({ wallet, data, showToast, t }) {
+function Referral({ wallet, data, showToast, getProvider, t }) {
   const origin = typeof window!=="undefined" ? window.location.origin : "";
   const refLink = wallet ? `${origin}/?ref=${wallet}` : "—";
   const [copied, setCopied] = useState(false);
