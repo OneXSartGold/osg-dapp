@@ -34,7 +34,7 @@ const I18N = {
     refEarned:"Referral Earned",totalRefs:"Total Referrals",pendingRef:"Pending Referral",teamBonus:"Team Bonus",
     osgTotal:"OSG total",directTeam:"Direct + team",yourRefLink:"Your Referral Link",copy:"Copy",
     shareLink:"Share this link — whoever stakes for the first time using it becomes your referral.",
-    upline:"Your Upline (5 Levels)",empty:"— empty —",yourReferrer:"Your Referrer",noReferrer:"No referrer set",
+    upline:"Your Upline",empty:"— empty —",yourReferrer:"Your Referrer",noReferrer:"No referrer set",
     swapTitle:"Swap POL → OSG",swapDesc:"The OSG liquidity pool is now LIVE on QuickSwap. In-app swap is coming soon — for now, swap securely on QuickSwap below.",
     swapMeanwhile:"In the meantime, you can swap directly on QuickSwap below.",openQuickswap:"Open QuickSwap",
     comingSoon:"Coming Soon",msgTitle:"OSG MESSENGER",targetLaunch:"Target launch: Q3 2026",
