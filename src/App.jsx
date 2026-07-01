@@ -1790,7 +1790,7 @@ export default function App() {
         <main className="screen" onClick={()=>setLangOpen(false)}>
           <NewsPopup logo={LOGO} />         {tab==="dashboard" && <Dashboard data={data} wallet={wallet} polUsd={polUsd} holders={holders} chg24={chg24} t={t}/>}
           {tab==="staking"   && <Staking wallet={wallet} data={data} refParam={refParam} actions={actions} busy={busy} t={t}/>}
-          {tab==="referral"  && <Referral wallet={wallet} data={data} showToast={showToast} t={t}/>}
+          {tab==="referral"  && <Referral wallet={wallet} data={data} showToast={showToast} getProvider={getProvider} t={t}/>}
           {tab==="swap"      && <Swap t={t} data={data} wallet={wallet} polUsd={polUsd} holders={holders} chg24={chg24}/>}
           {tab==="messenger" && <Messenger wallet={wallet} network={network} getProvider={getProvider} ensureReady={ensureReady} showToast={showToast} t={t}/>}{tab==="osgscan" && <OSGScan wallet={wallet} data={data} holders={holders} polUsd={polUsd} chg24={chg24} t={t}/>}
           {!wallet && <div style={{ textAlign:"center",marginTop:20,fontSize:13,color:C.txt3 }}>👆 {t.connectSee}</div>}
