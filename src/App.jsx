@@ -580,7 +580,7 @@ function Staking({ wallet, data, refParam, actions, busy, t }) {
             </div>
           )}
           <div className="note" style={{ margin:"14px 0" }}>ⓘ {t.twoStep}</div>
-          <button className="btn-gold" disabled={busy.stake||!wallet} onClick={()=>actions.stake(amount, hasStake?null:refInput)}>
+          <button className="btn-gold" disabled={busy.stake||!wallet||(!hasStake&&!(refInput&&isAddress(refInput)))} onClick={()=>actions.stake(amount, hasStake?null:refInput)}>
             {busy.stake ? <span className="spin"/> : `${hasStake?t.addToStake:t.stakeBtn} ${amount||"0"} OSG`}
           </button>
         </div>
