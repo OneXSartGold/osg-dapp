@@ -79,8 +79,9 @@ export default function NewsPopup(props) {
   // OSG/USD = osgPerPol * polUsd  (both passed in)
   var osgPerPol = props.osgPerPol;
   var polUsd = props.polUsd;
-  var osgUsd =
-    osgPerPol && polUsd ? Number(osgPerPol) * Number(polUsd) : null;
+  var _op = Number(osgPerPol);
+  var _pu = Number(polUsd);
+  var osgUsd = (_op > 0 && _pu > 0) ? _op * _pu : null;
 
   var chg24 = typeof props.chg24 === "number" ? props.chg24 : null;
 
