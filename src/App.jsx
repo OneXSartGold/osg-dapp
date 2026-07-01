@@ -1761,7 +1761,7 @@ export default function App() {
         <header className="topbar">
           <div className="brand">
             <img className="logo-img" src={LOGO} alt="OSG"/>
-            <div className="name" style={{ fontSize:18, letterSpacing:"3.5px", background:"linear-gradient(110deg," + C.gold3 + " 20%," + C.gold1 + " 40%,#fff7e0 50%," + C.gold1 + " 60%," + C.gold3 + " 80%)", backgroundSize:"220% 100%", WebkitBackgroundClip:"text", backgroundClip:"text", color:"transparent", animation:"shine 3.2s linear infinite", filter:"drop-shadow(0 0 10px rgba(233,185,73,.35))" }}>OSG</div><div style={{ fontSize:6.5, letterSpacing:"2.5px", textTransform:"uppercase", color:C.green, fontWeight:600, marginTop:1, whiteSpace:"nowrap" }}>OneX Smart Gold</div>
+            <div className="name" style={{ fontFamily:"'Bricolage Grotesque',sans-serif", fontWeight:800, fontSize:19, letterSpacing:"3.5px", background:"linear-gradient(110deg," + C.gold3 + " 20%," + C.gold1 + " 40%,#fff7e0 50%," + C.gold1 + " 60%," + C.gold3 + " 80%)", backgroundSize:"220% 100%", WebkitBackgroundClip:"text", backgroundClip:"text", color:"transparent", animation:"shine 3.2s linear infinite", filter:"drop-shadow(0 0 10px rgba(233,185,73,.35))" }}>OSG</div><div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:6.5, letterSpacing:"2.5px", textTransform:"uppercase", color:C.green, fontWeight:600, marginTop:1, whiteSpace:"nowrap" }}>OneX Smart Gold</div>
           </div>
           <div className="top-right">
             <div className="lang">
