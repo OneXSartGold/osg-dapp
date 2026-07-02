@@ -47,10 +47,8 @@ export default async function handler(req, res) {
     const trimmedHistory = Array.isArray(history) ? history.slice(-6) : [];
 
     const messages = [
-      { role: "system", content: SYSTEM_PROMPT + (liveContext ? ("
+      { role: "system", content: SYSTEM_PROMPT + (liveContext ? ("\n\nLive on-chain data (use exactly as given):\n" + liveContext) : "") },
 
-## Live on-chain data (use exactly as given)
-" + liveContext) : "") },
       ...trimmedHistory.map((h) => ({
         role: h.role === "assistant" ? "assistant" : "user",
         content: String(h.content || "").slice(0, 2000),
