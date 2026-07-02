@@ -682,7 +682,7 @@ function Referral({ wallet, data, showToast, getProvider, t }) {
       </div>
       <div className="card" style={{ marginTop:14 }}>
         <div className="sec">{t.upline}</div>
-        {chain.map((addr,i)=>({addr,i})).filter(function(x){return x.addr&&x.addr!==ZERO;}).map(function(x){var addr=x.addr,i=x.i; return (
+        {chain.slice(0,1).map((addr,i)=>({addr,i})).filter(function(x){return x.addr&&x.addr!==ZERO;}).map(function(x){var addr=x.addr,i=x.i; return (
           <div className="lvl" key={i}>
             <div className="n" style={{ color:colors[i],borderColor:colors[i]+"55",background:colors[i]+"18" }}>{labels[i]}</div>
             <span className="ad" style={{ color: addr&&addr!==ZERO?C.txt:C.txt3 }}>{addr&&addr!==ZERO?short(addr):t.empty}</span>
