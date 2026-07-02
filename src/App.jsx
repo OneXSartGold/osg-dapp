@@ -1375,7 +1375,7 @@ function AIAssistant({ wallet, staked }) {
               {sending && <div style={{ alignSelf:"flex-start", color:C.txt3, fontSize:12 }}>विचार करतोय…</div>}
             </div>
 
-            <div style={{ display:"flex", gap:10, padding:"12px 14px", borderTop:"1px solid " + C.line }}>
+            <div style={{ display:"flex", gap:10, padding:"12px 14px", paddingBottom:"calc(12px + env(safe-area-inset-bottom))", borderTop:"1px solid " + C.line, background:C.bg }}>
               <input
                 placeholder={unlocked ? "तुझा प्रश्न टाइप कर…" : "आधी wallet connect + stake करा"}
                 value={input}
