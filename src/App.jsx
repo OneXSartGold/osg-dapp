@@ -1296,7 +1296,7 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
 // ══════════════ AI ASSISTANT (floating) ══════════════
 function AIAssistant({ wallet, staked }) {
   const [open, setOpen] = useState(false);
-  const [msgs, setMsgs] = useState([{ role:"assistant", content:"नमस्कार! मी OSG Assistant आहे. Staking, Referral, Swap, Chat याबद्दल विचार 🙏" }]);
+  const [msgs, setMsgs] = useState([{ role:"assistant", content:"Hello! I'm OSG Assistant. Ask me anything about Staking, Referral, Swap, or Chat 🙏" }]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const bodyRef = useRef(null);
