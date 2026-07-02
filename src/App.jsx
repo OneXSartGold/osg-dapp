@@ -1377,7 +1377,7 @@ function AIAssistant({ wallet, staked }) {
 
             <div style={{ display:"flex", gap:10, padding:"12px 14px", paddingBottom:"calc(12px + env(safe-area-inset-bottom))", borderTop:"1px solid " + C.line, background:C.bg }}>
               <input
-                placeholder={unlocked ? "तुझा प्रश्न टाइप कर…" : "आधी wallet connect + stake करा"}
+                placeholder={unlocked ? "Type your question…" : "Connect wallet + stake first"}
                 value={input}
                 disabled={!unlocked || sending}
                 onChange={function (e) { setInput(e.target.value); }}
