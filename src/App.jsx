@@ -1294,7 +1294,7 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
 }
 
 // ══════════════ AI ASSISTANT (floating) ══════════════
-function AIAssistant({ wallet, staked }) {
+function AIAssistant({ wallet, staked, liveData }) {
   const [open, setOpen] = useState(false);
   const [msgs, setMsgs] = useState([{ role:"assistant", content:"Hello! I'm OSG Assistant. Ask me anything about Staking, Referral, Swap, or Chat 🙏" }]);
   const [input, setInput] = useState("");
@@ -1907,7 +1907,7 @@ export default function App() {
           {navItems.map(([id,icon,label])=>(
             <button key={id} className={tab===id?"on":""} onClick={()=>setTab(id)}>{icon}<span>{label}</span></button>
           ))}
-        </nav><AIAssistant wallet={wallet} staked={data.staked}/>
+        </nav><AIAssistant wallet={wallet} staked={data.staked} liveData={data}/>
       </div>
       {toast && <div className="toast">{toast}</div>}
     </>
