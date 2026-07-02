@@ -1293,6 +1293,112 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
   );
 }
 
+// ══════════════ AI ASSISTANT (floating) ══════════════
+function AIAssistant({ wallet, staked }) {
+  const [open, setOpen] = useState(false);
+  const [msgs, setMsgs] = useState([{ role:"assistant", content:"नमस्कार! मी OSG Assistant आहे. Staking, Referral, Swap, Chat याबद्दल विचार 🙏" }]);
+  const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
+  const bodyRef = useRef(null);
+  const unlocked = wallet && Number(staked) >= 500;
+
+  useEffect(function(){ if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight; }, [msgs, open]);
+
+  var ask = async function (text) {
+    if (!text || !text.trim() || !unlocked) return;
+    var userMsg = { role:"user", content:text.trim() };
+    setMsgs(function (m) { return m.concat([userMsg]); });
+    setInput("");
+    setSending(true);
+    try {
+      var history = msgs.slice(-6).map(function (m) { return { role:m.role, content:m.content }; });
+      var r = await fetch("/api/ai-assistant", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ message:text.trim(), history:history }),
+      });
+      var d = await r.json();
+      var reply = (d && d.reply) ? d.reply : "माफ कर, सध्या उत्तर देता आलं नाही.";
+      setMsgs(function (m) { return m.concat([{ role:"assistant", content:reply }]); });
+    } catch (e) {
+      setMsgs(function (m) { return m.concat([{ role:"assistant", content:"नेटवर्क समस्या — पुन्हा प्रयत्न कर." }]); });
+    } finally { setSending(false); }
+  };
+
+  var send = function () { ask(input); };
+
+  return (
+    <>
+      <div onClick={function () { setOpen(true); }}
+        style={{ position:"fixed", right:18, bottom:96, width:54, height:54, borderRadius:"50%",
+          background:"linear-gradient(135deg," + C.gold1 + "," + C.gold2 + ")",
+          display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, color:"#1a1206",
+          boxShadow:"0 6px 20px rgba(233,185,73,.45)", cursor:"pointer", zIndex:80 }}>🤖</div>
+
+      {open && (
+        <div onClick={function () { setOpen(false); }}
+          style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.55)", zIndex:90,
+            display:"flex", alignItems:"flex-end", justifyContent:"center" }}>
+          <div onClick={function (e) { e.stopPropagation(); }}
+            style={{ width:"100%", maxWidth:460, height:"75vh", background:C.bg,
+              borderRadius:"20px 20px 0 0", display:"flex", flexDirection:"column",
+              border:"1px solid " + C.line }}>
+
+            <div style={{ display:"flex", alignItems:"center", gap:10, padding:16, borderBottom:"1px solid " + C.line }}>
+              <div style={{ width:34, height:34, borderRadius:"50%",
+                background:"linear-gradient(135deg," + C.gold1 + "," + C.gold3 + ")",
+                display:"flex", alignItems:"center", justifyContent:"center", fontSize:16 }}>🤖</div>
+              <div>
+                <div style={{ fontSize:14, fontWeight:700 }}>OSG Assistant</div>
+                <div style={{ fontSize:10, color:C.green }}>● Online</div>
+              </div>
+              <div onClick={function () { setOpen(false); }}
+                style={{ marginLeft:"auto", fontSize:20, color:C.txt2, cursor:"pointer" }}>✕</div>
+            </div>
+
+            <div ref={bodyRef} style={{ flex:1, overflowY:"auto", padding:16, display:"flex", flexDirection:"column", gap:10 }}>
+              {!unlocked ? (
+                <div style={{ textAlign:"center", color:C.txt3, fontSize:13, marginTop:30, lineHeight:1.6, padding:"0 12px" }}>
+                  🔒 OSG Assistant वापरायला wallet connect करून किमान 500 OSG stake करा.
+                </div>
+              ) : msgs.map(function (m, i) {
+                return (
+                  <div key={i} style={{
+                    maxWidth:"82%", padding:"10px 14px", borderRadius:16, fontSize:13, lineHeight:1.5,
+                    alignSelf: m.role==="user" ? "flex-end" : "flex-start",
+                    background: m.role==="user" ? ("linear-gradient(135deg," + C.gold2 + "," + C.gold3 + ")") : C.card2,
+                    color: m.role==="user" ? "#1a1206" : C.txt,
+                    fontWeight: m.role==="user" ? 600 : 400,
+                  }}>{m.content}</div>
+                );
+              })}
+              {sending && <div style={{ alignSelf:"flex-start", color:C.txt3, fontSize:12 }}>विचार करतोय…</div>}
+            </div>
+
+            <div style={{ display:"flex", gap:10, padding:"12px 14px", borderTop:"1px solid " + C.line }}>
+              <input
+                placeholder={unlocked ? "तुझा प्रश्न टाइप कर…" : "आधी wallet connect + stake करा"}
+                value={input}
+                disabled={!unlocked || sending}
+                onChange={function (e) { setInput(e.target.value); }}
+                onKeyDown={function (e) { if (e.key==="Enter") send(); }}
+                style={{ flex:1, background:C.card2, border:"1px solid " + C.line2, borderRadius:22,
+                  padding:"11px 16px", color:C.txt, fontSize:13, outline:"none" }}/>
+              <div onClick={send}
+                style={{ width:42, height:42, borderRadius:"50%", flex:"none",
+                  background: (unlocked && !sending) ? ("linear-gradient(135deg," + C.gold1 + "," + C.gold2 + ")") : C.card2,
+                  display:"flex", alignItems:"center", justifyContent:"center", color:"#1a1206",
+                  cursor: (unlocked && !sending) ? "pointer" : "default" }}>➤</div>
+            </div>
+
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+
 // ══════════════ MAIN APP ══════════════
 const EMPTY = {
   balance:"0", staked:"0", pending:"0", totalStaked:"0",
@@ -1801,7 +1907,7 @@ export default function App() {
           {navItems.map(([id,icon,label])=>(
             <button key={id} className={tab===id?"on":""} onClick={()=>setTab(id)}>{icon}<span>{label}</span></button>
           ))}
-        </nav>
+        </nav><AIAssistant wallet={wallet} staked={data.staked}/>
       </div>
       {toast && <div className="toast">{toast}</div>}
     </>
