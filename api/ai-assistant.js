@@ -37,7 +37,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { message, history } = req.body || {};
+    const { message, history, liveContext } = req.body || {};
 
     if (!message || typeof message !== "string" || !message.trim()) {
       return res.status(400).json({ error: "Message is required" });
@@ -47,7 +47,10 @@ export default async function handler(req, res) {
     const trimmedHistory = Array.isArray(history) ? history.slice(-6) : [];
 
     const messages = [
-      { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: SYSTEM_PROMPT + (liveContext ? ("
+
+## Live on-chain data (use exactly as given)
+" + liveContext) : "") },
       ...trimmedHistory.map((h) => ({
         role: h.role === "assistant" ? "assistant" : "user",
         content: String(h.content || "").slice(0, 2000),
