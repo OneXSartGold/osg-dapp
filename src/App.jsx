@@ -1311,11 +1311,11 @@ function AIAssistant({ wallet, staked, liveData }) {
     setInput("");
     setSending(true);
     try {
-      var history = msgs.slice(-6).map(function (m) { return { role:m.role, content:m.content }; });
+      var history = msgs.slice(-6).map(function (m) { return { role:m.role, content:m.content }; });           var liveContext = liveData ? ("Total Staked: " + fmt(liveData.totalStaked,0) + " OSG, Active Stakers: " + fmt(liveData.activeStakers,0) + ", Daily Emission: " + fmt(liveData.dailyEmission,2) + " OSG, Halving #: " + fmt(liveData.halving,0) + ", Reward Distributed: " + fmt(liveData.rewardDistributed,2) + " OSG, Max Supply: 23,000,000 OSG.") : "";
       var r = await fetch("/api/ai-assistant", {
         method:"POST",
         headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify({ message:text.trim(), history:history }),
+        body: JSON.stringify({ message:text.trim(), history:history, liveContext:liveContext }),
       });
       var d = await r.json();
       var reply = (d && d.reply) ? d.reply : "माफ कर, सध्या उत्तर देता आलं नाही.";
