@@ -1617,7 +1617,7 @@ export default function App() {
   const [tab, setTab] = useState("dashboard");
   const [wallet, setWallet] = useState(null);
   const [network, setNetwork] = useState(false);
-  const [toast, setToast] = useState(null);
+   const [toast, setToast] = useState(null);   const [celebrateTick, setCelebrateTick] = useState(0);   var fireCelebrate = function () { setCelebrateTick(Date.now()); };
   const [connecting, setConnecting] = useState(false);
   const [data, setData] = useState(EMPTY);
   const [busy, setBusy] = useState({});
@@ -1792,7 +1792,7 @@ export default function App() {
         showToast(t.tStaking);
         const ref = referrer && isAddress(referrer) ? referrer : ZERO;
         let tx; if (referrer === null) tx = await stk.addToStake(amt); else tx = await stk.stake(amt, ref);
-        await tx.wait(); showToast("✅ "+t.tStakeOk); await loadData(wallet);
+        await tx.wait(); showToast("✅ "+t.tStakeOk); fireCelebrate(); await loadData(wallet);
       } catch (e) { console.error(e); showToast("❌ " + (e?.shortMessage || e?.reason || t.tStakeFail)); }
       finally { setBusyKey("stake", false); }
     },
@@ -1834,7 +1834,7 @@ export default function App() {
         const tx2 = await pool.claim();
         await tx2.wait();
 
-        showToast("💰 " + t.tClaimed);
+        showToast("💰 " + t.tClaimed); fireCelebrate();
         await loadData(wallet);
       } catch (e) {
         var m = (e && (e.shortMessage || e.reason || e.message)) || "";
@@ -1909,7 +1909,7 @@ export default function App() {
           ))}
         </nav><AIAssistant wallet={wallet} staked={data.staked} liveData={data} holders={holders}/>
       </div>
-      {toast && <div className="toast">{toast}</div>}
+      {toast && <div className="toast">{toast}</div>}      <FireworksCanvas trigger={celebrateTick}/>
     </>
   );
 }
