@@ -1367,7 +1367,7 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t, on
               <div ref={endRef}/>
             </div>
 
-            <div style={{ padding:"12px 12px calc(16px + env(safe-area-inset-bottom))", background:TH.barBg, marginBottom:8 }}>
+            <div style={{ padding:"12px 12px calc(16px + env(safe-area-inset-bottom))", background:TH.bg, marginBottom:8 }}>
               {attach && (
                 <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10, padding:8, background:TH.inBg, border:"1px solid "+TH.barEdge, borderRadius:10 }}>
                   {attach.kind === "image"
