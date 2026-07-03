@@ -1294,7 +1294,7 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
 }
 
 // ══════════════ AI ASSISTANT (floating) ══════════════
-function AIAssistant({ wallet, staked, liveData }) {
+function AIAssistant({ wallet, staked, liveData, holders }) {
   const [open, setOpen] = useState(false);
   const [msgs, setMsgs] = useState([{ role:"assistant", content:"Hello! I'm OSG Assistant. Ask me anything about Staking, Referral, Swap, or Chat" }]);
   const [input, setInput] = useState("");
@@ -1311,7 +1311,7 @@ function AIAssistant({ wallet, staked, liveData }) {
     setInput("");
     setSending(true);
     try {
-      var history = msgs.slice(-6).map(function (m) { return { role:m.role, content:m.content }; });           var liveContext = liveData ? ("Total Staked: " + fmt(liveData.totalStaked,0) + " OSG, Active Stakers: " + fmt(liveData.activeStakers,0) + ", Daily Emission: " + fmt(liveData.dailyEmission,2) + " OSG, Halving #: " + fmt(liveData.halving,0) + ", Reward Distributed: " + fmt(liveData.rewardDistributed,2) + " OSG, Max Supply: 23,000,000 OSG.") : "";
+      var history = msgs.slice(-6).map(function (m) { return { role:m.role, content:m.content }; });       var liveContext = liveData ? (         "Total Staked (pool): " + fmt(liveData.totalStaked,0) + " OSG, " +         "Active Stakers: " + fmt(liveData.activeStakers,0) + ", " +         "Daily Emission: " + fmt(liveData.dailyEmission,2) + " OSG, " +         "Halving #: " + fmt(liveData.halving,0) + ", " +         "Total Reward Distributed So Far: " + fmt(liveData.rewardDistributed,2) + " OSG, " +         "Max Supply: 23,000,000 OSG, " +         "Total Token Holders: " + (holders ? String(holders) : "not available right now") + ". " +         (wallet ? (           "This user's own wallet data — " +           "OSG Balance: " + fmt(liveData.balance,2) + " OSG, " +           "Their Staked Amount: " + fmt(liveData.staked,2) + " OSG, " +           "Their Pending Rewards: " + fmt(liveData.pending,2) + " OSG, " +           "Their Total Earned So Far: " + fmt(liveData.totalEarned,2) + " OSG, " +           "Their Share of Pool: " + fmt(liveData.sharePercent,2) + "%, " +           "Their Total Referrals: " + (liveData.referralInfo ? liveData.referralInfo.totalReferrals : "0") + ", " +           "Their Total Referral Earnings: " + (liveData.referralInfo ? fmt(liveData.referralInfo.totalReferralEarned,2) : "0") + " OSG, " +           "Their Pending Referral Rewards: " + (liveData.referralInfo ? fmt(liveData.referralInfo.pendingReferral,2) : "0") + " OSG."         ) : "")       ) : "";
       var r = await fetch("/api/ai-assistant", {
         method:"POST",
         headers:{ "Content-Type":"application/json" },
@@ -1907,7 +1907,7 @@ export default function App() {
           {navItems.map(([id,icon,label])=>(
             <button key={id} className={tab===id?"on":""} onClick={()=>setTab(id)}>{icon}<span>{label}</span></button>
           ))}
-        </nav><AIAssistant wallet={wallet} staked={data.staked} liveData={data}/>
+        </nav><AIAssistant wallet={wallet} staked={data.staked} liveData={data} holders={holders}/>
       </div>
       {toast && <div className="toast">{toast}</div>}
     </>
