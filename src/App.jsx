@@ -1359,7 +1359,7 @@ function AIAssistant({ wallet, staked, liveData }) {
             <div ref={bodyRef} style={{ flex:1, overflowY:"auto", padding:16, display:"flex", flexDirection:"column", gap:10 }}>
               {!unlocked ? (
                 <div style={{ textAlign:"center", color:C.txt3, fontSize:13, marginTop:30, lineHeight:1.6, padding:"0 12px" }}>
-                  🔒 OSG Assistant वापरायला wallet connect करून किमान 500 OSG stake करा.
+                  🔒 Connect your wallet and stake at least 500 OSG to unlock OSG Assistant.
                 </div>
               ) : msgs.map(function (m, i) {
                 return (
@@ -1372,7 +1372,7 @@ function AIAssistant({ wallet, staked, liveData }) {
                   }}>{m.content}</div>
                 );
               })}
-              {sending && <div style={{ alignSelf:"flex-start", color:C.txt3, fontSize:12 }}>विचार करतोय…</div>}
+              {sending && <div style={{ alignSelf:"flex-start", color:C.txt3, fontSize:12 }}>Thinking…</div>}
             </div>
 
             <div style={{ display:"flex", gap:10, padding:"12px 14px", paddingBottom:"calc(12px + env(safe-area-inset-bottom))", borderTop:"1px solid " + C.line, background:C.bg }}>
