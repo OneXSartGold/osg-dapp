@@ -1300,7 +1300,7 @@ function AIAssistant({ wallet, staked, liveData, holders }) {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const bodyRef = useRef(null);
-  const unlocked = wallet && Number(staked) >= 500;
+  const unlocked = wallet && Number(staked) >= 500;   const [pos, setPos] = useState(null);   const dragInfo = useRef({ moved:false, startX:0, startY:0, origX:0, origY:0 });   var getBtnPos = function () { if (pos) return pos; return { x: window.innerWidth - 18 - 54, y: window.innerHeight - 96 - 54 }; };   var onBtnDown = function (e) { var cur = getBtnPos(); dragInfo.current = { moved:false, startX:e.clientX, startY:e.clientY, origX:cur.x, origY:cur.y }; };   var onBtnMove = function (e) { if (!dragInfo.current.startX && !dragInfo.current.startY) return; var dx = e.clientX - dragInfo.current.startX; var dy = e.clientY - dragInfo.current.startY; if (Math.abs(dx) > 6 || Math.abs(dy) > 6) dragInfo.current.moved = true; if (dragInfo.current.moved) { var nx = Math.max(6, Math.min(window.innerWidth - 60, dragInfo.current.origX + dx)); var ny = Math.max(6, Math.min(window.innerHeight - 60, dragInfo.current.origY + dy)); setPos({ x:nx, y:ny }); } };   var onBtnUp = function () { if (!dragInfo.current.moved) setOpen(true); dragInfo.current = { moved:false, startX:0, startY:0, origX:0, origY:0 }; };
 
   useEffect(function(){ if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight; }, [msgs, open]);
 
@@ -1329,8 +1329,8 @@ function AIAssistant({ wallet, staked, liveData, holders }) {
 
   return (
     <>
-      <div onClick={function () { setOpen(true); }}
-        style={{ position:"fixed", right:18, bottom:96, width:54, height:54, borderRadius:"50%",
+      <div onPointerDown={onBtnDown} onPointerMove={onBtnMove} onPointerUp={onBtnUp}
+        style={{ position:"fixed", left: pos ? pos.x : "auto", top: pos ? pos.y : "auto", right: pos ? "auto" : 18, bottom: pos ? "auto" : 96, width:54, height:54, borderRadius:"50%", touchAction:"none",
           background:"linear-gradient(135deg," + C.gold1 + "," + C.gold2 + ")",
           display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, color:"#1a1206",
           boxShadow:"0 6px 20px rgba(233,185,73,.45)", cursor:"pointer", zIndex:80 }}>🤖</div>
