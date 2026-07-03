@@ -1318,10 +1318,10 @@ function AIAssistant({ wallet, staked, liveData, holders }) {
         body: JSON.stringify({ message:text.trim(), history:history, liveContext:liveContext }),
       });
       var d = await r.json();
-      var reply = (d && d.reply) ? d.reply : "माफ कर, सध्या उत्तर देता आलं नाही.";
-      setMsgs(function (m) { return m.concat([{ role:"assistant", content:reply }]); });
+      var reply = (d && d.reply) ? d.reply : "Sorry, I couldn't get a response right now. Please try again.";
+      var typeId = Date.now();       setMsgs(function (m) { return m.concat([{ role:"assistant", content:"", typeId:typeId }]); });       setSending(false);       var ci = 0;       var typer = setInterval(function () {         ci += 3;         var partial = reply.slice(0, ci);         setMsgs(function (m) {           return m.map(function (mm) {             return (mm.typeId === typeId) ? { role:"assistant", content:partial, typeId:typeId } : mm;           });         });         if (ci >= reply.length) clearInterval(typer);       }, 14);
     } catch (e) {
-      setMsgs(function (m) { return m.concat([{ role:"assistant", content:"नेटवर्क समस्या — पुन्हा प्रयत्न कर." }]); });
+      setMsgs(function (m) { return m.concat([{ role:"assistant", content:"Network issue — please try again." }]); });
     } finally { setSending(false); }
   };
 
