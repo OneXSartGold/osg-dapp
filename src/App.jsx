@@ -897,6 +897,7 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
   const [attach, setAttach] = useState(null);
   const fileRef = useRef(null);
   const pubCache = useRef({});
+  const decryptCache = useRef({});
   const endRef = useRef(null);
 
   const getPub = useCallback(async (addr) => {
@@ -953,8 +954,10 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
           .map((mm, k) => ({ mm: mm, idx: start + k }))
          .filter(o => !o.mm.isDeleted && (o.mm.fileType === "text" || o.mm.fileType === "image" || o.mm.fileType === "file"));
         list = await Promise.all(active.map(async (o) => {
+          const cachedResult = decryptCache.current[o.idx];
+          if (cachedResult) return cachedResult;
           const mm = o.mm;
-          let body = mm.cid, locked = false, enc = false;
+          let body = mm.cid, locked = false, enc = false, result;
           const isInline = mm.cid && mm.cid.startsWith("e1:");
           const isIpfs   = mm.cid && mm.cid.startsWith("e2:");
           if (isInline || isIpfs) {
@@ -962,29 +965,37 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
             if (!keypair) {
               body = "🔒 " + (t.lockedMsg || "Secure message — tap Unlock");
               locked = true;
+              result = { from: mm.from, text: body, ts: Number(mm.timestamp), locked: locked, enc: enc, mine: false, idx: o.idx };
             } else {
               try {
                 const senderPub = await getPub(mm.from);
-                let payload = mm.cid;
-                if (isIpfs) payload = await fetchFromIpfs(mm.cid.slice(3));
+                let payload = isInline ? mm.cid.slice(3) : await fetchFromIpfs(mm.cid.slice(3));
                 var dec = decryptMessage(payload, keypair.priv, senderPub).text;
                 if (mm.fileType === "image" || mm.fileType === "file") {
                   try {
                     var parsed = JSON.parse(dec);
                     body = parsed.t || "";
                     var media = { kind: mm.fileType, dataUrl: parsed.d, name: parsed.n };
-                    return { from: mm.from, text: body, media: media, ts: Number(mm.timestamp), locked: locked, enc: enc, mine: false, idx: o.idx };
-                  } catch (e2) { body = dec; }
+                    result = { from: mm.from, text: body, media: media, ts: Number(mm.timestamp), locked: locked, enc: enc, mine: false, idx: o.idx };
+                  } catch (e2) {
+                    body = dec;
+                    result = { from: mm.from, text: body, ts: Number(mm.timestamp), locked: locked, enc: enc, mine: false, idx: o.idx };
+                  }
                 } else {
                   body = dec;
+                  result = { from: mm.from, text: body, ts: Number(mm.timestamp), locked: locked, enc: enc, mine: false, idx: o.idx };
                 }
               } catch (e) {
                 console.error("decrypt/load:", e);
                 body = "🔒 " + (t.decFail || "unable to load message");
+                result = { from: mm.from, text: body, ts: Number(mm.timestamp), locked: locked, enc: enc, mine: false, idx: o.idx };
               }
             }
+          } else {
+            result = { from: mm.from, text: body, ts: Number(mm.timestamp), locked: locked, enc: enc, mine: false, idx: o.idx };
           }
-          return { from: mm.from, text: body, ts: Number(mm.timestamp), locked: locked, enc: enc, mine: false, idx: o.idx };
+          if (!locked) decryptCache.current[o.idx] = result;
+          return result;
         }));
       }
       setMsgs(list);
@@ -993,8 +1004,8 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
   }, [wallet, getProvider, keypair, getPub, t]);
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { if (!wallet) return; const tm = setInterval(load, 15000); return () => clearInterval(tm); }, [wallet, load]);
-  useEffect(() => { setSent([]); }, [wallet]);
+  useEffect(() => { if (!wallet) return; const tm = setInterval(load, 6000); return () => clearInterval(tm); }, [wallet, load]);
+  useEffect(() => { setSent([]); decryptCache.current = {}; }, [wallet]);
 
   const thread = [...msgs, ...sent].sort((a, b) => a.ts - b.ts);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs, sent]);
@@ -1041,17 +1052,23 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
         return;
       }
       var msgType = "text";
-        var payloadStr = body;
-        if (attach) {
-          msgType = attach.kind;
-          payloadStr = JSON.stringify({ t: body, d: attach.dataUrl, n: attach.name });
-        }
-        const blob = encryptMessage(payloadStr, kp.priv, theirPub);
+      var payloadStr = body;
+      if (attach) {
+        msgType = attach.kind;
+        payloadStr = JSON.stringify({ t: body, d: attach.dataUrl, n: attach.name });
+      }
+      const blob = encryptMessage(payloadStr, kp.priv, theirPub);
+      var inlineRef = "e1:" + blob;
+      var ref;
+      if (msgType === "text" && inlineRef.length <= 128) {
+        ref = inlineRef;
+      } else {
         showToast("📤 " + (t.tUploading || "Encrypting & uploading…"));
         const cid = await uploadToIpfs(blob);
-        const ref = "e2:" + cid;
+        ref = "e2:" + cid;
+      }
       setSent(prev => [...prev, { id: localId, from: wallet, to: to, text: body, ts: Math.floor(Date.now() / 1000), locked: false, enc: true, mine: true, status: "sending" }]);
-     setAttach(null);
+      setAttach(null);
       const c = new Contract(ADDRESSES.messenger, MESSENGER_ABI, signer);
 
         // ── OSG fee handling (exact approve per message) ──
@@ -1082,7 +1099,6 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
       await tx.wait();
       showToast("✅ " + t.tSent);
       setSent(prev => prev.map(m => m.id === localId ? { ...m, status: "delivered" } : m));
-      await load();
     } catch (e) {
       console.error(e);
       showToast("❌ " + (e?.shortMessage || e?.reason || t.tFailed));
