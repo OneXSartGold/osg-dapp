@@ -874,7 +874,7 @@ async function fileToPayload(file) {
 // Generous message cap (IPFS removes the old ~65-char on-chain limit).
 const MAX_MSG = 1000;
 
-function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) {
+function Messenger({ wallet, network, getProvider, ensureReady, showToast, t, onScreenChange }) {
   const CHAT_THEMES = {
     midnight: { bg:"linear-gradient(180deg,#0a0a0d,#080809)", head:"linear-gradient(180deg,rgba(240,165,0,.08),rgba(10,10,13,0))", headTxt:"#ffffff", headSub:"#8b93a2", inBg:"#1b1c23", inTxt:"#e9edf3", inEdge:"rgba(255,255,255,.06)", outBg:"linear-gradient(180deg,#332a14,#2b2412)", outTxt:"#f5ecd6", outEdge:"#5a4715", meta:"#8b93a2", outMeta:"#b79a5c", tick:"#f0a500", accent:"#f0a500", barBg:"#15141b", barEdge:"rgba(255,255,255,.07)", inputTxt:"#e9edf3", ph:"#5d6470", sendBg:"linear-gradient(135deg,#ffd66b,#b8841c)", sendTxt:"#1a1205", dayBg:"rgba(255,255,255,.05)", dayTxt:"#8b93a2" },
     sky: { bg:"linear-gradient(180deg,#eaf6ff,#cfe8ff)", head:"linear-gradient(135deg,#1f8fff,#0f6fe0)", headTxt:"#ffffff", headSub:"rgba(255,255,255,.85)", inBg:"#ffffff", inTxt:"#0b2440", inEdge:"transparent", outBg:"linear-gradient(180deg,#dcf0ff,#cfe8ff)", outTxt:"#0b2440", outEdge:"#bfe2ff", meta:"#5b7693", outMeta:"#5b7693", tick:"#34b7f1", accent:"#1f8fff", barBg:"#ffffff", barEdge:"#d8e8f5", inputTxt:"#0b2440", ph:"#9bb3c9", sendBg:"linear-gradient(135deg,#34a0ff,#0f6fe0)", sendTxt:"#ffffff", dayBg:"rgba(255,255,255,.75)", dayTxt:"#5b7693" },
@@ -1059,7 +1059,7 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [activeThread.length, screen]);
 
-  const openConversation = function (addr) {
+  useEffect(function () { if (onScreenChange) onScreenChange(screen === "chat"); return function () { if (onScreenChange) onScreenChange(false); }; }, [screen]);   const openConversation = function (addr) {
     setActiveAddr(addr);
     setScreen("chat");
     markSeen(addr);
@@ -1746,7 +1746,7 @@ function OSGScan({ wallet, data, holders, polUsd, chg24, t }) {
 }
 export default function App() {
   const [lang, setLang] = useState("en");
-  const [langOpen, setLangOpen] = useState(false);
+  const [langOpen, setLangOpen] = useState(false);   const [chatFullscreen, setChatFullscreen] = useState(false);
   const [tab, setTab] = useState("dashboard");
   const [wallet, setWallet] = useState(null);
   const [network, setNetwork] = useState(false);
@@ -1997,7 +1997,7 @@ export default function App() {
       <style>{STYLES}</style>
       <div className="osg-app">
         {/* TOP BAR */}
-        <header className="topbar">
+        {!chatFullscreen && <header className="topbar">
           <div className="brand">
             <img className="logo-img" src={LOGO} alt="OSG"/>
             <div className="name" style={{ fontFamily:"'Bricolage Grotesque',sans-serif", fontWeight:800, fontSize:19, letterSpacing:"3.5px", background:"linear-gradient(110deg," + C.gold3 + " 20%," + C.gold1 + " 40%,#fff7e0 50%," + C.gold1 + " 60%," + C.gold3 + " 80%)", backgroundSize:"220% 100%", WebkitBackgroundClip:"text", backgroundClip:"text", color:"transparent", animation:"shine 3.2s linear infinite", filter:"drop-shadow(0 0 10px rgba(233,185,73,.35))" }}>OSG</div><div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:6.5, letterSpacing:"2.5px", textTransform:"uppercase", color:C.green, fontWeight:600, marginTop:1, whiteSpace:"nowrap" }}>OneX Smart Gold</div>
@@ -2023,7 +2023,7 @@ export default function App() {
               ? <div className="wallet-pill" style={{ flexDirection:"column", alignItems:"flex-end", gap:1, padding:"6px 14px" }}><span style={{ display:"flex", alignItems:"center", gap:5, fontSize:11, fontWeight:700, color:C.green }}><span className="dot" style={{ background:network?C.green:C.red,boxShadow:network?"0 0 8px " + C.green:"none" }}/>Connected</span><span className="addr" style={{ color:C.txt2 }}>{short(wallet)}</span></div>
               : <button className="btn-gold" onClick={connect} disabled={connecting} style={{ width:"auto", height:42, padding:"0 20px", fontSize:13.5, borderRadius:12, background:"linear-gradient(135deg,#FCE9B0 0%," + C.gold1 + " 30%," + C.gold2 + " 65%," + C.gold3 + " 100%)", boxShadow:"0 8px 24px -6px rgba(233,185,73,.6), inset 0 1px 0 rgba(255,255,255,.45)" }}>{connecting?<span className="spin"/>:t.connectWallet}</button>}
           </div>
-        </header>
+        </header>}
 
         {/* SCREEN */}
         <main className="screen" onClick={()=>setLangOpen(false)}>
@@ -2031,7 +2031,7 @@ export default function App() {
           {tab==="staking"   && <Staking wallet={wallet} data={data} refParam={refParam} actions={actions} busy={busy} t={t}/>}
           {tab==="referral"  && <Referral wallet={wallet} data={data} showToast={showToast} getProvider={getProvider} t={t}/>}
           {tab==="swap"      && <Swap t={t} data={data} wallet={wallet} polUsd={polUsd} holders={holders} chg24={chg24}/>}
-          {tab==="messenger" && <Messenger wallet={wallet} network={network} getProvider={getProvider} ensureReady={ensureReady} showToast={showToast} t={t}/>}{tab==="osgscan" && <OSGScan wallet={wallet} data={data} holders={holders} polUsd={polUsd} chg24={chg24} t={t}/>}
+          {tab==="messenger" && <Messenger wallet={wallet} network={network} getProvider={getProvider} ensureReady={ensureReady} showToast={showToast} t={t} onScreenChange={setChatFullscreen}/>}{tab==="osgscan" && <OSGScan wallet={wallet} data={data} holders={holders} polUsd={polUsd} chg24={chg24} t={t}/>}
           {!wallet && <div style={{ textAlign:"center",marginTop:20,fontSize:13,color:C.txt3 }}>👆 {t.connectSee}</div>}
         </main>
 
