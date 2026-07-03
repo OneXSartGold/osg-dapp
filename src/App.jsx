@@ -1300,7 +1300,7 @@ function FireworksCanvas({ trigger }) {   const canvasRef = useRef(null);   cons
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const bodyRef = useRef(null);
-  const unlocked = wallet && Number(staked) >= 500;   const [pos, setPos] = useState(null);   const dragInfo = useRef({ moved:false, startX:0, startY:0, origX:0, origY:0 });   var getBtnPos = function () { if (pos) return pos; return { x: window.innerWidth - 18 - 54, y: window.innerHeight - 96 - 54 }; };   var onBtnDown = function (e) { if (e.target.setPointerCapture) { try { e.target.setPointerCapture(e.pointerId); } catch (err) {} } var cur = getBtnPos(); dragInfo.current = { moved:false, startX:e.clientX, startY:e.clientY, origX:cur.x, origY:cur.y }; };   var onBtnMove = function (e) { if (!dragInfo.current.startX && !dragInfo.current.startY) return; var dx = e.clientX - dragInfo.current.startX; var dy = e.clientY - dragInfo.current.startY; if (Math.abs(dx) > 6 || Math.abs(dy) > 6) dragInfo.current.moved = true; if (dragInfo.current.moved) { var nx = Math.max(6, Math.min(window.innerWidth - 60, dragInfo.current.origX + dx)); var ny = Math.max(6, Math.min(window.innerHeight - 60, dragInfo.current.origY + dy)); setPos({ x:nx, y:ny }); } };   var onBtnUp = function () { if (!dragInfo.current.moved) setOpen(true); dragInfo.current = { moved:false, startX:0, startY:0, origX:0, origY:0 }; };
+  const tier = !wallet ? "locked" : (Number(staked) >= 3000 ? "premium" : (Number(staked) >= 500 ? "basic" : "locked"));   const unlocked = tier !== "locked";   const [pos, setPos] = useState(null);   const dragInfo = useRef({ moved:false, startX:0, startY:0, origX:0, origY:0 });   var getBtnPos = function () { if (pos) return pos; return { x: window.innerWidth - 18 - 54, y: window.innerHeight - 96 - 54 }; };   var onBtnDown = function (e) { if (e.target.setPointerCapture) { try { e.target.setPointerCapture(e.pointerId); } catch (err) {} } var cur = getBtnPos(); dragInfo.current = { moved:false, startX:e.clientX, startY:e.clientY, origX:cur.x, origY:cur.y }; };   var onBtnMove = function (e) { if (!dragInfo.current.startX && !dragInfo.current.startY) return; var dx = e.clientX - dragInfo.current.startX; var dy = e.clientY - dragInfo.current.startY; if (Math.abs(dx) > 6 || Math.abs(dy) > 6) dragInfo.current.moved = true; if (dragInfo.current.moved) { var nx = Math.max(6, Math.min(window.innerWidth - 60, dragInfo.current.origX + dx)); var ny = Math.max(6, Math.min(window.innerHeight - 60, dragInfo.current.origY + dy)); setPos({ x:nx, y:ny }); } };   var onBtnUp = function () { if (!dragInfo.current.moved) setOpen(true); dragInfo.current = { moved:false, startX:0, startY:0, origX:0, origY:0 }; };
 
   useEffect(function(){ if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight; }, [msgs, open]);
 
@@ -1315,7 +1315,7 @@ function FireworksCanvas({ trigger }) {   const canvasRef = useRef(null);   cons
       var r = await fetch("/api/ai-assistant", {
         method:"POST",
         headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify({ message:text.trim(), history:history, liveContext:liveContext }),
+        body: JSON.stringify({ message:text.trim(), history:history, liveContext:liveContext, tier:tier }),
       });
       var d = await r.json();
       var reply = (d && d.reply) ? d.reply : "Sorry, I couldn't get a response right now. Please try again.";
@@ -1349,7 +1349,7 @@ function FireworksCanvas({ trigger }) {   const canvasRef = useRef(null);   cons
                 background:"linear-gradient(135deg," + C.gold1 + "," + C.gold3 + ")",
                 display:"flex", alignItems:"center", justifyContent:"center", fontSize:16 }}>🤖</div>
               <div>
-                <div style={{ fontSize:14, fontWeight:700 }}>OSG Assistant</div>
+                <div style={{ fontSize:14, fontWeight:700 }}>OSG Assistant {tier==="premium" ? <span style={{ fontSize:10, fontWeight:800, color:"#1a1206", background:"linear-gradient(135deg,#f3d27a,#c9962f)", padding:"2px 7px", borderRadius:8, marginLeft:6, verticalAlign:"middle" }}>PREMIUM</span> : (tier==="basic" ? <span style={{ fontSize:10, fontWeight:700, color:"#9aa", background:"#232330", padding:"2px 7px", borderRadius:8, marginLeft:6, verticalAlign:"middle" }}>BASIC</span> : null)}</div>
                 <div style={{ fontSize:10, color:C.green }}>● Online</div>
               </div>
               <div onClick={function () { setOpen(false); }}
