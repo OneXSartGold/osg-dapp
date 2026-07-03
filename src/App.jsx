@@ -1224,7 +1224,7 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t, on
 
   return (
     <div className="page">
-      <div className="page-head"><h1>{t.chatTitle}</h1><p>{t.chatSub}</p></div>
+      {screen === "list" && <div className="page-head"><h1>{t.chatTitle}</h1><p>{t.chatSub}</p></div>}
 
       {viewer && (
         <div onClick={()=>setViewer(null)}
@@ -1301,7 +1301,7 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t, on
               <div className="mono" style={{ fontSize:14, fontWeight:700, color:C.txt }}>{activeAddr ? short(activeAddr) : ""}</div>
               <div style={{ fontSize:11, color:C.txt3 }}>🔒 {t.e2eShort || "Encrypted"}</div>
             </div>
-            <button onClick={()=>setThemeOpen(o=>!o)} title="Chat theme"
+            <button onClick={()=>setThemeOpen(o=>!o)} title="Chat theme" hidden
               style={{ background:"transparent", border:"1px solid "+C.line, color:C.gold1, width:38, height:38, borderRadius:12, fontSize:17, cursor:"pointer", flexShrink:0 }}>🎨</button>
             {themeOpen && (
               <div style={{ position:"absolute", top:44, right:0, zIndex:30, background:C.card2, border:"1px solid "+C.line, borderRadius:12, padding:6, display:"flex", flexDirection:"column", gap:4, minWidth:150, boxShadow:"0 10px 30px rgba(0,0,0,.5)" }}>
