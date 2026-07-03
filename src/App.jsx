@@ -875,7 +875,6 @@ async function fileToPayload(file) {
 const MAX_MSG = 1000;
 
 function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) {
-  // ── Chat themes (Messages page only) ──
   const CHAT_THEMES = {
     midnight: { bg:"linear-gradient(180deg,#0a0a0d,#080809)", head:"linear-gradient(180deg,rgba(240,165,0,.08),rgba(10,10,13,0))", headTxt:"#ffffff", headSub:"#8b93a2", inBg:"#1b1c23", inTxt:"#e9edf3", inEdge:"rgba(255,255,255,.06)", outBg:"linear-gradient(180deg,#332a14,#2b2412)", outTxt:"#f5ecd6", outEdge:"#5a4715", meta:"#8b93a2", outMeta:"#b79a5c", tick:"#f0a500", accent:"#f0a500", barBg:"#15141b", barEdge:"rgba(255,255,255,.07)", inputTxt:"#e9edf3", ph:"#5d6470", sendBg:"linear-gradient(135deg,#ffd66b,#b8841c)", sendTxt:"#1a1205", dayBg:"rgba(255,255,255,.05)", dayTxt:"#8b93a2" },
     sky: { bg:"linear-gradient(180deg,#eaf6ff,#cfe8ff)", head:"linear-gradient(135deg,#1f8fff,#0f6fe0)", headTxt:"#ffffff", headSub:"rgba(255,255,255,.85)", inBg:"#ffffff", inTxt:"#0b2440", inEdge:"transparent", outBg:"linear-gradient(180deg,#dcf0ff,#cfe8ff)", outTxt:"#0b2440", outEdge:"#bfe2ff", meta:"#5b7693", outMeta:"#5b7693", tick:"#34b7f1", accent:"#1f8fff", barBg:"#ffffff", barEdge:"#d8e8f5", inputTxt:"#0b2440", ph:"#9bb3c9", sendBg:"linear-gradient(135deg,#34a0ff,#0f6fe0)", sendTxt:"#ffffff", dayBg:"rgba(255,255,255,.75)", dayTxt:"#5b7693" },
@@ -886,10 +885,15 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
   const [themeOpen, setThemeOpen] = useState(false);
   const [viewer, setViewer] = useState(null);
   const TH = CHAT_THEMES[chatTheme] || CHAT_THEMES.midnight;
-  const [to, setTo] = useState("");
+
+  const [screen, setScreen] = useState("list");
+  const [activeAddr, setActiveAddr] = useState(null);
+  const [newChatOpen, setNewChatOpen] = useState(false);
+  const [newAddrInput, setNewAddrInput] = useState("");
+
   const [text, setText] = useState("");
   const [msgs, setMsgs] = useState([]);
-  const [sent, setSent] = useState([]);
+  const [sentLocal, setSentLocal] = useState([]);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [keypair, setKeypair] = useState(null);
@@ -899,6 +903,32 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
   const pubCache = useRef({});
   const decryptCache = useRef({});
   const endRef = useRef(null);
+
+  const sentKey = wallet ? ("osg_sent_" + wallet.toLowerCase()) : null;
+  const seenKey = function (addr) { return wallet ? ("osg_seen_" + wallet.toLowerCase() + "_" + addr.toLowerCase()) : null; };
+
+  useEffect(function () {
+    if (!wallet) { setSentLocal([]); return; }
+    try {
+      var raw = localStorage.getItem(sentKey);
+      setSentLocal(raw ? JSON.parse(raw) : []);
+    } catch (e) { setSentLocal([]); }
+    decryptCache.current = {};
+    setScreen("list");
+    setActiveAddr(null);
+  }, [wallet]);
+
+  const persistSent = function (arr) {
+    setSentLocal(arr);
+    try { if (sentKey) localStorage.setItem(sentKey, JSON.stringify(arr)); } catch (e) {}
+  };
+
+  const getSeenTs = function (addr) {
+    try { var v = localStorage.getItem(seenKey(addr)); return v ? Number(v) : 0; } catch (e) { return 0; }
+  };
+  const markSeen = function (addr) {
+    try { localStorage.setItem(seenKey(addr), String(Math.floor(Date.now() / 1000))); } catch (e) {}
+  };
 
   const getPub = useCallback(async (addr) => {
     if (!addr) return null;
@@ -1005,10 +1035,47 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { if (!wallet) return; const tm = setInterval(load, 6000); return () => clearInterval(tm); }, [wallet, load]);
-  useEffect(() => { setSent([]); decryptCache.current = {}; }, [wallet]);
 
-  const thread = [...msgs, ...sent].sort((a, b) => a.ts - b.ts);
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs, sent]);
+  const convMap = {};
+  msgs.forEach(function (m) {
+    var addr = m.from.toLowerCase();
+    if (!convMap[addr]) convMap[addr] = [];
+    convMap[addr].push(m);
+  });
+  sentLocal.forEach(function (m) {
+    var addr = m.to.toLowerCase();
+    if (!convMap[addr]) convMap[addr] = [];
+    convMap[addr].push(m);
+  });
+  const conversations = Object.keys(convMap).map(function (addr) {
+    var list = convMap[addr].slice().sort(function (a, b) { return a.ts - b.ts; });
+    var last = list[list.length - 1];
+    var seenTs = getSeenTs(addr);
+    var unread = list.filter(function (m) { return !m.mine && Number(m.ts) > seenTs; }).length;
+    return { addr: addr, thread: list, last: last, unread: unread };
+  }).sort(function (a, b) { return b.last.ts - a.last.ts; });
+
+  const activeThread = activeAddr ? (convMap[activeAddr] || []).slice().sort(function (a, b) { return a.ts - b.ts; }) : [];
+
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [activeThread.length, screen]);
+
+  const openConversation = function (addr) {
+    setActiveAddr(addr);
+    setScreen("chat");
+    markSeen(addr);
+  };
+  const closeConversation = function () {
+    setScreen("list");
+    setActiveAddr(null);
+  };
+  const openNewChat = function () { setNewChatOpen(true); setNewAddrInput(""); };
+  const closeNewChat = function () { setNewChatOpen(false); };
+  const confirmNewChat = function () {
+    var addr = newAddrInput.trim();
+    if (!isAddress(addr)) { showToast("⚠️ " + t.tBadAddr); return; }
+    setNewChatOpen(false);
+    openConversation(addr.toLowerCase());
+  };
 
   const pickFile = () => { if (fileRef.current) fileRef.current.click(); };
 
@@ -1036,26 +1103,30 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
   };
 
   const send = async () => {
-    if (!isAddress(to)) { showToast("⚠️ " + t.tBadAddr); return; }
+    var toAddr = activeAddr;
+    if (!toAddr || !isAddress(toAddr)) { showToast("⚠️ " + t.tBadAddr); return; }
     const body = text.trim();
     if (!body && !attach) { showToast("⚠️ " + t.tEmptyMsg); return; }
     if (body.length > MAX_MSG) { showToast("⚠️ " + (t.tTooLong || ("Too long — max " + MAX_MSG + " chars"))); return; }
     const signer = await ensureReady(); if (!signer) return;
     setSending(true);
     const localId = "s" + Date.now();
+    var updated = null;
     try {
       const kp = await ensureKeypair(signer);
       if (!kp) return;
-      const theirPub = await getPub(to);
+      const theirPub = await getPub(toAddr);
       if (!theirPub) {
         showToast("⚠️ " + (t.tNoRecipientKey || "Recipient hasn't enabled secure messaging yet"));
         return;
       }
       var msgType = "text";
       var payloadStr = body;
+      var mediaForLocal = null;
       if (attach) {
         msgType = attach.kind;
         payloadStr = JSON.stringify({ t: body, d: attach.dataUrl, n: attach.name });
+        mediaForLocal = { kind: attach.kind, dataUrl: attach.dataUrl, name: attach.name };
       }
       const blob = encryptMessage(payloadStr, kp.priv, theirPub);
       var inlineRef = "e1:" + blob;
@@ -1067,11 +1138,13 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
         const cid = await uploadToIpfs(blob);
         ref = "e2:" + cid;
       }
-      setSent(prev => [...prev, { id: localId, from: wallet, to: to, text: body, ts: Math.floor(Date.now() / 1000), locked: false, enc: true, mine: true, status: "sending" }]);
+      var newEntry = { id: localId, from: wallet, to: toAddr, text: body, media: mediaForLocal, ts: Math.floor(Date.now() / 1000), locked: false, enc: true, mine: true, status: "sending" };
+      updated = sentLocal.concat([newEntry]);
+      persistSent(updated);
       setAttach(null);
+      setText("");
       const c = new Contract(ADDRESSES.messenger, MESSENGER_ABI, signer);
 
-        // ── OSG fee handling (exact approve per message) ──
         let nativeFee = 0n;
         try {
           var useOsg = await c.useOSGFee();
@@ -1095,14 +1168,14 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
         }
 
         showToast("2/2 — " + (t.tSendingMsg || "Sending message..."));
-        const tx = await c.sendMessage(to, ref, msgType, { value: nativeFee });
+        const tx = await c.sendMessage(toAddr, ref, msgType, { value: nativeFee });
       await tx.wait();
       showToast("✅ " + t.tSent);
-      setSent(prev => prev.map(m => m.id === localId ? { ...m, status: "delivered" } : m));
+      persistSent(updated.map(function (m) { return m.id === localId ? Object.assign({}, m, { status: "delivered" }) : m; }));
     } catch (e) {
       console.error(e);
       showToast("❌ " + (e?.shortMessage || e?.reason || t.tFailed));
-      setSent(prev => prev.map(m => m.id === localId ? { ...m, status: "failed" } : m));
+      if (updated) persistSent(updated.map(function (m) { return m.id === localId ? Object.assign({}, m, { status: "failed" }) : m; }));
     } finally { setSending(false); }
   };
 
@@ -1123,7 +1196,7 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
   };
 
   const over = text.length > MAX_MSG;
-// download a base64 dataURL to the device (works on mobile)
+
   const downloadData = (dataUrl, name) => {
     try {
       const a = document.createElement("a");
@@ -1136,7 +1209,6 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
     } catch (e) { showToast("❌ " + (t.tSaveFail || "Save failed")); }
   };
 
-  // long-press to copy a message's text
   const pressRef = useRef(null);
   const startPress = (txt) => {
     clearTimeout(pressRef.current);
@@ -1149,28 +1221,11 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
     }, 420);
   };
   const endPress = () => clearTimeout(pressRef.current);
+
   return (
     <div className="page">
       <div className="page-head"><h1>{t.chatTitle}</h1><p>{t.chatSub}</p></div>
-      {/* 🎨 theme picker */}
-      <div style={{ display:"flex", justifyContent:"flex-end", marginTop:-6, marginBottom:6, position:"relative" }}>
-        <button onClick={()=>setThemeOpen(o=>!o)} title="Chat theme"
-          style={{ background:"transparent", border:"1px solid "+C.line, color:C.gold1, width:40, height:40, borderRadius:12, fontSize:18, cursor:"pointer" }}>🎨</button>
-        {themeOpen && (
-          <div style={{ position:"absolute", top:46, right:0, zIndex:30, background:C.card2, border:"1px solid "+C.line, borderRadius:12, padding:6, display:"flex", flexDirection:"column", gap:4, minWidth:150, boxShadow:"0 10px 30px rgba(0,0,0,.5)" }}>
-            {[["midnight","Midnight","#f0a500"],["sky","Sky","#1f8fff"],["pearl","Pearl Gold","#e0a21f"],["ocean","Ocean","#12b886"]].map(function(o){
-              return (
-                <button key={o[0]} onClick={()=>{ setChatTheme(o[0]); setThemeOpen(false); }}
-                  style={{ display:"flex", alignItems:"center", gap:9, background: chatTheme===o[0] ? C.card : "transparent", border:"1px solid "+(chatTheme===o[0]?C.gold3:"transparent"), color:C.txt, padding:"9px 11px", borderRadius:9, cursor:"pointer", fontSize:13, textAlign:"left" }}>
-                  <span style={{ width:12, height:12, borderRadius:"50%", background:o[2], display:"inline-block" }}/>{o[1]}
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </div>
 
-      {/* full-screen image viewer */}
       {viewer && (
         <div onClick={()=>setViewer(null)}
           style={{ position:"fixed", inset:0, zIndex:100, background:"rgba(0,0,0,.92)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:16 }}>
@@ -1185,126 +1240,188 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t }) 
         </div>
       )}
 
-      {wallet && !keypair && (
-        <div className="card" style={{ marginBottom:12, display:"flex", gap:12, alignItems:"center", flexWrap:"wrap" }}>
-          <div style={{ flex:1, minWidth:170, fontSize:12, color:C.txt2, lineHeight:1.5 }}>
-            🔒 {t.e2eInfo || "Messages are end-to-end encrypted. Enable once (free signature) to read & send."}
+      {screen === "list" ? (
+        <>
+          {wallet && !keypair && (
+            <div className="card" style={{ marginBottom:12, display:"flex", gap:12, alignItems:"center", flexWrap:"wrap" }}>
+              <div style={{ flex:1, minWidth:170, fontSize:12, color:C.txt2, lineHeight:1.5 }}>
+                🔒 {t.e2eInfo || "Messages are end-to-end encrypted. Enable once (free signature) to read & send."}
+              </div>
+              <button className="btn-ghost" style={{ width:"auto", padding:"12px 16px" }} disabled={setupBusy} onClick={unlock}>
+                {setupBusy ? <span className="spin"/> : (t.enableSecure || "Enable")}
+              </button>
+            </div>
+          )}
+
+          <div className="card" style={{ padding:14, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+            <div>
+              <div className="sec" style={{ marginBottom:2 }}>{t.inbox}</div>
+              <div style={{ fontSize:11, color:C.txt3 }}>🔒 {t.e2eShort || "End-to-end encrypted"}</div>
+            </div>
+            <button className="btn-gold" style={{ width:"auto", padding:"10px 16px", fontSize:13 }} onClick={openNewChat}>✏️ {t.newChat || "New Chat"}</button>
           </div>
-          <button className="btn-ghost" style={{ width:"auto", padding:"12px 16px" }} disabled={setupBusy} onClick={unlock}>
-            {setupBusy ? <span className="spin"/> : (t.enableSecure || "Enable")}
-          </button>
+
+          <div className="card" style={{ marginTop:12, minHeight:380, padding:8 }}>
+            {!wallet ? (
+              <div style={{ textAlign:"center", color:C.txt3, fontSize:13, marginTop:30 }}>👆 {t.connectSee}</div>
+            ) : conversations.length === 0 ? (
+              <div style={{ textAlign:"center", color:C.txt3, fontSize:13, marginTop:30 }}>💬 {t.noMsgs}</div>
+            ) : conversations.map(function (c) {
+              return (
+                <div key={c.addr} onClick={() => openConversation(c.addr)}
+                  style={{ display:"flex", alignItems:"center", gap:12, padding:"11px 8px", borderRadius:14, cursor:"pointer", borderBottom:"1px solid " + C.line }}>
+                  <div style={{ width:46, height:46, borderRadius:"50%", background:"linear-gradient(135deg,#332a14,#5a4715)", display:"flex", alignItems:"center", justifyContent:"center", color:C.gold1, fontWeight:800, fontSize:14, fontFamily:"monospace", flexShrink:0, border:"1px solid rgba(240,165,0,.25)" }}>
+                    {c.addr.slice(2,4).toUpperCase()}
+                  </div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ display:"flex", justifyContent:"space-between" }}>
+                      <span className="mono" style={{ fontSize:14, fontWeight:700, color:C.txt }}>{short(c.addr)}</span>
+                      <span style={{ fontSize:11, color:C.txt3, flexShrink:0 }}>{new Date(c.last.ts*1000).toLocaleDateString()}</span>
+                    </div>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:2 }}>
+                      <span style={{ fontSize:13, color:C.txt2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:"80%" }}>
+                        {c.last.mine ? ((t.youLabel || "You") + ": ") : ""}{c.last.media ? ("📎 " + (c.last.media.kind === "image" ? "Photo" : "File")) : c.last.text}
+                      </span>
+                      {c.unread > 0 && <span style={{ background:C.gold1, color:"#1a1205", fontSize:11, fontWeight:800, borderRadius:20, padding:"2px 7px" }}>{c.unread}</span>}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      ) : (
+        <div style={{ display:"flex", flexDirection:"column" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:10, padding:"6px 2px", marginBottom:8, position:"relative" }}>
+            <button onClick={closeConversation} style={{ background:"transparent", border:"none", color:C.txt, fontSize:22, cursor:"pointer", padding:"2px 4px" }}>←</button>
+            <div style={{ width:38, height:38, borderRadius:"50%", background:"linear-gradient(135deg,#332a14,#5a4715)", display:"flex", alignItems:"center", justifyContent:"center", color:C.gold1, fontWeight:800, fontSize:12, fontFamily:"monospace", flexShrink:0, border:"1px solid rgba(240,165,0,.25)" }}>
+              {activeAddr ? activeAddr.slice(2,4).toUpperCase() : ""}
+            </div>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div className="mono" style={{ fontSize:14, fontWeight:700, color:C.txt }}>{activeAddr ? short(activeAddr) : ""}</div>
+              <div style={{ fontSize:11, color:C.txt3 }}>🔒 {t.e2eShort || "Encrypted"}</div>
+            </div>
+            <button onClick={()=>setThemeOpen(o=>!o)} title="Chat theme"
+              style={{ background:"transparent", border:"1px solid "+C.line, color:C.gold1, width:38, height:38, borderRadius:12, fontSize:17, cursor:"pointer", flexShrink:0 }}>🎨</button>
+            {themeOpen && (
+              <div style={{ position:"absolute", top:44, right:0, zIndex:30, background:C.card2, border:"1px solid "+C.line, borderRadius:12, padding:6, display:"flex", flexDirection:"column", gap:4, minWidth:150, boxShadow:"0 10px 30px rgba(0,0,0,.5)" }}>
+                {[["midnight","Midnight","#f0a500"],["sky","Sky","#1f8fff"],["pearl","Pearl Gold","#e0a21f"],["ocean","Ocean","#12b886"]].map(function(o){
+                  return (
+                    <button key={o[0]} onClick={()=>{ setChatTheme(o[0]); setThemeOpen(false); }}
+                      style={{ display:"flex", alignItems:"center", gap:9, background: chatTheme===o[0] ? C.card : "transparent", border:"1px solid "+(chatTheme===o[0]?C.gold3:"transparent"), color:C.txt, padding:"9px 11px", borderRadius:9, cursor:"pointer", fontSize:13, textAlign:"left" }}>
+                      <span style={{ width:12, height:12, borderRadius:"50%", background:o[2], display:"inline-block" }}/>{o[1]}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="card" style={{ padding:0, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+            <div style={{ flex:1, display:"flex", flexDirection:"column", gap:8, maxHeight:440, minHeight:340, overflowY:"auto", background:TH.bg, borderRadius:"12px 12px 0 0", padding:"12px 8px" }}>
+              {activeThread.length === 0 ? (
+                <div style={{ textAlign:"center",color:TH.meta,fontSize:13,marginTop:30 }}>💬 {t.noMsgs}</div>
+              ) : activeThread.map((mm,i)=>(
+                <div key={mm.id ? mm.id : ("r" + i + "-" + mm.ts)}
+                  onClick={mm.locked?unlock:undefined}
+                  onMouseDown={()=>startPress(mm.text)} onMouseUp={endPress} onMouseLeave={endPress}
+                  onTouchStart={()=>startPress(mm.text)} onTouchEnd={endPress} onTouchMove={endPress}
+                  style={{
+                    alignSelf: mm.mine ? "flex-end" : "flex-start",
+                    maxWidth:"82%",
+                    background: mm.mine ? TH.outBg : TH.inBg,
+                    border:"1px solid " + (mm.mine ? TH.outEdge : TH.inEdge),
+                    borderRadius: mm.mine ? "16px 6px 16px 16px" : "6px 16px 16px 16px",
+                    padding:"8px 11px",
+                    boxShadow:"0 1px 1.5px rgba(0,0,0,.14)",
+                    cursor: mm.locked?"pointer":"default",
+                    WebkitUserSelect:"none", userSelect:"none"
+                  }}>
+                  <div className="mono" style={{ fontSize:10, color: mm.mine ? TH.outMeta : TH.meta, marginBottom:4, display:"flex", justifyContent:"space-between", alignItems:"center", gap:8 }}>
+                    <span>{mm.mine ? (t.youLabel || "You") : short(mm.from)} {mm.enc && !mm.locked ? "🔒" : ""}</span>
+                    {!mm.mine && mm.idx !== undefined && (
+                      <span onClick={(e)=>{ e.stopPropagation(); removeMsg(mm.idx); }}
+                        style={{ cursor:"pointer", opacity:.6, fontSize:12 }} title={t.delete || "Delete"}>🗑️</span>
+                    )}
+                  </div>
+                  {mm.media && mm.media.kind === "image" && (
+                    <img src={mm.media.dataUrl} alt={mm.media.name||"image"}
+                      onClick={(e)=>{ e.stopPropagation(); setViewer({ dataUrl: mm.media.dataUrl, name: mm.media.name }); }}
+                      style={{ maxWidth:"100%", maxHeight:260, borderRadius:12, marginBottom: mm.text?6:0, cursor:"pointer", display:"block" }}/>
+                  )}
+                  {mm.media && mm.media.kind === "file" && (
+                    <a href={mm.media.dataUrl} download={mm.media.name||"file"}
+                      style={{ display:"flex", alignItems:"center", gap:8, marginBottom: mm.text?6:0, color: mm.mine?TH.outTxt:TH.accent, textDecoration:"none", fontSize:13 }}>
+                      📄 <span style={{ textDecoration:"underline", wordBreak:"break-all" }}>{mm.media.name||"file"}</span>
+                    </a>
+                  )}
+                  {mm.text && <div style={{ fontSize:15, color: mm.mine ? TH.outTxt : TH.inTxt, wordBreak:"break-word", lineHeight:1.4 }}>{mm.text}</div>}
+                  <div style={{ fontSize:10, color: mm.mine ? TH.outMeta : TH.meta, marginTop:4, textAlign:"right", display:"flex", gap:5, justifyContent:"flex-end", alignItems:"center" }}>
+                    <span>{new Date(mm.ts*1000).toLocaleString()}</span>
+                    {mm.mine && mm.status === "sending"   && <span style={{ color:TH.outMeta }}>✓</span>}
+                    {mm.mine && mm.status === "delivered" && <span style={{ color:TH.tick, fontWeight:700 }}>✓✓</span>}
+                    {mm.mine && mm.status === "failed"    && <span style={{ color:"#e5484d", fontWeight:700 }}>✕</span>}
+                  </div>
+                </div>
+              ))}
+              <div ref={endRef}/>
+            </div>
+
+            <div style={{ padding:12, background:TH.barBg, border:"1px solid "+TH.barEdge, borderTop:"none" }}>
+              {attach && (
+                <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10, padding:8, background:TH.inBg, border:"1px solid "+TH.barEdge, borderRadius:10 }}>
+                  {attach.kind === "image"
+                    ? <img src={attach.dataUrl} alt="preview" style={{ width:44, height:44, objectFit:"cover", borderRadius:8 }}/>
+                    : <span style={{ fontSize:22 }}>📄</span>}
+                  <div style={{ flex:1, minWidth:0, fontSize:12, color:TH.inTxt, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{attach.name}</div>
+                  <span onClick={clearAttach} title={t.remove || "Remove"} style={{ cursor:"pointer", color:TH.meta, fontSize:18, padding:"0 4px" }}>✕</span>
+                </div>
+              )}
+
+              <div style={{ display:"flex", gap:8, alignItems:"flex-end" }}>
+                <input ref={fileRef} type="file" accept="image/*,application/pdf,.txt,.doc,.docx,.zip" style={{ display:"none" }} onChange={onFilePicked}/>
+                <div style={{ flex:1, display:"flex", alignItems:"flex-end", gap:6, background:TH.inBg, border:"1px solid "+TH.barEdge, borderRadius:22, padding:"6px 8px 6px 12px" }}>
+                  <button onClick={pickFile} title={t.attach || "Attach"} style={{ background:"transparent", border:"none", cursor:"pointer", fontSize:20, lineHeight:1, padding:0, color:TH.meta, flexShrink:0 }}>📎</button>
+                  <textarea
+                    placeholder={t.typeMsg}
+                    value={text}
+                    onChange={e=>setText(e.target.value)}
+                    onKeyDown={e=>{ if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); send(); } }}
+                    rows={1}
+                    style={{ flex:1, resize:"none", border:"none", outline:"none", background:"transparent", color:TH.inputTxt, fontSize:15, lineHeight:1.4, maxHeight:120, overflowY:"auto", fontFamily:"inherit", padding:"4px 0" }}
+                  />
+                </div>
+                <button onClick={send} disabled={sending || over} title={t.send}
+                  style={{ width:46, height:46, flexShrink:0, borderRadius:"50%", border:"none", cursor:(sending||over)?"default":"pointer", background:TH.sendBg, color:TH.sendTxt, display:"flex", alignItems:"center", justifyContent:"center", opacity: over?0.5:1 }}>
+                  {sending
+                    ? <span className="spin"/>
+                    : (text.trim().length>0 || attach)
+                      ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                      : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>}
+                </button>
+              </div>
+
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:8, fontSize:11, color:TH.meta }}>
+                <span>🔒 {t.feeNote}</span>
+                <span className="mono" style={{ color: over ? "#e5484d" : TH.meta }}>{text.length}/{MAX_MSG}</span>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
-      <div className="card" style={{ padding:14 }}>
-        <label style={{ fontSize:11,color:C.txt3,textTransform:"uppercase",letterSpacing:".4px" }}>{t.recipient}</label>
-        <input className="inp-sm" placeholder="0x…" value={to} onChange={e=>setTo(e.target.value.trim())}/>
-      </div>
-
-      <div className="card" style={{ marginTop:12, minHeight:380, display:"flex", flexDirection:"column" }}>
-        <div className="sec" style={{ marginBottom:10 }}>{t.inbox}{thread.length ? " · " + thread.length : ""}</div>
-        <div style={{ flex:1, display:"flex", flexDirection:"column", gap:8, maxHeight:440, overflowY:"auto", background:TH.bg, borderRadius:12, padding:"12px 8px" }}>
-          {!wallet ? (
-            <div style={{ textAlign:"center",color:TH.meta,fontSize:13,marginTop:30 }}>👆 {t.connectSee}</div>
-          ) : loading && thread.length===0 ? (
-            <div style={{ textAlign:"center",color:TH.meta,fontSize:13,marginTop:30 }}>{t.loadingMsgs}</div>
-          ) : thread.length===0 ? (
-            <div style={{ textAlign:"center",color:TH.meta,fontSize:13,marginTop:30 }}>💬 {t.noMsgs}</div>
-          ) : thread.map((mm,i)=>(
-            <div key={mm.id ? mm.id : ("r" + i + "-" + mm.ts)}
-              onClick={mm.locked?unlock:undefined}
-              onMouseDown={()=>startPress(mm.text)} onMouseUp={endPress} onMouseLeave={endPress}
-              onTouchStart={()=>startPress(mm.text)} onTouchEnd={endPress} onTouchMove={endPress}
-              style={{
-                alignSelf: mm.mine ? "flex-end" : "flex-start",
-                maxWidth:"82%",
-                background: mm.mine ? TH.outBg : TH.inBg,
-                border:"1px solid " + (mm.mine ? TH.outEdge : TH.inEdge),
-                borderRadius: mm.mine ? "16px 6px 16px 16px" : "6px 16px 16px 16px",
-                padding:"8px 11px",
-                boxShadow:"0 1px 1.5px rgba(0,0,0,.14)",
-                cursor: mm.locked?"pointer":"default",
-                WebkitUserSelect:"none", userSelect:"none"
-              }}>
-              <div className="mono" style={{ fontSize:10, color: mm.mine ? TH.outMeta : TH.meta, marginBottom:4, display:"flex", justifyContent:"space-between", alignItems:"center", gap:8 }}>
-                <span>{mm.mine ? (t.youLabel || "You") : short(mm.from)} {mm.enc && !mm.locked ? "🔒" : ""}</span>
-                {!mm.mine && mm.idx !== undefined && (
-                  <span onClick={(e)=>{ e.stopPropagation(); removeMsg(mm.idx); }}
-                    style={{ cursor:"pointer", opacity:.6, fontSize:12 }} title={t.delete || "Delete"}>🗑️</span>
-                )}
-              </div>
-              {mm.media && mm.media.kind === "image" && (
-                <img src={mm.media.dataUrl} alt={mm.media.name||"image"}
-                  onClick={(e)=>{ e.stopPropagation(); setViewer({ dataUrl: mm.media.dataUrl, name: mm.media.name }); }}
-                  style={{ maxWidth:"100%", maxHeight:260, borderRadius:12, marginBottom: mm.text?6:0, cursor:"pointer", display:"block" }}/>
-              )}
-              {mm.media && mm.media.kind === "file" && (
-                <a href={mm.media.dataUrl} download={mm.media.name||"file"}
-                  style={{ display:"flex", alignItems:"center", gap:8, marginBottom: mm.text?6:0, color: mm.mine?TH.outTxt:TH.accent, textDecoration:"none", fontSize:13 }}>
-                  📄 <span style={{ textDecoration:"underline", wordBreak:"break-all" }}>{mm.media.name||"file"}</span>
-                </a>
-              )}
-              {mm.text && <div style={{ fontSize:15, color: mm.mine ? TH.outTxt : TH.inTxt, wordBreak:"break-word", lineHeight:1.4 }}>{mm.text}</div>}
-              <div style={{ fontSize:10, color: mm.mine ? TH.outMeta : TH.meta, marginTop:4, textAlign:"right", display:"flex", gap:5, justifyContent:"flex-end", alignItems:"center" }}>
-                <span>{new Date(mm.ts*1000).toLocaleString()}</span>
-                {mm.mine && mm.status === "sending"   && <span style={{ color:TH.outMeta }}>✓</span>}
-                {mm.mine && mm.status === "delivered" && <span style={{ color:TH.tick, fontWeight:700 }}>✓✓</span>}
-                {mm.mine && mm.status === "failed"    && <span style={{ color:"#e5484d", fontWeight:700 }}>✕</span>}
-              </div>
+      {newChatOpen && (
+        <div onClick={closeNewChat} style={{ position:"fixed", inset:0, zIndex:90, background:"rgba(0,0,0,.6)", display:"flex", alignItems:"flex-end" }}>
+          <div onClick={(e)=>e.stopPropagation()} style={{ width:"100%", maxWidth:460, margin:"0 auto", background:C.card2, borderRadius:"20px 20px 0 0", padding:"20px 18px 26px" }}>
+            <div style={{ color:C.txt, fontSize:16, fontWeight:700, marginBottom:12 }}>{t.newChatTitle || "Start a new chat"}</div>
+            <input className="inp-sm" placeholder="0x…" value={newAddrInput} onChange={(e)=>setNewAddrInput(e.target.value.trim())}/>
+            <div style={{ display:"flex", gap:10, marginTop:14 }}>
+              <button className="btn-ghost" style={{ flex:1 }} onClick={closeNewChat}>{t.cancel || "Cancel"}</button>
+              <button className="btn-gold" style={{ flex:1 }} onClick={confirmNewChat}>{t.startChat || "Start Chat"}</button>
             </div>
-          ))}
-          <div ref={endRef}/>
-        </div>
-      </div>
-
-      <div className="card" style={{ marginTop:12, padding:12, background:TH.barBg, border:"1px solid "+TH.barEdge }}>
-
-        {attach && (
-          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10, padding:8, background:TH.inBg, border:"1px solid "+TH.barEdge, borderRadius:10 }}>
-            {attach.kind === "image"
-              ? <img src={attach.dataUrl} alt="preview" style={{ width:44, height:44, objectFit:"cover", borderRadius:8 }}/>
-              : <span style={{ fontSize:22 }}>📄</span>}
-            <div style={{ flex:1, minWidth:0, fontSize:12, color:TH.inTxt, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{attach.name}</div>
-            <span onClick={clearAttach} title={t.remove || "Remove"} style={{ cursor:"pointer", color:TH.meta, fontSize:18, padding:"0 4px" }}>✕</span>
           </div>
-        )}
-
-        <div style={{ display:"flex", gap:8, alignItems:"flex-end" }}>
-
-          <input ref={fileRef} type="file" accept="image/*,application/pdf,.txt,.doc,.docx,.zip" style={{ display:"none" }} onChange={onFilePicked}/>
-
-          <div style={{ flex:1, display:"flex", alignItems:"flex-end", gap:6, background:TH.inBg, border:"1px solid "+TH.barEdge, borderRadius:22, padding:"6px 8px 6px 12px" }}>
-
-            <button onClick={pickFile} title={t.attach || "Attach"} style={{ background:"transparent", border:"none", cursor:"pointer", fontSize:20, lineHeight:1, padding:0, color:TH.meta, flexShrink:0 }}>📎</button>
-
-            <textarea
-              placeholder={t.typeMsg}
-              value={text}
-              onChange={e=>setText(e.target.value)}
-              onKeyDown={e=>{ if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); send(); } }}
-              rows={1}
-              style={{ flex:1, resize:"none", border:"none", outline:"none", background:"transparent", color:TH.inputTxt, fontSize:15, lineHeight:1.4, maxHeight:120, overflowY:"auto", fontFamily:"inherit", padding:"4px 0" }}
-            />
-
-          </div>
-
-          <button onClick={send} disabled={sending || over} title={t.send}
-            style={{ width:46, height:46, flexShrink:0, borderRadius:"50%", border:"none", cursor:(sending||over)?"default":"pointer", background:TH.sendBg, color:TH.sendTxt, display:"flex", alignItems:"center", justifyContent:"center", opacity: over?0.5:1 }}>
-            {sending
-              ? <span className="spin"/>
-              : (text.trim().length>0 || attach)
-                ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>}
-          </button>
-
         </div>
-
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:8, fontSize:11, color:TH.meta }}>
-          <span>🔒 {t.feeNote}</span>
-          <span className="mono" style={{ color: over ? "#e5484d" : TH.meta }}>{text.length}/{MAX_MSG}</span>
-        </div>
-
-      </div>
+      )}
     </div>
   );
 }
