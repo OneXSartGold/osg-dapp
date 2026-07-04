@@ -899,10 +899,11 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t, on
   const [keypair, setKeypair] = useState(null);
   const [setupBusy, setSetupBusy] = useState(false);
   const [attach, setAttach] = useState(null);
-  const fileRef = useRef(null);
+ const fileRef = useRef(null);
   const pubCache = useRef({});
   const decryptCache = useRef({});
   const endRef = useRef(null);
+  const [kbOffset, setKbOffset] = useState(0);
 
   const sentKey = wallet ? ("osg_sent_" + wallet.toLowerCase()) : null;
   const seenKey = function (addr) { return wallet ? ("osg_seen_" + wallet.toLowerCase() + "_" + addr.toLowerCase()) : null; };
@@ -1059,7 +1060,7 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t, on
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [activeThread.length, screen]);
 
-  useEffect(function () { if (onScreenChange) onScreenChange(screen === "chat"); return function () { if (onScreenChange) onScreenChange(false); }; }, [screen]);   const openConversation = function (addr) {
+  useEffect(function () { if (onScreenChange) onScreenChange(screen === "chat"); return function () { if (onScreenChange) onScreenChange(false); }; }, [screen]);   useEffect(function () {     if (!window.visualViewport) return;     var vv = window.visualViewport;     function onResize() {       var gap = window.innerHeight - vv.height - vv.offsetTop;       setKbOffset(gap > 80 ? gap : 0);     }     vv.addEventListener("resize", onResize);     vv.addEventListener("scroll", onResize);     onResize();     return function () { vv.removeEventListener("resize", onResize); vv.removeEventListener("scroll", onResize); };   }, []);   const openConversation = function (addr) {
     setActiveAddr(addr);
     setScreen("chat");
     markSeen(addr);
@@ -1291,7 +1292,7 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t, on
           </div>
         </>
       ) : (
-        <div style={{ display:"flex", flexDirection:"column", marginBottom:-40 }}>
+        <div style={{ display:"flex", flexDirection:"column", marginBottom:-15 }}>
           <div style={{ display:"flex", alignItems:"center", gap:10, padding:"6px 2px", marginBottom:8, position:"relative" }}>
             <button onClick={closeConversation} style={{ background:"transparent", border:"none", color:C.txt, fontSize:22, cursor:"pointer", padding:"2px 4px" }}>←</button>
             <div style={{ width:38, height:38, borderRadius:"50%", background:"linear-gradient(135deg,#332a14,#5a4715)", display:"flex", alignItems:"center", justifyContent:"center", color:C.gold1, fontWeight:800, fontSize:12, fontFamily:"monospace", flexShrink:0, border:"1px solid rgba(240,165,0,.25)" }}>
@@ -1318,7 +1319,7 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t, on
           </div>
 
           <div style={{ padding:0, display:"flex", flexDirection:"column", overflow:"hidden", flex:1 }}>
-            <div style={{ flex:1, display:"flex", flexDirection:"column", gap:8, overflowY:"auto", background:TH.bg, padding:"12px 8px" }}>
+            <div style={{ flex:1, display:"flex", flexDirection:"column", gap:8, overflowY:"auto", background:TH.bg, padding: kbOffset > 0 ? ("12px 8px " + (kbOffset + 70) + "px") : "12px 8px" }}>
               {activeThread.length === 0 ? (
                 <div style={{ textAlign:"center",color:TH.meta,fontSize:13,marginTop:30 }}>💬 {t.noMsgs}</div>
               ) : activeThread.map((mm,i)=>(
@@ -1367,7 +1368,7 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t, on
               <div ref={endRef}/>
             </div>
 
-            <div style={{ padding:"12px 12px calc(16px + env(safe-area-inset-bottom))", background:TH.bg, marginBottom:8 }}>
+            <div style={ kbOffset > 0 ? { padding:"10px 12px 10px", background:TH.bg, position:"fixed", left:"50%", transform:"translateX(-50%)", bottom:kbOffset, width:"100%", maxWidth:460, zIndex:95, boxSizing:"border-box" } : { padding:"12px 12px calc(16px + env(safe-area-inset-bottom))", background:TH.bg, marginBottom:8 } }>
               {attach && (
                 <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10, padding:8, background:TH.inBg, border:"1px solid "+TH.barEdge, borderRadius:10 }}>
                   {attach.kind === "image"
