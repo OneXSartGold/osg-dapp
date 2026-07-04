@@ -1060,7 +1060,7 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t, on
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [activeThread.length, screen]);
 
-  useEffect(function () { if (onScreenChange) onScreenChange(screen === "chat"); return function () { if (onScreenChange) onScreenChange(false); }; }, [screen]);   useEffect(function () {     if (!window.visualViewport) return;     var vv = window.visualViewport;     function onResize() {       var gap = window.innerHeight - vv.height - vv.offsetTop;       setKbOffset(gap > 80 ? gap : 0);     }     vv.addEventListener("resize", onResize);     vv.addEventListener("scroll", onResize);     onResize();     return function () { vv.removeEventListener("resize", onResize); vv.removeEventListener("scroll", onResize); };   }, []);   const openConversation = function (addr) {
+  useEffect(function () { if (onScreenChange) onScreenChange(screen === "chat"); return function () { if (onScreenChange) onScreenChange(false); }; }, [screen]);   useEffect(function () {     if (!window.visualViewport) return;     var vv = window.visualViewport;     var debTimer = null;     function onResize() {       clearTimeout(debTimer);       debTimer = setTimeout(function(){         var gap = window.innerHeight - vv.height - vv.offsetTop;         setKbOffset(gap > 80 ? gap : 0);       }, 60);     }     vv.addEventListener("resize", onResize);     vv.addEventListener("scroll", onResize);     onResize();     return function () { clearTimeout(debTimer); vv.removeEventListener("resize", onResize); vv.removeEventListener("scroll", onResize); };   }, []);   const openConversation = function (addr) {
     setActiveAddr(addr);
     setScreen("chat");
     markSeen(addr);
@@ -1387,7 +1387,7 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t, on
                     placeholder={t.typeMsg}
                     value={text}
                     onChange={e=>setText(e.target.value)}
-                    onKeyDown={e=>{ if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); send(); } }}
+                    onKeyDown={e=>{ if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); send(); } }}                     onFocus={()=>{ setTimeout(function(){ if (window.visualViewport) { var vv = window.visualViewport; var gap = window.innerHeight - vv.height - vv.offsetTop; setKbOffset(gap > 80 ? gap : 0); } }, 350); }}                     onBlur={()=>{ setTimeout(function(){ setKbOffset(0); }, 150); }}
                     rows={1}
                     style={{ flex:1, resize:"none", border:"none", outline:"none", background:"transparent", color:TH.inputTxt, fontSize:15, lineHeight:1.4, maxHeight:120, overflowY:"auto", fontFamily:"inherit", padding:"4px 0" }}
                   />
