@@ -879,9 +879,9 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t, on
     midnight: { bg:"linear-gradient(180deg,#0a0a0d,#080809)", head:"linear-gradient(180deg,rgba(240,165,0,.08),rgba(10,10,13,0))", headTxt:"#ffffff", headSub:"#8b93a2", inBg:"#1b1c23", inTxt:"#e9edf3", inEdge:"rgba(255,255,255,.06)", outBg:"linear-gradient(180deg,#332a14,#2b2412)", outTxt:"#f5ecd6", outEdge:"#5a4715", meta:"#8b93a2", outMeta:"#b79a5c", tick:"#f0a500", accent:"#f0a500", barBg:"#15141b", barEdge:"rgba(255,255,255,.07)", inputTxt:"#e9edf3", ph:"#5d6470", sendBg:"linear-gradient(135deg,#ffd66b,#b8841c)", sendTxt:"#1a1205", dayBg:"rgba(255,255,255,.05)", dayTxt:"#8b93a2" },
     sky: { bg:"linear-gradient(180deg,#eaf6ff,#cfe8ff)", head:"linear-gradient(135deg,#1f8fff,#0f6fe0)", headTxt:"#ffffff", headSub:"rgba(255,255,255,.85)", inBg:"#ffffff", inTxt:"#0b2440", inEdge:"transparent", outBg:"linear-gradient(180deg,#dcf0ff,#cfe8ff)", outTxt:"#0b2440", outEdge:"#bfe2ff", meta:"#5b7693", outMeta:"#5b7693", tick:"#34b7f1", accent:"#1f8fff", barBg:"#ffffff", barEdge:"#d8e8f5", inputTxt:"#0b2440", ph:"#9bb3c9", sendBg:"linear-gradient(135deg,#34a0ff,#0f6fe0)", sendTxt:"#ffffff", dayBg:"rgba(255,255,255,.75)", dayTxt:"#5b7693" },
     pearl: { bg:"linear-gradient(180deg,#fdfaf2,#f4ecd8)", head:"linear-gradient(135deg,#ffd97a,#e7ab28)", headTxt:"#2a1d00", headSub:"rgba(42,29,0,.62)", inBg:"#ffffff", inTxt:"#2a2417", inEdge:"#efe6cf", outBg:"linear-gradient(180deg,#ffe9ad,#f6d278)", outTxt:"#3a2a05", outEdge:"#e8c662", meta:"#9a8a64", outMeta:"#8a6c22", tick:"#c8911c", accent:"#e0a21f", barBg:"#ffffff", barEdge:"#efe6cf", inputTxt:"#2a2417", ph:"#b3a884", sendBg:"linear-gradient(135deg,#ffd66b,#e0a21f)", sendTxt:"#1a1205", dayBg:"rgba(255,255,255,.8)", dayTxt:"#9a8a64" },
-    ocean: { bg:"linear-gradient(180deg,#effaf6,#d6f2e8)", head:"linear-gradient(135deg,#15c191,#0c9b73)", headTxt:"#ffffff", headSub:"rgba(255,255,255,.85)", inBg:"#ffffff", inTxt:"#08332a", inEdge:"transparent", outBg:"linear-gradient(180deg,#cdf3e6,#bcecdb)", outTxt:"#08332a", outEdge:"#a9e6d2", meta:"#5a8d80", outMeta:"#5a8d80", tick:"#12b886", accent:"#12b886", barBg:"#ffffff", barEdge:"#cdeee2", inputTxt:"#08332a", ph:"#8fb8ad", sendBg:"linear-gradient(135deg,#19cf9b,#0c9b73)", sendTxt:"#ffffff", dayBg:"rgba(255,255,255,.78)", dayTxt:"#5a8d80" }
+    ocean: { bg:"linear-gradient(180deg,#effaf6,#d6f2e8)", head:"linear-gradient(135deg,#15c191,#0c9b73)", headTxt:"#ffffff", headSub:"rgba(255,255,255,.85)", inBg:"#ffffff", inTxt:"#08332a", inEdge:"transparent", outBg:"linear-gradient(180deg,#cdf3e6,#bcecdb)", outTxt:"#08332a", outEdge:"#a9e6d2", meta:"#5a8d80", outMeta:"#5a8d80", tick:"#12b886", accent:"#12b886", barBg:"#ffffff", barEdge:"#cdeee2", inputTxt:"#08332a", ph:"#8fb8ad", sendBg:"linear-gradient(135deg,#19cf9b,#0c9b73)", sendTxt:"#ffffff", dayBg:"rgba(255,255,255,.78)", dayTxt:"#5a8d80" },     cream: { bg:"#ECE5DD", head:"#FFFFFF", headTxt:"#111B21", headSub:"#25D366", inBg:"#FFFFFF", inTxt:"#111B21", inEdge:"#E2DAD1", outBg:"#D9FDD3", outTxt:"#111B21", outEdge:"#C5F0BB", meta:"#667781", outMeta:"#4A7A4A", tick:"#53BDEB", accent:"#128C7E", barBg:"#F0F2F5", barEdge:"#E2DAD1", inputTxt:"#111B21", ph:"#8696A0", sendBg:"linear-gradient(135deg,#25D366,#128C7E)", sendTxt:"#ffffff", dayBg:"#E1F3FB", dayTxt:"#54656F" }
   };
-  const [chatTheme, setChatTheme] = useState("midnight");
+  const [chatTheme, setChatTheme] = useState("cream");
   const [themeOpen, setThemeOpen] = useState(false);
   const [viewer, setViewer] = useState(null);
   const TH = CHAT_THEMES[chatTheme] || CHAT_THEMES.midnight;
@@ -1319,7 +1319,7 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t, on
           </div>
 
           <div style={{ padding:0, display:"flex", flexDirection:"column", overflow:"hidden", flex:1 }}>
-            <div style={{ flex:1, display:"flex", flexDirection:"column", gap:8, overflowY:"auto", background:TH.bg, padding: kbOffset > 0 ? ("12px 8px " + (kbOffset + 70) + "px") : "12px 8px" }}>
+            <div style={{ flex:1, display:"flex", flexDirection:"column", gap:8, overflowY:"auto", background:TH.bg, padding: "12px 8px " + (kbOffset > 0 ? (kbOffset + 90) : 90) + "px" }}>
               {activeThread.length === 0 ? (
                 <div style={{ textAlign:"center",color:TH.meta,fontSize:13,marginTop:30 }}>💬 {t.noMsgs}</div>
               ) : activeThread.map((mm,i)=>(
@@ -1368,7 +1368,7 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t, on
               <div ref={endRef}/>
             </div>
 
-            <div style={ kbOffset > 0 ? { padding:"10px 12px 10px", background:TH.bg, position:"fixed", left:"50%", transform:"translateX(-50%)", bottom:kbOffset, width:"100%", maxWidth:460, zIndex:95, boxSizing:"border-box" } : { padding:"12px 12px calc(16px + env(safe-area-inset-bottom))", background:TH.bg, marginBottom:8 } }>
+            <div style={{ padding:"10px 12px calc(10px + env(safe-area-inset-bottom))", background:TH.bg, position:"fixed", left:"50%", transform:"translateX(-50%)", bottom:kbOffset, width:"100%", maxWidth:460, zIndex:95, boxSizing:"border-box", borderTop:"1px solid " + TH.barEdge }}>
               {attach && (
                 <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10, padding:8, background:TH.inBg, border:"1px solid "+TH.barEdge, borderRadius:10 }}>
                   {attach.kind === "image"
