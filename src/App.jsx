@@ -2037,11 +2037,11 @@ export default function App() {
         </main>
 
         {/* BOTTOM NAV */}
-        <nav className="nav">
+        {!chatFullscreen && (       <nav className="nav">
           {navItems.map(([id,icon,label])=>(
             <button key={id} className={tab===id?"on":""} onClick={()=>setTab(id)}>{icon}<span>{label}</span></button>
           ))}
-        </nav><AIAssistant wallet={wallet} staked={data.staked} liveData={data} holders={holders} polUsd={polUsd}/>
+        </nav>       )}       <AIAssistant wallet={wallet} staked={data.staked} liveData={data} holders={holders} polUsd={polUsd}/>
       </div>
       {toast && <div className="toast">{toast}</div>}      <FireworksCanvas trigger={celebrateTick}/>
     </>
