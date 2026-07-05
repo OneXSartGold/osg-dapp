@@ -1292,7 +1292,7 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t, on
           </div>
         </>
       ) : (
-        <div style={{ display:"flex", flexDirection:"column", marginBottom:-15, marginLeft:-16, marginRight:-16 }}>
+        <div style={{ display:"flex", flexDirection:"column", position:"fixed", inset:0, zIndex:40, background:"#ECE5DD" }}>
           <div style={{ display:"flex", alignItems:"center", gap:10, padding:"6px 2px", marginBottom:8, position:"relative" }}>
             <button onClick={closeConversation} style={{ background:"transparent", border:"none", color:C.txt, fontSize:22, cursor:"pointer", padding:"2px 4px" }}>←</button>
             <div style={{ width:38, height:38, borderRadius:"50%", background:"linear-gradient(135deg,#332a14,#5a4715)", display:"flex", alignItems:"center", justifyContent:"center", color:C.gold1, fontWeight:800, fontSize:12, fontFamily:"monospace", flexShrink:0, border:"1px solid rgba(240,165,0,.25)" }}>
