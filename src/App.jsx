@@ -1319,7 +1319,7 @@ function Messenger({ wallet, network, getProvider, ensureReady, showToast, t, on
           </div>
 
           <div style={{ padding:0, display:"flex", flexDirection:"column", overflow:"hidden", flex:1 }}>
-            <div style={{ flex:1, display:"flex", flexDirection:"column", gap:8, overflowY:"auto", background:TH.bg, padding: "12px 8px " + (kbOffset > 0 ? (kbOffset + 90) : 90) + "px" }}>
+            <div style={{ flex:1, display:"flex", flexDirection:"column", gap:8, overflowY:"auto", background:TH.bg, padding: "12px 8px " + (kbOffset > 0 ? (kbOffset + 130) : 130) + "px" }}>
               {activeThread.length === 0 ? (
                 <div style={{ textAlign:"center",color:TH.meta,fontSize:13,marginTop:30 }}>💬 {t.noMsgs}</div>
               ) : activeThread.map((mm,i)=>(
