@@ -51,7 +51,7 @@ async function getLogs(address, fromBlock, toBlock) {
   return data.result;
 }
 
-function topicToAddress(topic) {
+async function getTxFrom(txHash) {   const data = await callEtherscan({ module: "proxy", action: "eth_getTransactionByHash", txhash: txHash });   if (data.result && data.result.from) return data.result.from.toLowerCase();   return null; }  function topicToAddress(topic) {
   // topic is 32-byte hex; address is the last 20 bytes
   return "0x" + topic.slice(-40);
 }
@@ -110,17 +110,17 @@ export default async function handler(req, res) {
     const transfersOut = transfers.slice(0, MAX_TRANSFERS_RETURNED);
 
     // ── Today's Swappers (grouped by sender) ──
-    const swapperMap = {};
-    for (const log of poolLogs) {
-      if (!log.topics || log.topics[0] !== TOPIC_SWAP_V2) continue;
+    const todaysSwapLogs = poolLogs.filter(function (log) {       return log.topics && log.topics[0] === TOPIC_SWAP_V2 && isToday(log.timeStamp);     });     const uniqueTxHashes = [...new Set(todaysSwapLogs.map(function (log) { return log.transactionHash; }))];     const txFromEntries = await Promise.all(uniqueTxHashes.map(async function (hash) {       const from = await getTxFrom(hash);       return [hash, from];     }));     const txFromMap = Object.fromEntries(txFromEntries);      const swapperMap = {};
+    for (const log of todaysSwapLogs) {
+      
       if (!isToday(log.timeStamp)) continue;
-      const sender = topicToAddress(log.topics[1]);
+      const realUser = txFromMap[log.transactionHash];       if (!realUser) continue;
       const words = decodeSwapWords(log.data);
       const totalRaw = words[0] + words[1] + words[2] + words[3];
       const volume = Number(totalRaw) / 1e18;
-      if (!swapperMap[sender]) swapperMap[sender] = { address: sender, swaps: 0, volumeOSG: 0 };
-      swapperMap[sender].swaps += 1;
-      swapperMap[sender].volumeOSG += volume;
+      if (!swapperMap[realUser]) swapperMap[realUser] = { address: realUser, swaps: 0, volumeOSG: 0 };
+      swapperMap[realUser].swaps += 1;
+      swapperMap[realUser].volumeOSG += volume;
     }
     const swappers = Object.values(swapperMap).sort((a, b) => b.volumeOSG - a.volumeOSG);
 
