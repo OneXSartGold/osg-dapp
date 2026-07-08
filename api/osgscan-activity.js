@@ -116,8 +116,8 @@ export default async function handler(req, res) {
       if (!isToday(log.timeStamp)) continue;
       const realUser = txFromMap[log.transactionHash];       if (!realUser) continue;
       const words = decodeSwapWords(log.data);
-      const totalRaw = words[0] + words[1] + words[2] + words[3];
-      const volume = Number(totalRaw) / 1e18;
+      const osgRaw = words[1] + words[3];
+      const volume = Number(osgRaw) / 1e18;
       if (!swapperMap[realUser]) swapperMap[realUser] = { address: realUser, swaps: 0, volumeOSG: 0 };
       swapperMap[realUser].swaps += 1;
       swapperMap[realUser].volumeOSG += volume;
