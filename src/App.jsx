@@ -1577,7 +1577,7 @@ function OSGScan({ wallet, data, holders, polUsd, chg24, t }) {
   var cUsd = function(n){ if (n == null) return "—"; if (n >= 1e9) return "$" + (n/1e9).toFixed(2) + "B"; if (n >= 1e6) return "$" + (n/1e6).toFixed(2) + "M"; if (n >= 1e3) return "$" + (n/1e3).toFixed(2) + "K"; return "$" + n.toFixed(2); };
   const [wcInput, setWcInput] = useState("");
   const [wcBusy, setWcBusy] = useState(false);
-  const [wcRes, setWcRes] = useState(null);
+  const [wcRes, setWcRes] = useState(null);   const [activity, setActivity] = useState({ transfers: [], swappers: [] });   useEffect(function(){     var alive = true;     function loadActivity(){       fetch("/api/osgscan-activity")         .then(function(r){ return r.json(); })         .then(function(d){ if (alive && d && !d.error) setActivity({ transfers: d.transfers || [], swappers: d.swappers || [] }); })         .catch(function(){});     }     loadActivity();     var id = setInterval(loadActivity, 90000);     return function(){ alive = false; clearInterval(id); };   }, []);
   function wcCheck(){
     var a = (wcInput || "").trim();
     if (!isAddress(a)) { setWcRes({ ok:false }); return; }
@@ -1725,7 +1725,7 @@ function OSGScan({ wallet, data, holders, polUsd, chg24, t }) {
         })}
       </div>
 
-      {/* explore links */}
+      {/* today's swappers */}       <div className="scan-card">         <div className="scan-ctitle">           <div className="t">Today's Swappers</div>           <div className="tag">{activity.swappers.length}</div>         </div>         {activity.swappers.length === 0 ? (           <div className="scan-note">No swaps yet today</div>         ) : activity.swappers.slice(0,8).map(function(s){           return (             <div className="scan-row" key={s.address}>               <div className="lbl">{s.swaps}× swap{s.swaps>1?"s":""}</div>               <div className="addr">{short(s.address)}</div>               <div className="acts">                 <a className="scan-ic" style={{ textDecoration:"none", fontSize:10, width:"auto", padding:"0 8px" }} href={"https://polygonscan.com/address/"+s.address} target="_blank" rel="noreferrer">{fmt(s.volumeOSG,1)}</a>               </div>             </div>           );         })}         <div className="scan-note">Sorted by OSG volume · updates every 90s</div>       </div>        {/* recent transfers */}       <div className="scan-card">         <div className="scan-ctitle">           <div className="t">Recent Transfers</div>           <div className="tag">Today</div>         </div>         {activity.transfers.length === 0 ? (           <div className="scan-note">No transfers yet today</div>         ) : activity.transfers.slice(0,10).map(function(tx){           return (             <a key={tx.txHash} href={"https://polygonscan.com/tx/"+tx.txHash} target="_blank" rel="noreferrer" style={{ textDecoration:"none", color:"inherit" }}>               <div className="scan-txr" style={{ filter:"none", opacity:1 }}>                 <div className="ty">TX</div>                 <div className="who">{short(tx.from)} → {short(tx.to)}</div>                 <div className="amt">{fmt(tx.amount,1)}</div>               </div>             </a>           );         })}         <div className="scan-note">Newest first · tap to view on Polygonscan</div>       </div>        {/* explore links */}
       <div className="scan-card">
         <div className="scan-ctitle">
           <div className="t">Explore</div>
