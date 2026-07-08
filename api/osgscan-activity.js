@@ -110,7 +110,7 @@ export default async function handler(req, res) {
     const transfersOut = transfers.slice(0, MAX_TRANSFERS_RETURNED);
 
     // ── Today's Swappers (grouped by sender) ──
-    const todaysSwapLogs = poolLogs.filter(function (log) {       return log.topics && log.topics[0] === TOPIC_SWAP_V2 && isToday(log.timeStamp);     });     const uniqueTxHashes = [...new Set(todaysSwapLogs.map(function (log) { return log.transactionHash; }))];     const txFromEntries = await Promise.all(uniqueTxHashes.map(async function (hash) {       const from = await getTxFrom(hash);       return [hash, from];     }));     const txFromMap = Object.fromEntries(txFromEntries);      const swapperMap = {};
+    const todaysSwapLogs = poolLogs.filter(function (log) {       return log.topics && log.topics[0] === TOPIC_SWAP_V2 && isToday(log.timeStamp);     });     const uniqueTxHashes = [...new Set(todaysSwapLogs.map(function (log) { return log.transactionHash; }))];     const txFromMap = {};     for (const hash of uniqueTxHashes) {       const from = await getTxFrom(hash);       txFromMap[hash] = from;       await new Promise(function (r) { setTimeout(r, 220); });     }           const swapperMap = {};
     for (const log of todaysSwapLogs) {
       
       if (!isToday(log.timeStamp)) continue;
