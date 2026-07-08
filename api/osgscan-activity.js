@@ -66,7 +66,7 @@ function hexToTokenAmount(hexData, decimals) {
   }
 }
 
-function isToday(hexTimestamp) {
+function matchesRange(hexTimestamp, range) {   const ms = parseInt(hexTimestamp, 16) * 1000;   const d = new Date(ms);   const now = new Date();   if (range === "yesterday") {     const y = new Date(now.getTime() - 86400000);     return d.toISOString().slice(0, 10) === y.toISOString().slice(0, 10);   }   if (range === "7d") {     const cutoff = new Date(now.getTime() - 7 * 86400000);     return d >= cutoff;   }   return isToday(hexTimestamp); }  function isToday(hexTimestamp) {
   const ms = parseInt(hexTimestamp, 16) * 1000;
   const d = new Date(ms);
   const now = new Date();
@@ -86,7 +86,7 @@ function decodeSwapWords(hexData) {
 export default async function handler(req, res) {
   try {
     const latestBlock = await getLatestBlock();
-    const fromBlock = Math.max(0, latestBlock - 2 * BLOCKS_PER_DAY_APPROX); // 2 days buffer, filtered to today below
+    const range = (req.query && req.query.range) || "today";     const rangeDays = range === "7d" ? 8 : (range === "yesterday" ? 3 : 2);     const fromBlock = Math.max(0, latestBlock - rangeDays * BLOCKS_PER_DAY_APPROX); // buffer, filtered below
 
     const [tokenLogs, poolLogs] = await Promise.all([
       getLogs(ADDR.token, fromBlock, latestBlock),
@@ -97,7 +97,7 @@ export default async function handler(req, res) {
     const transfers = [];
     for (const log of tokenLogs) {
       if (!log.topics || log.topics[0] !== TOPIC_TRANSFER) continue;
-      if (!isToday(log.timeStamp)) continue;
+      if (!matchesRange(log.timeStamp, range)) continue;
       transfers.push({
         from: topicToAddress(log.topics[1]),
         to: topicToAddress(log.topics[2]),
@@ -110,10 +110,10 @@ export default async function handler(req, res) {
     const transfersOut = transfers.slice(0, MAX_TRANSFERS_RETURNED);
 
     // ── Today's Swappers (grouped by sender) ──
-    const todaysSwapLogs = poolLogs.filter(function (log) {       return log.topics && log.topics[0] === TOPIC_SWAP_V2 && isToday(log.timeStamp);     });     const uniqueTxHashes = [...new Set(todaysSwapLogs.map(function (log) { return log.transactionHash; }))];     const txFromMap = {};     for (const hash of uniqueTxHashes) {       const from = await getTxFrom(hash);       txFromMap[hash] = from;       await new Promise(function (r) { setTimeout(r, 220); });     }           const swapperMap = {};
+    const todaysSwapLogs = poolLogs.filter(function (log) {       return log.topics && log.topics[0] === TOPIC_SWAP_V2 && matchesRange(log.timeStamp, range);     });     const uniqueTxHashes = [...new Set(todaysSwapLogs.map(function (log) { return log.transactionHash; }))];     const txFromMap = {};     for (const hash of uniqueTxHashes) {       const from = await getTxFrom(hash);       txFromMap[hash] = from;       await new Promise(function (r) { setTimeout(r, 220); });     }           const swapperMap = {};
     for (const log of todaysSwapLogs) {
       
-      if (!isToday(log.timeStamp)) continue;
+      
       const realUser = txFromMap[log.transactionHash];       if (!realUser) continue;
       const words = decodeSwapWords(log.data);
       const osgRaw = words[1] + words[3];
