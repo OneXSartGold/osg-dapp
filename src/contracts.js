@@ -109,6 +109,12 @@ export const POOL_ABI = [
 
 // ── OSGP2PExchange (order-book based P2P trading, pairId=1 = OSG/POL) ──
 export const P2P_ABI = [
+  "error EnforcedPause()",
+  "error ExpectedPause()",
+  "error OwnableInvalidOwner(address owner)",
+  "error OwnableUnauthorizedAccount(address account)",
+  "error ReentrancyGuardReentrantCall()",
+  "error SafeERC20FailedOperation(address token)",
   // writes
   "function placeBuyOrder(uint256 pairId, uint128 price, uint128 amount, uint40 expiryTime) payable returns (uint256 orderId)",
   "function placeSellOrder(uint256 pairId, uint128 price, uint128 amount, uint40 expiryTime) returns (uint256 orderId)",
