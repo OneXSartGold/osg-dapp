@@ -1585,7 +1585,7 @@ function OSGScan({ wallet, data, holders, polUsd, chg24, t }) {
     var p = new JsonRpcProvider(RPC_URLS[0], 137);
     new Contract(ADDRESSES.token, ["function balanceOf(address) view returns (uint256)"], p)
       .balanceOf(a)
-      .then(function(bal){ setWcRes({ ok:true, addr:a, bal:Number(f18(bal)) }); })
+      .then(function(bal){ var rankInfo = holdersData && holdersData.holders ? holdersData.holders.find(function(hh){ return hh.address.toLowerCase() === a.toLowerCase(); }) : null; setWcRes({ ok:true, addr:a, bal:Number(f18(bal)), rank: rankInfo ? rankInfo.rank : null }); })
       .catch(function(){ setWcRes({ ok:false }); })
       .finally(function(){ setWcBusy(false); });
   }
@@ -1639,7 +1639,7 @@ function OSGScan({ wallet, data, holders, polUsd, chg24, t }) {
           <div className="scan-sg"><i style={{ background:C.red }}/>Burned<div className="n">0</div></div>
         </div>
       </div>
-      {/* top holders — ranked bars */} <div className="scan-card">   <div className="scan-ctitle">     <div className="t">Top Holders</div>     <div className="tag">{holdersData ? "Top " + holdersData.holders.length : "Loading"}</div>   </div>   {!holdersData ? (     <div className="scan-note">Loading holder data…</div>   ) : holdersData.holders.map(function(h, i){     var colors = ["#FFD166","#FF9F5A","#FF6B9D","#C77DFF","#5EC8FF"];     var col = colors[i] || "#5EC8FF";     return (       <div className="scan-hrow" key={h.address}>         <div className="scan-hbadge" style={{ background: col }}>{i+1}</div>         <div className="scan-hinfo">           <div className="scan-htop">             <span className="scan-hlab">{h.label || "Wallet"} <small>{short(h.address)}</small></span>             <span className="scan-hpct">{h.percent.toFixed(2)}%</span>           </div>           <div className="scan-hbar"><i style={{ width: h.percent + "%", background: "linear-gradient(90deg," + col + ",#ffffff55)" }}/></div>         </div>       </div>     );   })}   <div className="scan-note">Reconstructed from on-chain Transfer history · updates every 10 min</div> </div> {/* wallet check — live balanceOf */}
+      {/* top holders — ranked bars */} <div className="scan-card">   <div className="scan-ctitle">     <div className="t">Top Holders</div>     <div className="tag">{holdersData ? "Top " + holdersData.holders.length : "Loading"}</div>   </div>   {!holdersData ? (     <div className="scan-note">Loading holder data…</div>   ) : holdersData.holders.slice(0,5).map(function(h, i){     var colors = ["#FFD166","#FF9F5A","#FF6B9D","#C77DFF","#5EC8FF"];     var col = colors[i] || "#5EC8FF";     return (       <div className="scan-hrow" key={h.address}>         <div className="scan-hbadge" style={{ background: col }}>{i+1}</div>         <div className="scan-hinfo">           <div className="scan-htop">             <span className="scan-hlab">{h.label || "Wallet"} <small>{short(h.address)}</small></span>             <span className="scan-hpct">{h.percent.toFixed(2)}%</span>           </div>           <div className="scan-hbar"><i style={{ width: h.percent + "%", background: "linear-gradient(90deg," + col + ",#ffffff55)" }}/></div>         </div>       </div>     );   })}   <div className="scan-note">Reconstructed from on-chain Transfer history · updates every 10 min</div> </div> {/* wallet check — live balanceOf */}
       <div className="scan-card">
         <div className="scan-ctitle">
           <div className="t">Wallet Check</div>
@@ -1659,7 +1659,7 @@ function OSGScan({ wallet, data, holders, polUsd, chg24, t }) {
             <div className="grid">
               <div className="cell">
                 <div className="k">OSG Balance</div>
-                <div className="v gold">{fmt(wcRes.bal, 2)}</div>
+                <div className="v gold">{fmt(wcRes.bal, 2)}</div>       </div>       <div className="cell">         <div className="k">Rank</div>         <div className="v">{wcRes.rank ? "#" + wcRes.rank : "—"}</div>
               </div>
             </div>
           </div>
