@@ -714,12 +714,12 @@ function Referral({ wallet, data, showToast, getProvider, t }) {
   );
 }
 
-function Swap({ t, data, wallet, polUsd, holders, chg24 }) {
+function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {   return (     <div className="card">       <div className="sec">P2P Exchange</div>       <div style={{ fontSize:13, color:C.txt2, lineHeight:1.6 }}>Coming online soon — order book, buy/sell forms, and my orders will appear here next.</div>     </div>   ); }  function Swap({ t, data, wallet, polUsd, holders, chg24, network, getProvider, ensureReady, showToast }) {   const [swapTab, setSwapTab] = useState("swap");
   var POOL = "0xA15214B09a9b3E1c821B94fB97d6d3BcA8201Cd2";   var hasRate = wallet && data && data.osgPerPol;   var osgPol = hasRate ? Number(data.osgPerPol) : 0;   var priceUsd = hasRate ? (osgPol * polUsd) : 0;   var priceUsdStr = hasRate ? ("$" + (priceUsd >= 1 ? priceUsd.toFixed(2) : priceUsd.toFixed(4))) : "$0.00";   var rateStr = hasRate ? ("1 OSG = " + (osgPol >= 1 ? osgPol.toFixed(2) : osgPol.toFixed(4)) + " POL") : "—";   var chgNum = (typeof chg24 === "number") ? chg24 : null;   var chgUp = (chgNum !== null) && chgNum >= 0;   var chgStr = (chgNum !== null) ? ((chgUp ? "+" : "") + chgNum.toFixed(2) + "%") : "—";   var holderStr = (wallet && holders) ? String(holders) : "—";
   var chartSrc = "https://www.geckoterminal.com/polygon_pos/pools/" + POOL + "?embed=1&info=0&swaps=0&grayscale=0&chart_type=price&resolution=15m";
   return (
     <div className="page">
-      <div className="page-head"><h1>{t.swap}</h1></div>
+      <div className="page-head"><h1>{t.swap}</h1></div>        <div className="tabs2">         <button className={"tab2 " + (swapTab==="swap"?"on":"")} onClick={function(){ setSwapTab("swap"); }}>Swap</button>         <button className={"tab2 " + (swapTab==="p2p"?"on":"")} onClick={function(){ setSwapTab("p2p"); }}>P2P</button>       </div>        {swapTab==="p2p" && <P2PPanel wallet={wallet} network={network} getProvider={getProvider} ensureReady={ensureReady} showToast={showToast} t={t}/>}        {swapTab==="swap" && <>
 
       <div style={{ background:"linear-gradient(160deg,#1C1A16,#121118)", border:"1px solid rgba(233,185,73,.2)", borderRadius:16, padding:"13px 15px", marginBottom:10 }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
@@ -761,7 +761,7 @@ function Swap({ t, data, wallet, polUsd, holders, chg24 }) {
 
       
 
-      <div className="cert">
+      </>}        <div className="cert">
         <span className="cert-frame1"></span><span className="cert-frame2"></span>
         <span className="cert-corner tl">◆</span><span className="cert-corner tr">◆</span>
         <span className="cert-corner bl">◆</span><span className="cert-corner br">◆</span>
@@ -2031,7 +2031,7 @@ export default function App() {
           <NewsPopup logo={LOGO} />         {tab==="dashboard" && <Dashboard data={data} wallet={wallet} polUsd={polUsd} holders={holders} chg24={chg24} t={t}/>}
           {tab==="staking"   && <Staking wallet={wallet} data={data} refParam={refParam} actions={actions} busy={busy} t={t}/>}
           {tab==="referral"  && <Referral wallet={wallet} data={data} showToast={showToast} getProvider={getProvider} t={t}/>}
-          {tab==="swap"      && <Swap t={t} data={data} wallet={wallet} polUsd={polUsd} holders={holders} chg24={chg24}/>}
+          {tab==="swap"      && <Swap t={t} data={data} wallet={wallet} polUsd={polUsd} holders={holders} chg24={chg24} network={network} getProvider={getProvider} ensureReady={ensureReady} showToast={showToast}/>}
           {tab==="messenger" && <Messenger wallet={wallet} network={network} getProvider={getProvider} ensureReady={ensureReady} showToast={showToast} t={t} onScreenChange={setChatFullscreen}/>}{tab==="osgscan" && <OSGScan wallet={wallet} data={data} holders={holders} polUsd={polUsd} chg24={chg24} t={t}/>}
           {!wallet && <div style={{ textAlign:"center",marginTop:20,fontSize:13,color:C.txt3 }}>👆 {t.connectSee}</div>}
         </main>
