@@ -18,7 +18,7 @@ const TOKEN = "0xba05176748347944CC26900c821AbFeBeBC57415";
 const TOPIC_TRANSFER = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
 
 const BLOCKS_PER_DAY_APPROX = 43200;   // Polygon ~2s blocks
-const HISTORY_DAYS = 42;               // buffer past token launch (June 2 2026)
+const HISTORY_DAYS = 45;               // buffer past token launch (June 2 2026)
 const CHUNK_DAYS = 5;                  // fetch history in 5-day windows
 
 const ZERO = "0x0000000000000000000000000000000000000000000000000000000000000000".slice(0, 42);
@@ -66,14 +66,25 @@ async function getTotalSupply() {
   try { return Number(BigInt(data.result)) / 1e18; } catch (e) { return 0; }
 }
 
-async function getLogsChunk(fromBlock, toBlock) {
-  const data = await callEtherscan({
-    module: "logs", action: "getLogs",
-    address: TOKEN, topic0: TOPIC_TRANSFER,
-    fromBlock: String(fromBlock), toBlock: String(toBlock),
-  });
-  if (!Array.isArray(data.result)) return [];
-  return data.result;
+// fetch ALL logs for the token in a block range (no topic filter server-side —
+// filtering topic0 in JS is the proven-reliable pattern from osgscan-activity.js).
+// Retries once on a bad/empty response before giving up on this chunk.
+async function getLogsChunkWithRetry(fromBlock, toBlock) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const data = await callEtherscan({
+      module: "logs", action: "getLogs",
+      address: TOKEN,
+      fromBlock: String(fromBlock), toBlock: String(toBlock),
+    });
+    if (Array.isArray(data.result)) return data.result;
+    // "No records found" comes back as a message, not an array — that's a
+    // legitimate empty chunk, not a failure, so treat message-based empty as OK.
+    if (data.message && /no records/i.test(data.message)) return [];
+    // otherwise: rate-limited or transient error — wait and retry once
+    await new Promise((r) => setTimeout(r, 400));
+  }
+  // still failed after retry — surface this so the caller can flag incomplete data
+  throw new Error("getLogs failed for range " + fromBlock + "-" + toBlock);
 }
 
 function topicToAddress(topic) {
@@ -86,7 +97,6 @@ export default async function handler(req, res) {
     const startBlock = Math.max(0, latestBlock - HISTORY_DAYS * BLOCKS_PER_DAY_APPROX);
     const chunkBlocks = CHUNK_DAYS * BLOCKS_PER_DAY_APPROX;
 
-    // build sequential block-range chunks, oldest to newest
     const ranges = [];
     for (let from = startBlock; from <= latestBlock; from += chunkBlocks) {
       const to = Math.min(from + chunkBlocks - 1, latestBlock);
@@ -94,9 +104,16 @@ export default async function handler(req, res) {
     }
 
     const balances = {}; // address(lowercase) -> BigInt raw wei balance
+    let incompleteChunks = 0;
 
     for (const [from, to] of ranges) {
-      const logs = await getLogsChunk(from, to);
+      let logs;
+      try {
+        logs = await getLogsChunkWithRetry(from, to);
+      } catch (e) {
+        incompleteChunks++;
+        logs = [];
+      }
       for (const log of logs) {
         if (!log.topics || log.topics[0] !== TOPIC_TRANSFER) continue;
         const from_ = topicToAddress(log.topics[1]).toLowerCase();
@@ -107,11 +124,27 @@ export default async function handler(req, res) {
         if (from_ !== ZERO) balances[from_] = (balances[from_] || 0n) - amt;
         if (to_ !== ZERO) balances[to_] = (balances[to_] || 0n) + amt;
       }
-      // small delay between chunk calls to stay under Etherscan rate limit
       await new Promise((r) => setTimeout(r, 200));
     }
 
     const totalSupplyOSG = await getTotalSupply();
+
+    // sanity check: if reconstructed balances add up to far less than the
+    // real on-chain total supply, our log history is incomplete — say so
+    // instead of silently returning misleading "top holders".
+    const sumHeld = Object.values(balances).reduce((s, v) => s + (v > 0n ? v : 0n), 0n);
+    const sumHeldOSG = Number(sumHeld) / 1e18;
+    const coverage = totalSupplyOSG > 0 ? sumHeldOSG / totalSupplyOSG : 0;
+
+    if (incompleteChunks > 0 && coverage < 0.9) {
+      res.status(200).json({
+        error: "Incomplete transfer history (" + incompleteChunks + " chunk(s) failed) — holder data would be misleading, not returning it.",
+        coverage: Math.round(coverage * 1000) / 10,
+        totalSupplyOSG,
+        updatedAt: Date.now(),
+      });
+      return;
+    }
 
     const ranked = Object.keys(balances)
       .filter((a) => a !== ZERO && a !== DEAD)
@@ -134,6 +167,7 @@ export default async function handler(req, res) {
     res.status(200).json({
       holders: ranked,
       totalSupplyOSG,
+      coverage: Math.round(coverage * 1000) / 10,
       updatedAt: Date.now(),
     });
   } catch (err) {
