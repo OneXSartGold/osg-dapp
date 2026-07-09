@@ -13,7 +13,7 @@ export const ADDRESSES = {
   messenger: "0x29c63cd4C3F03B1f64e929b0b8baC691DEB5FA5c",
   mediaStorage: "0x88E64Cbc22a35c2928038f2bc13F06630C93D07A",
   // referral is built into staking (no separate contract)
-  referral: "0x048E814C02e85ec1438Ab8C1d2e9150A5289A886",
+  referral: "0x048E814C02e85ec1438Ab8C1d2e9150A5289A886",   p2pExchange: "0x72A4387cC07cF105fEec4615b40d2EF9ca0AEE6B",
 };
 
 export const ZERO = "0x0000000000000000000000000000000000000000";
@@ -106,6 +106,6 @@ export const POOL_ABI = [
   "function paused() view returns (bool)",
 ];
 
-// QuickSwap swap link (until liquidity pool exists)
+// ── OSGP2PExchange (order-book based P2P trading, pairId=1 → OSG/POL) ── export const P2P_ABI = [   // writes   "function placeBuyOrder(uint256 pairId, uint128 price, uint128 amount, uint40 expiryTime) payable returns (uint256 orderId)",   "function placeSellOrder(uint256 pairId, uint128 price, uint128 amount, uint40 expiryTime) returns (uint256 orderId)",   "function acceptOrder(uint256 pairId, bool wantBuy, uint128 amount, uint128 priceLimit, uint256 startFrom, uint256 maxScan) payable returns (uint256 filledAmount, uint256 nextScanIndex)",   "function cancelOrder(uint256 orderId)",   "function cancelExpiredOrder(uint256 orderId)",   // reads   "function orders(uint256) view returns (address user, uint256 pairId, bool isBuy, uint128 price, uint128 amount, uint40 timestamp, uint40 expiryTime, uint8 status)",   "function pairs(uint256) view returns (address token, bool active, uint256 minAmount)",   "function orderCounter() view returns (uint256)",   "function pairCounter() view returns (uint256)",   "function pairOrderIds(uint256, uint256) view returns (uint256)",   "function userBuyPriceOrder(address, uint256, uint256) view returns (uint256)",   "function userSellPriceOrder(address, uint256, uint256) view returns (uint256)",   "function feeBps() view returns (uint256)",   "function feeCollector() view returns (address)",   "function MAX_FEE() view returns (uint256)",   "function MAX_SCAN() view returns (uint256)",   "function PRICE_SCALE() view returns (uint256)",   "function paused() view returns (bool)",   // events (for reading order-book / history via getLogs later)   "event OrderPlaced(uint256 indexed orderId, address indexed user, uint256 indexed pairId, bool isBuy, uint256 price, uint256 amount, uint256 expiryTime)",   "event OrderFilled(uint256 indexed orderId, address indexed taker, uint256 filledAmount, uint256 remainingAmount)",   "event OrderCancelled(uint256 indexed orderId, address indexed user, uint256 refundedAmount)",   "event OrderMerged(uint256 indexed orderId, address indexed user, uint256 addedAmount, uint256 newTotalAmount, uint256 newExpiryTime)", ];  // QuickSwap swap link (until liquidity pool exists)
 export const QUICKSWAP_URL =
   "https://quickswap.exchange/#/swap?outputCurrency=" + ADDRESSES.token;
