@@ -182,15 +182,15 @@ export default async function handler(req, res) {
       .map((a) => ({ address: a, raw: balances[a] }))
       .filter((h) => h.raw > 0n)
       .sort((a, b) => (b.raw > a.raw ? 1 : b.raw < a.raw ? -1 : 0))
-      .slice(0, 5)
-      .map((h) => {
+      
+      .map((h, i) => {
         const balanceOSG = Number(h.raw) / 1e18;
         const percent = totalSupplyOSG > 0 ? (balanceOSG / totalSupplyOSG) * 100 : 0;
         return {
           address: h.address,
           balanceOSG,
           percent,
-          label: LABELS[h.address] || null,
+          label: LABELS[h.address] || null,           rank: i + 1,
         };
       });
 
