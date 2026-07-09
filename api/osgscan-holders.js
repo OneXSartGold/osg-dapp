@@ -8,6 +8,7 @@
 // {
 //   holders: [ { address, balanceOSG, percent, label } , ... up to 5 ],
 //   totalSupplyOSG: number,
+//   coverage: number,   // % of totalSupply accounted for — should be ~100
 //   updatedAt: number   // unix ms
 // }
 
@@ -17,14 +18,13 @@ const CHAIN_ID = 137;
 const TOKEN = "0xba05176748347944CC26900c821AbFeBeBC57415";
 const TOPIC_TRANSFER = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
 
-const BLOCKS_PER_DAY_APPROX = 43200;   // Polygon ~2s blocks
-const HISTORY_DAYS = 45;               // buffer past token launch (June 2 2026)
-const CHUNK_DAYS = 5;                  // fetch history in 5-day windows
+const CHUNK_BLOCKS = 300000;   // ~ a few days per chunk, adaptive-split handles bursts
+const FALLBACK_LOOKBACK_DAYS = 60;
+const FALLBACK_BLOCKS_PER_DAY = 60000; // generous overestimate used only as last resort
 
 const ZERO = "0x0000000000000000000000000000000000000000000000000000000000000000".slice(0, 42);
 const DEAD = "0x000000000000000000000000000000000000dead";
 
-// known contract/wallet labels — honest disclosure for the transparency page
 const LABELS = {
   "0xf8acaa5617dff6db3d0cb44ca8de0e50a449bb83": "OSG-MAIN (Treasury)",
   "0xadc33f3cc10c44a9902a1b3f8257e6867dd242e6": "Vesting (Team)",
@@ -57,6 +57,29 @@ async function getLatestBlock() {
   return parseInt(data.result, 16);
 }
 
+// find the EXACT block the token contract was deployed at — no guessing.
+async function getGenesisBlock(latestBlock) {
+  try {
+    const data = await callEtherscan({
+      module: "contract", action: "getcontractcreation",
+      contractaddresses: TOKEN,
+    });
+    const info = data.result && data.result[0];
+    if (info && info.blockNumber) {
+      return Math.max(0, parseInt(info.blockNumber, 10) - 50);
+    }
+    if (info && info.txHash) {
+      const tx = await callEtherscan({
+        module: "proxy", action: "eth_getTransactionByHash", txhash: info.txHash,
+      });
+      if (tx.result && tx.result.blockNumber) {
+        return Math.max(0, parseInt(tx.result.blockNumber, 16) - 50);
+      }
+    }
+  } catch (e) { /* fall through to estimate */ }
+  return Math.max(0, latestBlock - FALLBACK_LOOKBACK_DAYS * FALLBACK_BLOCKS_PER_DAY);
+}
+
 async function getTotalSupply() {
   const data = await callEtherscan({
     module: "proxy", action: "eth_call",
@@ -66,25 +89,37 @@ async function getTotalSupply() {
   try { return Number(BigInt(data.result)) / 1e18; } catch (e) { return 0; }
 }
 
-// fetch ALL logs for the token in a block range (no topic filter server-side —
-// filtering topic0 in JS is the proven-reliable pattern from osgscan-activity.js).
-// Retries once on a bad/empty response before giving up on this chunk.
-async function getLogsChunkWithRetry(fromBlock, toBlock) {
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const data = await callEtherscan({
-      module: "logs", action: "getLogs",
-      address: TOKEN,
-      fromBlock: String(fromBlock), toBlock: String(toBlock),
-    });
-    if (Array.isArray(data.result)) return data.result;
-    // "No records found" comes back as a message, not an array — that's a
-    // legitimate empty chunk, not a failure, so treat message-based empty as OK.
-    if (data.message && /no records/i.test(data.message)) return [];
-    // otherwise: rate-limited or transient error — wait and retry once
+async function getLogsRaw(fromBlock, toBlock) {
+  const data = await callEtherscan({
+    module: "logs", action: "getLogs",
+    address: TOKEN,
+    fromBlock: String(fromBlock), toBlock: String(toBlock),
+  });
+  if (Array.isArray(data.result)) return data.result;
+  if (data.message && /no records/i.test(data.message)) return [];
+  return null; // signals failure
+}
+
+// adaptive fetch: if a range looks capped/truncated (>=1000 results) or the
+// call fails, split it in half and recurse — guarantees full coverage
+// regardless of how busy any given period was.
+async function getLogsAdaptive(fromBlock, toBlock, depth) {
+  if (depth === undefined) depth = 0;
+  let logs = await getLogsRaw(fromBlock, toBlock);
+  if (logs === null) {
     await new Promise((r) => setTimeout(r, 400));
+    logs = await getLogsRaw(fromBlock, toBlock);
   }
-  // still failed after retry — surface this so the caller can flag incomplete data
-  throw new Error("getLogs failed for range " + fromBlock + "-" + toBlock);
+  const looksTruncated = logs === null || logs.length >= 1000;
+  if (looksTruncated && toBlock > fromBlock && depth < 8) {
+    const mid = fromBlock + Math.floor((toBlock - fromBlock) / 2);
+    const a = await getLogsAdaptive(fromBlock, mid, depth + 1);
+    await new Promise((r) => setTimeout(r, 150));
+    const b = await getLogsAdaptive(mid + 1, toBlock, depth + 1);
+    return a.concat(b);
+  }
+  if (logs === null) throw new Error("getLogs failed for " + fromBlock + "-" + toBlock);
+  return logs;
 }
 
 function topicToAddress(topic) {
@@ -94,22 +129,21 @@ function topicToAddress(topic) {
 export default async function handler(req, res) {
   try {
     const latestBlock = await getLatestBlock();
-    const startBlock = Math.max(0, latestBlock - HISTORY_DAYS * BLOCKS_PER_DAY_APPROX);
-    const chunkBlocks = CHUNK_DAYS * BLOCKS_PER_DAY_APPROX;
+    const startBlock = await getGenesisBlock(latestBlock);
 
     const ranges = [];
-    for (let from = startBlock; from <= latestBlock; from += chunkBlocks) {
-      const to = Math.min(from + chunkBlocks - 1, latestBlock);
+    for (let from = startBlock; from <= latestBlock; from += CHUNK_BLOCKS) {
+      const to = Math.min(from + CHUNK_BLOCKS - 1, latestBlock);
       ranges.push([from, to]);
     }
 
-    const balances = {}; // address(lowercase) -> BigInt raw wei balance
+    const balances = {};
     let incompleteChunks = 0;
 
     for (const [from, to] of ranges) {
       let logs;
       try {
-        logs = await getLogsChunkWithRetry(from, to);
+        logs = await getLogsAdaptive(from, to);
       } catch (e) {
         incompleteChunks++;
         logs = [];
@@ -124,19 +158,16 @@ export default async function handler(req, res) {
         if (from_ !== ZERO) balances[from_] = (balances[from_] || 0n) - amt;
         if (to_ !== ZERO) balances[to_] = (balances[to_] || 0n) + amt;
       }
-      await new Promise((r) => setTimeout(r, 200));
+      await new Promise((r) => setTimeout(r, 150));
     }
 
     const totalSupplyOSG = await getTotalSupply();
 
-    // sanity check: if reconstructed balances add up to far less than the
-    // real on-chain total supply, our log history is incomplete — say so
-    // instead of silently returning misleading "top holders".
     const sumHeld = Object.values(balances).reduce((s, v) => s + (v > 0n ? v : 0n), 0n);
     const sumHeldOSG = Number(sumHeld) / 1e18;
     const coverage = totalSupplyOSG > 0 ? sumHeldOSG / totalSupplyOSG : 0;
 
-    if (incompleteChunks > 0 && coverage < 0.9) {
+    if (incompleteChunks > 0 && coverage < 0.95) {
       res.status(200).json({
         error: "Incomplete transfer history (" + incompleteChunks + " chunk(s) failed) — holder data would be misleading, not returning it.",
         coverage: Math.round(coverage * 1000) / 10,
