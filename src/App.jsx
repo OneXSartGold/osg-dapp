@@ -2344,6 +2344,7 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
         const entry = {
           id: row.id,
           price: price,
+          rawPrice: o.price,
           amount: amt,
           isBuy: o.isBuy,
           mine:
@@ -2471,7 +2472,7 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
       var scale = await cRead.PRICE_SCALE().catch(function () {
         return 1000000000000000000n;
       });
-      var priceScaled = BigInt(Math.round(o.price * Number(scale)));
+      var priceScaled = BigInt(o.rawPrice);
       var amountWei = parseUnits(String(o.amount), 18);
       var c = new Contract(ADDRESSES.p2pExchange, P2P_ABI, signer);
       var wantBuy = !o.isBuy;
