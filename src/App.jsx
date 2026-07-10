@@ -2300,6 +2300,7 @@ function Referral({ wallet, data, showToast, getProvider, t }) {
 function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
   const [book, setBook] = useState({ buys: [], sells: [], myOrders: [] });
   const [cancelBusyId, setCancelBusyId] = useState(null);
+  const [acceptBusyId, setAcceptBusyId] = useState(null);
   const loadBook = useCallback(async () => {
     try {
       const p = new JsonRpcProvider(RPC_URLS[0], 137);
@@ -2460,6 +2461,49 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
       setCancelBusyId(null);
     }
   }
+  async function acceptOrderRow(o) {
+    var signer = await ensureReady();
+    if (!signer) return;
+    setAcceptBusyId(o.id);
+    try {
+      var p = getProvider();
+      var cRead = new Contract(ADDRESSES.p2pExchange, P2P_ABI, p);
+      var scale = await cRead.PRICE_SCALE().catch(function () {
+        return 1000000000000000000n;
+      });
+      var priceScaled = BigInt(Math.round(o.price * Number(scale)));
+      var amountWei = parseUnits(String(o.amount), 18);
+      var c = new Contract(ADDRESSES.p2pExchange, P2P_ABI, signer);
+      var wantBuy = !o.isBuy;
+      if (wantBuy) {
+        var totalWei = (priceScaled * amountWei) / BigInt(scale);
+        showToast("Buying…");
+        var tx = await c.acceptOrder(1, true, amountWei, priceScaled, 0, 50, {
+          value: totalWei,
+        });
+        await tx.wait();
+      } else {
+        var token = new Contract(ADDRESSES.token, TOKEN_ABI, signer);
+        var allowance = await token.allowance(wallet, ADDRESSES.p2pExchange);
+        if (allowance < amountWei) {
+          showToast("1/2 — Approving OSG…");
+          var txA = await token.approve(ADDRESSES.p2pExchange, amountWei);
+          await txA.wait();
+        }
+        showToast("2/2 — Selling…");
+        var tx2 = await c.acceptOrder(1, false, amountWei, priceScaled, 0, 50);
+        await tx2.wait();
+      }
+      showToast("✅ Order filled!");
+      loadBook();
+    } catch (e) {
+      showToast(
+        "❌ " + ((e && (e.shortMessage || e.reason)) || "Accept failed"),
+      );
+    } finally {
+      setAcceptBusyId(null);
+    }
+  }
   var lastPrice =
     book.buys[0] && book.sells[0]
       ? (book.buys[0].price + book.sells[0].price) / 2
@@ -2497,8 +2541,20 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
             <div style={{ fontSize: 11, color: C.txt3 }}>No buy orders</div>
           ) : (
             book.buys.map(function (o) {
+              var canTake = !o.mine && wallet;
               return (
-                <div className="p2p-brow buy" key={String(o.id)}>
+                <div
+                  className="p2p-brow buy"
+                  key={String(o.id)}
+                  onClick={
+                    canTake
+                      ? function () {
+                          acceptOrderRow(o);
+                        }
+                      : undefined
+                  }
+                  style={{ cursor: canTake ? "pointer" : "default" }}
+                >
                   <span
                     className="p2p-depth"
                     style={{
@@ -2509,7 +2565,13 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
                     {o.price.toFixed(4)}
                     {o.mine ? " •" : ""}
                   </span>
-                  <span className="amt">{fmt(o.amount, 0)}</span>
+                  <span className="amt">
+                    {acceptBusyId === o.id ? (
+                      <span className="spin" />
+                    ) : (
+                      fmt(o.amount, 0)
+                    )}
+                  </span>
                 </div>
               );
             })
@@ -2522,8 +2584,20 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
             <div style={{ fontSize: 11, color: C.txt3 }}>No sell orders</div>
           ) : (
             book.sells.map(function (o) {
+              var canTake = !o.mine && wallet;
               return (
-                <div className="p2p-brow sell" key={String(o.id)}>
+                <div
+                  className="p2p-brow sell"
+                  key={String(o.id)}
+                  onClick={
+                    canTake
+                      ? function () {
+                          acceptOrderRow(o);
+                        }
+                      : undefined
+                  }
+                  style={{ cursor: canTake ? "pointer" : "default" }}
+                >
                   <span
                     className="p2p-depth"
                     style={{
@@ -2534,13 +2608,31 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
                     {o.price.toFixed(4)}
                     {o.mine ? " •" : ""}
                   </span>
-                  <span className="amt">{fmt(o.amount, 0)}</span>
+                  <span className="amt">
+                    {acceptBusyId === o.id ? (
+                      <span className="spin" />
+                    ) : (
+                      fmt(o.amount, 0)
+                    )}
+                  </span>
                 </div>
               );
             })
           )}{" "}
         </div>{" "}
       </div>{" "}
+      {wallet && (
+        <div
+          style={{
+            textAlign: "center",
+            fontSize: 10.5,
+            color: C.txt3,
+            marginTop: 4,
+          }}
+        >
+          Tap a price to trade instantly
+        </div>
+      )}{" "}
       <div className="p2p-bmid">
         {" "}
         <div className="p">
