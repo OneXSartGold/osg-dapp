@@ -2301,6 +2301,8 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
   const [book, setBook] = useState({ buys: [], sells: [], myOrders: [] });
   const [cancelBusyId, setCancelBusyId] = useState(null);
   const [acceptBusyId, setAcceptBusyId] = useState(null);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [acceptAmount, setAcceptAmount] = useState("");
   const loadBook = useCallback(async () => {
     try {
       const p = new JsonRpcProvider(RPC_URLS[0], 137);
@@ -2462,22 +2464,37 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
       setCancelBusyId(null);
     }
   }
-  async function acceptOrderRow(o) {
+  async function acceptOrderRow(o, amountStr) {
+    var amountNum = parseFloat(amountStr) || 0;
+    if (amountNum <= 0) {
+      showToast("⚠️ Enter an amount");
+      return;
+    }
+    if (amountNum > o.amount + 0.000001) {
+      showToast("⚠️ Amount exceeds available");
+      return;
+    }
     var signer = await ensureReady();
     if (!signer) return;
     setAcceptBusyId(o.id);
     try {
       var p = getProvider();
-      var cRead = new Contract(ADDRESSES.p2pExchange, P2P_ABI, p);
-      var scale = await cRead.PRICE_SCALE().catch(function () {
-        return 1000000000000000000n;
-      });
       var priceScaled = BigInt(o.rawPrice);
-      var amountWei = parseUnits(String(o.amount), 18);
+      var amountWei = parseUnits(String(amountNum), 18);
       var c = new Contract(ADDRESSES.p2pExchange, P2P_ABI, signer);
       var wantBuy = !o.isBuy;
       if (wantBuy) {
+        var cRead = new Contract(ADDRESSES.p2pExchange, P2P_ABI, p);
+        var scale = await cRead.PRICE_SCALE().catch(function () {
+          return 1000000000000000000n;
+        });
         var totalWei = (priceScaled * amountWei) / BigInt(scale);
+        var polBalance = await p.getBalance(wallet);
+        if (polBalance < totalWei) {
+          showToast("⚠️ Insufficient POL balance");
+          setAcceptBusyId(null);
+          return;
+        }
         showToast("Buying…");
         var tx = await c.acceptOrder(1, true, amountWei, priceScaled, 0, 50, {
           value: totalWei,
@@ -2485,6 +2502,12 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
         await tx.wait();
       } else {
         var token = new Contract(ADDRESSES.token, TOKEN_ABI, signer);
+        var osgBalance = await token.balanceOf(wallet);
+        if (osgBalance < amountWei) {
+          showToast("⚠️ Insufficient OSG balance");
+          setAcceptBusyId(null);
+          return;
+        }
         var allowance = await token.allowance(wallet, ADDRESSES.p2pExchange);
         if (allowance < amountWei) {
           showToast("1/2 — Approving OSG…");
@@ -2496,6 +2519,8 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
         await tx2.wait();
       }
       showToast("✅ Order filled!");
+      setSelectedOrder(null);
+      setAcceptAmount("");
       loadBook();
     } catch (e) {
       showToast(
@@ -2550,7 +2575,8 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
                   onClick={
                     canTake
                       ? function () {
-                          acceptOrderRow(o);
+                          setSelectedOrder(o);
+                          setAcceptAmount(String(o.amount));
                         }
                       : undefined
                   }
@@ -2593,7 +2619,8 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
                   onClick={
                     canTake
                       ? function () {
-                          acceptOrderRow(o);
+                          setSelectedOrder(o);
+                          setAcceptAmount(String(o.amount));
                         }
                       : undefined
                   }
@@ -2632,6 +2659,103 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
           }}
         >
           Tap a price to trade instantly
+        </div>
+      )}{" "}
+      {selectedOrder && (
+        <div
+          style={{
+            background: C.card2,
+            borderRadius: 14,
+            padding: 14,
+            marginTop: 10,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: 8,
+            }}
+          >
+            <span
+              style={{
+                fontSize: 12.5,
+                fontWeight: 700,
+                color: selectedOrder.isBuy ? C.red : C.green,
+              }}
+            >
+              {selectedOrder.isBuy
+                ? "Sell into this order"
+                : "Buy from this order"}
+            </span>
+            <button
+              onClick={function () {
+                setSelectedOrder(null);
+                setAcceptAmount("");
+              }}
+              style={{
+                background: "none",
+                border: "none",
+                color: C.txt3,
+                fontSize: 16,
+                cursor: "pointer",
+              }}
+            >
+              ✕
+            </button>
+          </div>
+          <div style={{ fontSize: 11, color: C.txt3, marginBottom: 8 }}>
+            Price {selectedOrder.price.toFixed(4)} POL · Available{" "}
+            {fmt(selectedOrder.amount, 4)} OSG
+          </div>
+          <div className="field">
+            <div className="row">
+              <label>Amount (OSG)</label>
+            </div>
+            <input
+              className="inp"
+              style={{ fontSize: 17 }}
+              value={acceptAmount}
+              inputMode="decimal"
+              onChange={function (e) {
+                setAcceptAmount(e.target.value.replace(/[^0-9.]/g, ""));
+              }}
+            />
+          </div>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              fontSize: 11.5,
+              color: C.txt2,
+              padding: "4px 2px 10px",
+            }}
+          >
+            <span>{selectedOrder.isBuy ? "You'll receive" : "You'll pay"}</span>
+            <b className="mono" style={{ color: C.txt }}>
+              ≈{" "}
+              {((parseFloat(acceptAmount) || 0) * selectedOrder.price).toFixed(
+                4,
+              )}{" "}
+              POL
+            </b>
+          </div>
+          <button
+            disabled={acceptBusyId === selectedOrder.id}
+            onClick={function () {
+              acceptOrderRow(selectedOrder, acceptAmount);
+            }}
+            className={selectedOrder.isBuy ? "p2p-btn-sell" : "p2p-btn-buy"}
+          >
+            {acceptBusyId === selectedOrder.id ? (
+              <span className="spin" />
+            ) : selectedOrder.isBuy ? (
+              "Confirm Sell"
+            ) : (
+              "Confirm Buy"
+            )}
+          </button>
         </div>
       )}{" "}
       <div className="p2p-bmid">
