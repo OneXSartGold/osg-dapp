@@ -1703,6 +1703,34 @@ function Staking({ wallet, data, refParam, actions, busy, t }) {
   useEffect(() => {
     if (refParam && isAddress(refParam)) setRefInput(refParam);
   }, [refParam]);
+  const [history, setHistory] = useState(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  useEffect(
+    function () {
+      setHistory(null);
+    },
+    [wallet],
+  );
+  useEffect(
+    function () {
+      if (tab !== "history" || !wallet || history) return;
+      setHistoryLoading(true);
+      fetch("/api/osgscan-rewards?wallet=" + wallet)
+        .then(function (r) {
+          return r.json();
+        })
+        .then(function (d) {
+          setHistory(d && d.entries ? d.entries : []);
+        })
+        .catch(function () {
+          setHistory([]);
+        })
+        .finally(function () {
+          setHistoryLoading(false);
+        });
+    },
+    [tab, wallet, history],
+  );
   const info = data.stakingInfo;
   const hasStake = Number(data.staked) > 0;
   return (
@@ -1714,7 +1742,7 @@ function Staking({ wallet, data, refParam, actions, busy, t }) {
         {[
           ["stake", t.stakeBtn],
           ["unstake", t.unstakeTab],
-          ["claim", t.claimTab],
+         ["claim", t.claimTab],           ["history", t.historyTab || "History"],
         ].map(([k, l]) => (
           <button
             key={k}
@@ -1997,6 +2025,151 @@ function Staking({ wallet, data, refParam, actions, busy, t }) {
             </div>
           );
         })()}
+      {tab === "history" && (
+        <div className="card">
+          <div className="sec">{t.rewardHistory || "Reward History"}</div>
+          {!wallet ? (
+            <div style={{ fontSize: 12, color: C.txt3, padding: "10px 0" }}>
+              {t.connectSee}
+            </div>
+          ) : historyLoading ? (
+            <div style={{ textAlign: "center", padding: "20px 0" }}>
+              <span className="spin" />
+            </div>
+          ) : !history || history.length === 0 ? (
+            <div style={{ fontSize: 12, color: C.txt3, padding: "10px 0" }}>
+              {t.noHistory || "No reward history yet"}
+            </div>
+          ) : (
+            (function () {
+              var groups = {};
+              var order = [];
+              history.forEach(function (e) {
+                var d = new Date(e.ts * 1000);
+                var key = d.toLocaleDateString();
+                if (!groups[key]) {
+                  groups[key] = { rows: [], total: 0 };
+                  order.push(key);
+                }
+                groups[key].rows.push(e);
+                if (e.type !== "claimed") groups[key].total += Number(e.amount);
+              });
+              var typeMeta = {
+                staking: { label: "Staking Reward", color: C.blue },
+                referral: { label: "Referral Reward", color: C.gold1 },
+                mining: { label: "Mining Reward", color: C.purple },
+                claimed: { label: "Claimed to Wallet", color: C.green },
+              };
+              return order.map(function (key) {
+                var g = groups[key];
+                return (
+                  <div key={key} style={{ marginBottom: 16 }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        fontSize: 10.5,
+                        fontWeight: 700,
+                        letterSpacing: ".5px",
+                        textTransform: "uppercase",
+                        color: C.txt3,
+                        marginBottom: 8,
+                      }}
+                    >
+                      <span>{key}</span>
+                      <span
+                        style={{ flex: 1, height: 1, background: C.line }}
+                      ></span>
+                      <span
+                        className="mono"
+                        style={{ color: C.green, fontWeight: 700 }}
+                      >
+                        +{fmt(g.total, 2)} OSG
+                      </span>
+                    </div>
+                    {g.rows.map(function (e, i) {
+                      var meta = typeMeta[e.type] || {
+                        label: e.type,
+                        color: C.txt3,
+                      };
+                      var d = new Date(e.ts * 1000);
+                      return (
+                        <div
+                          key={e.txHash + i}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 10,
+                            padding: "8px 2px",
+                            borderBottom: "1px solid " + C.line,
+                          }}
+                        >
+                          <span
+                            style={{
+                              width: 8,
+                              height: 8,
+                              borderRadius: "50%",
+                              background: meta.color,
+                              flex: "none",
+                            }}
+                          ></span>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div
+                              style={{
+                                fontSize: 12.5,
+                                fontWeight: 700,
+                                color: C.txt,
+                              }}
+                            >
+                              {meta.label}
+                            </div>
+                            <div
+                              className="mono"
+                              style={{
+                                fontSize: 10.5,
+                                color: C.txt3,
+                                marginTop: 1,
+                              }}
+                            >
+                              {d.toLocaleTimeString([], {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </div>
+                          </div>
+                          <div
+                            className="mono"
+                            style={{
+                              fontSize: 13,
+                              fontWeight: 700,
+                              color: e.type === "claimed" ? C.txt2 : C.green,
+                              flex: "none",
+                            }}
+                          >
+                            {e.type === "claimed" ? "" : "+"}
+                            {fmt(e.amount, 2)}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              });
+            })()
+          )}
+          <div
+            style={{
+              fontSize: 9.5,
+              color: C.txt3,
+              textAlign: "center",
+              marginTop: 8,
+            }}
+          >
+            {t.historyNote || "On-chain reward events · updates on new claims"}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
