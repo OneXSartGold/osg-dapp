@@ -107,7 +107,11 @@ export const POOL_ABI = [
   "function paused() view returns (bool)",
 ];
 
-// ── OSGP2PExchange (order-book based P2P trading, pairId=1 = OSG/POL) ──
+// ── OSGP2PExchangeV2 (order-book based P2P trading, pairId=1 = OSG/POL) ──
+//  v2 keeps buy orders and sell orders in SEPARATE per-pair id lists
+//  (pairBuyOrderIds / pairSellOrderIds), each indexed (pairId, index).
+//  Auto-matching happens inside placeBuyOrder / placeSellOrder itself;
+//  acceptOrder() is kept for the existing tap-to-trade flow.
 export const P2P_ABI = [
   "error EnforcedPause()",
   "error ExpectedPause()",
@@ -126,15 +130,21 @@ export const P2P_ABI = [
   "function pairs(uint256) view returns (address token, bool active, uint256 minAmount)",
   "function orderCounter() view returns (uint256)",
   "function pairCounter() view returns (uint256)",
-  "function pairOrderIds(uint256, uint256) view returns (uint256)",
+  "function pairBuyOrderIds(uint256, uint256) view returns (uint256)",
+  "function pairSellOrderIds(uint256, uint256) view returns (uint256)",
+  "function pairBuyOrderIdsLength(uint256 pairId) view returns (uint256)",
+  "function pairSellOrderIdsLength(uint256 pairId) view returns (uint256)",
   "function userBuyPriceOrder(address, uint256, uint256) view returns (uint256)",
   "function userSellPriceOrder(address, uint256, uint256) view returns (uint256)",
   "function feeBps() view returns (uint256)",
   "function feeCollector() view returns (address)",
-  "function MAX_FEE() view returns (uint256)",
+  "function MAX_FEE_BPS() view returns (uint256)",
   "function MAX_SCAN() view returns (uint256)",
+  "function MAX_MATCH() view returns (uint256)",
+  "function AUTO_MATCH_SCAN() view returns (uint256)",
   "function PRICE_SCALE() view returns (uint256)",
   "function paused() view returns (bool)",
+  "function tokenRegistered(address) view returns (bool)",
   // events (for reading order-book / history via getLogs later)
   "event OrderPlaced(uint256 indexed orderId, address indexed user, uint256 indexed pairId, bool isBuy, uint256 price, uint256 amount, uint256 expiryTime)",
   "event OrderFilled(uint256 indexed orderId, address indexed taker, uint256 filledAmount, uint256 remainingAmount)",
