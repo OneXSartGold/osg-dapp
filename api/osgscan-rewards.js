@@ -9,7 +9,7 @@ const RPC_URLS = [
 
 const POOL = "0xDc4fE983ed301AD42F4E4C43951aa07A7a182855";
 const DEPLOY_BLOCK = 88008677;
-const CHUNK = 10000;
+const CHUNK = 2000;
 
 const IFACE = new Interface([
   "event Distributed(address indexed user, uint256 amount, uint8 indexed category)",
