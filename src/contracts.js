@@ -14,7 +14,7 @@ export const ADDRESSES = {
   mediaStorage: "0x88E64Cbc22a35c2928038f2bc13F06630C93D07A",
   // referral is built into staking (no separate contract)
   referral: "0x048E814C02e85ec1438Ab8C1d2e9150A5289A886",
-  p2pExchange: "0x72A4387cC07cF105fEec4615b40d2EF9ca0AEE6B",
+  p2pExchange: "0xDc172cbbB940C8AF717De1cB46a89a6d91aFa567",
 };
 
 export const ZERO = "0x0000000000000000000000000000000000000000";
