@@ -908,18 +908,11 @@ function Stat({ label, value, sub, accent }) {
 }
 
 // ══════════════ PAGES ══════════════
-function Dashboard({ data, wallet, polUsd, holders, chg24, t }) {
+function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvider, ensureReady, showToast }) {
   const [calcUsd, setCalcUsd] = useState("");
   const [calcOsg, setCalcOsg] = useState("");
   const [calcUnit, setCalcUnit] = useState("USD");
-  const links = [
-    ["OSG Token", ADDRESSES.token],
-    ["Staking", ADDRESSES.staking],
-    ["Reward Pool", ADDRESSES.pool],
-    ["Bond", ADDRESSES.bond],
-    ["Messenger", ADDRESSES.messenger],
-  ];
-
+   
   // ============================================================
   //  OSG MARKET RATE
   //  When the liquidity pool is live, change only the 5 fields below:
@@ -1689,20 +1682,15 @@ function Dashboard({ data, wallet, polUsd, holders, chg24, t }) {
           ))}
         </div>
       </div>
-      <div className="card" style={{ marginTop: 14 }}>
-        <div className="sec">{t.verified}</div>
-        {links.map(([n, a]) => (
-          <a
-            className="link-row"
-            key={n}
-            href={"https://polygonscan.com/address/" + a}
-            target="_blank"
-            rel="noreferrer"
-          >
-            <span className="ln">{n}</span>
-            <span className="la">{short(a)} ↗️</span>
-          </a>
-        ))}
+      <div style={{ marginTop: 14 }}>
+        <P2PPanel
+          wallet={wallet}
+          network={network}
+          getProvider={getProvider}
+          ensureReady={ensureReady}
+          showToast={showToast}
+          t={t}
+        />
       </div>
     </div>
   );
@@ -7153,7 +7141,7 @@ export default function App() {
         {/* SCREEN */}
         <main className="screen" onClick={() => setLangOpen(false)}>
           <NewsPopup logo={LOGO} />{" "}
-          {tab === "dashboard" && (
+         {tab === "dashboard" && (
             <Dashboard
               data={data}
               wallet={wallet}
@@ -7161,6 +7149,10 @@ export default function App() {
               holders={holders}
               chg24={chg24}
               t={t}
+              network={network}
+              getProvider={getProvider}
+              ensureReady={ensureReady}
+              showToast={showToast}
             />
           )}
           {tab === "staking" && (
