@@ -2316,15 +2316,40 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
         return 1000000000000000000n;
       });
       const scaleNum = Number(scale) || 1e18;
-      const ids = [];
-      for (let i = 0; i < 200; i++) {
-        try {
-          const id = await c.pairOrderIds(1, i);
-          ids.push(id);
-        } catch (e) {
-          break;
-        }
-      }
+      const SCAN_CAP = 200;
+      const buyLen = Number(
+        await c.pairBuyOrderIdsLength(1).catch(function () {
+          return 0n;
+        }),
+      );
+      const sellLen = Number(
+        await c.pairSellOrderIdsLength(1).catch(function () {
+          return 0n;
+        }),
+      );
+      const buyStart = buyLen > SCAN_CAP ? buyLen - SCAN_CAP : 0;
+      const sellStart = sellLen > SCAN_CAP ? sellLen - SCAN_CAP : 0;
+      const buyIdxs = [];
+      for (let i = buyStart; i < buyLen; i++) buyIdxs.push(i);
+      const sellIdxs = [];
+      for (let i = sellStart; i < sellLen; i++) sellIdxs.push(i);
+      const buyIds = await Promise.all(
+        buyIdxs.map(function (i) {
+          return c.pairBuyOrderIds(1, i).catch(function () {
+            return null;
+          });
+        }),
+      );
+      const sellIds = await Promise.all(
+        sellIdxs.map(function (i) {
+          return c.pairSellOrderIds(1, i).catch(function () {
+            return null;
+          });
+        }),
+      );
+      const ids = buyIds.concat(sellIds).filter(function (x) {
+        return x !== null;
+      });
       const orders = await Promise.all(
         ids.map(function (id) {
           return c
