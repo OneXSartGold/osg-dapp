@@ -2298,7 +2298,12 @@ function Referral({ wallet, data, showToast, getProvider, t }) {
 }
 
 function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
-  const [book, setBook] = useState({ buys: [], sells: [], myOrders: [] });
+  const [book, setBook] = useState({
+    buys: [],
+    sells: [],
+    myOrders: [],
+    lastTrade: null,
+  });
   const [cancelBusyId, setCancelBusyId] = useState(null);
   const [acceptBusyId, setAcceptBusyId] = useState(null);
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -2335,11 +2340,19 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
       const now = Math.floor(Date.now() / 1000);
       const buys = [],
         sells = [];
+      let lastTrade = null;
       orders.forEach(function (row) {
         if (!row) return;
         const o = row.o;
-        const amt = Number(formatUnits(o.amount, 18));
         const price = Number(o.price) / scaleNum;
+        const ts = Number(o.timestamp);
+        if (
+          Number(o.status) === 1 &&
+          (!lastTrade || ts > lastTrade.timestamp)
+        ) {
+          lastTrade = { price: price, timestamp: ts };
+        }
+        const amt = Number(formatUnits(o.amount, 18));
         const notExpired =
           Number(o.expiryTime) === 0 || Number(o.expiryTime) > now;
         if (amt <= 0 || !notExpired) return;
@@ -2372,6 +2385,7 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
           .sort(function (a, b) {
             return Number(b.id) - Number(a.id);
           }),
+        lastTrade: lastTrade,
       });
     } catch (e) {
       console.error("P2P book load failed", e);
@@ -2538,6 +2552,14 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
         : book.sells[0]
           ? book.sells[0].price
           : 0;
+  var priceLabel =
+    book.buys[0] && book.sells[0]
+      ? "Mid Price"
+      : book.buys[0]
+        ? "Best Bid"
+        : book.sells[0]
+          ? "Best Ask"
+          : "No orders yet";
   var maxBuyAmt = Math.max.apply(
     null,
     book.buys
@@ -2763,7 +2785,28 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
         <div className="p">
           {lastPrice ? lastPrice.toFixed(4) + " POL" : "—"}
         </div>{" "}
-        <div className="s">Mid Price · updates every 20s</div>{" "}
+        <div className="s">{priceLabel} · updates every 20s</div>{" "}
+        {book.lastTrade && (
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              marginTop: 6,
+              fontSize: 11,
+              color: C.txt3,
+              background: C.card2,
+              border: "1px solid " + C.line,
+              borderRadius: 20,
+              padding: "4px 12px",
+            }}
+          >
+            <span style={{ color: C.txt2 }}>Last Trade</span>
+            <b className="mono" style={{ color: C.gold }}>
+              {book.lastTrade.price.toFixed(4)} POL
+            </b>
+          </div>
+        )}{" "}
         <div className="sec" style={{ marginTop: 18 }}>
           Place Order
         </div>{" "}
