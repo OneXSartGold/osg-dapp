@@ -22,6 +22,8 @@ const TOPIC_SWAP_V2  = "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130
 
 const BLOCKS_PER_DAY_APPROX = 43200; // Polygon ~2s block time
 const MAX_TRANSFERS_RETURNED = 50;
+const MAX_SWAP_TX_LOOKUPS = 60; // cap how many tx.from lookups we do, for speed
+const TX_LOOKUP_CONCURRENCY = 5; // parallel eth_getTransactionByHash calls
 
 async function callEtherscan(params) {
   const apikey = process.env.POLYGONSCAN_KEY;
@@ -51,7 +53,32 @@ async function getLogs(address, fromBlock, toBlock) {
   return data.result;
 }
 
-async function getTxFrom(txHash) {   const data = await callEtherscan({ module: "proxy", action: "eth_getTransactionByHash", txhash: txHash });   if (data.result && data.result.from) return data.result.from.toLowerCase();   return null; }  function topicToAddress(topic) {
+async function getTxFrom(txHash) {
+  const data = await callEtherscan({ module: "proxy", action: "eth_getTransactionByHash", txhash: txHash });
+  if (data.result && data.result.from) return data.result.from.toLowerCase();
+  return null;
+}
+
+// Runs async work over items with a limited number of parallel workers,
+// instead of one-at-a-time with artificial delays.
+async function runPool(items, worker, concurrency) {
+  let idx = 0;
+  async function runner() {
+    while (idx < items.length) {
+      const my = idx++;
+      try {
+        await worker(items[my]);
+      } catch (e) {
+        // ignore individual failures, they just won't appear in results
+      }
+    }
+  }
+  const runners = [];
+  for (let i = 0; i < concurrency; i++) runners.push(runner());
+  await Promise.all(runners);
+}
+
+function topicToAddress(topic) {
   // topic is 32-byte hex; address is the last 20 bytes
   return "0x" + topic.slice(-40);
 }
@@ -66,7 +93,22 @@ function hexToTokenAmount(hexData, decimals) {
   }
 }
 
-function matchesRange(hexTimestamp, range) {   const ms = parseInt(hexTimestamp, 16) * 1000;   const d = new Date(ms);   const now = new Date();   if (range === "yesterday") {     const y = new Date(now.getTime() - 86400000);     return d.toISOString().slice(0, 10) === y.toISOString().slice(0, 10);   }   if (range === "7d") {     const cutoff = new Date(now.getTime() - 7 * 86400000);     return d >= cutoff;   }   return isToday(hexTimestamp); }  function isToday(hexTimestamp) {
+function matchesRange(hexTimestamp, range) {
+  const ms = parseInt(hexTimestamp, 16) * 1000;
+  const d = new Date(ms);
+  const now = new Date();
+  if (range === "yesterday") {
+    const y = new Date(now.getTime() - 86400000);
+    return d.toISOString().slice(0, 10) === y.toISOString().slice(0, 10);
+  }
+  if (range === "7d") {
+    const cutoff = new Date(now.getTime() - 7 * 86400000);
+    return d >= cutoff;
+  }
+  return isToday(hexTimestamp);
+}
+
+function isToday(hexTimestamp) {
   const ms = parseInt(hexTimestamp, 16) * 1000;
   const d = new Date(ms);
   const now = new Date();
@@ -86,7 +128,9 @@ function decodeSwapWords(hexData) {
 export default async function handler(req, res) {
   try {
     const latestBlock = await getLatestBlock();
-    const range = (req.query && req.query.range) || "today";     const rangeDays = range === "7d" ? 8 : (range === "yesterday" ? 3 : 2);     const fromBlock = Math.max(0, latestBlock - rangeDays * BLOCKS_PER_DAY_APPROX); // buffer, filtered below
+    const range = (req.query && req.query.range) || "today";
+    const rangeDays = range === "7d" ? 8 : (range === "yesterday" ? 3 : 2);
+    const fromBlock = Math.max(0, latestBlock - rangeDays * BLOCKS_PER_DAY_APPROX); // buffer, filtered below
 
     const [tokenLogs, poolLogs] = await Promise.all([
       getLogs(ADDR.token, fromBlock, latestBlock),
@@ -109,12 +153,35 @@ export default async function handler(req, res) {
     transfers.sort((a, b) => b.timestamp - a.timestamp);
     const transfersOut = transfers.slice(0, MAX_TRANSFERS_RETURNED);
 
-    // ── Today's Swappers (grouped by sender) ──
-    const todaysSwapLogs = poolLogs.filter(function (log) {       return log.topics && log.topics[0] === TOPIC_SWAP_V2 && matchesRange(log.timeStamp, range);     });     const uniqueTxHashes = [...new Set(todaysSwapLogs.map(function (log) { return log.transactionHash; }))];     const txFromMap = {};     for (const hash of uniqueTxHashes) {       const from = await getTxFrom(hash);       txFromMap[hash] = from;       await new Promise(function (r) { setTimeout(r, 220); });     }           const swapperMap = {};
-    for (const log of todaysSwapLogs) {
-      
-      
-      const realUser = txFromMap[log.transactionHash];       if (!realUser) continue;
+    // ── Swappers (grouped by sender) ──
+    const rangeSwapLogs = poolLogs.filter(function (log) {
+      return log.topics && log.topics[0] === TOPIC_SWAP_V2 && matchesRange(log.timeStamp, range);
+    });
+
+    // Keep only the most recent swap logs (by timestamp) before doing the
+    // expensive tx.from lookups, so a busy "Last 7 Days" range stays fast.
+    rangeSwapLogs.sort(function (a, b) {
+      return parseInt(b.timeStamp, 16) - parseInt(a.timeStamp, 16);
+    });
+
+    const uniqueTxHashesAll = [...new Set(rangeSwapLogs.map(function (log) { return log.transactionHash; }))];
+    const uniqueTxHashes = uniqueTxHashesAll.slice(0, MAX_SWAP_TX_LOOKUPS);
+
+    const txFromMap = {};
+    await runPool(
+      uniqueTxHashes,
+      async function (hash) {
+        const from = await getTxFrom(hash);
+        txFromMap[hash] = from;
+      },
+      TX_LOOKUP_CONCURRENCY,
+    );
+
+    const swapperMap = {};
+    for (const log of rangeSwapLogs) {
+      if (!(log.transactionHash in txFromMap)) continue; // skip logs we didn't look up (capped)
+      const realUser = txFromMap[log.transactionHash];
+      if (!realUser) continue;
       const words = decodeSwapWords(log.data);
       const osgRaw = words[1] + words[3];
       const volume = Number(osgRaw) / 1e18;
