@@ -1,10 +1,10 @@
 import { JsonRpcProvider, Interface, formatUnits, getAddress } from "ethers";
 
 const RPC_URLS = [
+  "https://polygon-mainnet.g.alchemy.com/v2/ZyChInaPXbkZQdhA0Ep_V",
   "https://rpc.ankr.com/polygon",
   "https://polygon-rpc.com",
   "https://polygon-bor-rpc.publicnode.com",
-  "https://polygon.drpc.org",
 ];
 
 const POOL = "0xDc4fE983ed301AD42F4E4C43951aa07A7a182855";
