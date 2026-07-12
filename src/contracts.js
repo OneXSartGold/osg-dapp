@@ -29,12 +29,11 @@ export const POLYGON_PARAMS = {
 };
 // -- Read RPCs (fallback order: first that responds wins) --
 export const RPC_URLS = [
+  "https://polygon-mainnet.g.alchemy.com/v2/ZyChInaPXbkZQdhA0Ep_V",
   "https://polygon-bor-rpc.publicnode.com",
   "https://rpc.ankr.com/polygon",
   "https://polygon-rpc.com",
-  "https://polygon.drpc.org",
 ];
-
 // ── ERC20 (OSG Token) ─────────────────────────────────────
 export const TOKEN_ABI = [
   "function balanceOf(address owner) view returns (uint256)",
