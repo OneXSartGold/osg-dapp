@@ -1,20 +1,20 @@
 import { JsonRpcProvider, Interface, formatUnits, getAddress } from "ethers";
 
+// NOTE: ankr / polygon-rpc / publicnode now require paid API keys and
+// were removed from this list since every call to them failed (401/403).
+// Add a second real RPC key here later for redundancy if needed.
 const RPC_LIST = [
   { name: "alchemy", url: "https://polygon-mainnet.g.alchemy.com/v2/ZyChInaPXbkZQdhA0Ep_V" },
-  { name: "ankr", url: "https://rpc.ankr.com/polygon" },
-  { name: "polygon-rpc", url: "https://polygon-rpc.com" },
-  { name: "publicnode", url: "https://polygon-bor-rpc.publicnode.com" },
 ];
 
 const POOL = "0xDc4fE983ed301AD42F4E4C43951aa07A7a182855";
 const DEPLOY_BLOCK = 88008677;
-const CHUNK = 3000;
-const CONCURRENCY = 4;
-const HARD_DEADLINE_MS = 45000; // return well before Vercel's 60s hard kill
-const RPC_CALL_TIMEOUT_MS = 6000;
+const CHUNK = 8000;
+const CONCURRENCY = 2;
+const HARD_DEADLINE_MS = 50000;
+const RPC_CALL_TIMEOUT_MS = 12000;
 const CHUNK_RETRIES = 2;
-const MAX_BLOCKS_PER_REQUEST = 500000;
+const MAX_BLOCKS_PER_REQUEST = 300000;
 
 const IFACE = new Interface([
   "event Distributed(address indexed user, uint256 amount, uint8 indexed category)",
@@ -60,8 +60,6 @@ function withTimeout(promise, ms) {
 const providerStats = {};
 for (const rpc of RPC_LIST) providerStats[rpc.name] = { success: 0, fail: 0, lastError: null };
 
-// Every RPC attempt first checks the global deadline. If time is up, it
-// bails immediately instead of starting another network call.
 async function getLogsOnePass(params, deadlineAt) {
   let lastErr = null;
   for (const rpc of RPC_LIST) {
@@ -76,7 +74,8 @@ async function getLogsOnePass(params, deadlineAt) {
       providerStats[rpc.name].success++;
       return { logs: logs, provider: rpc.name };
     } catch (e) {
-      providerStats[rpc.name].fail++; providerStats[rpc.name].lastError = (e && e.message) || String(e);
+      providerStats[rpc.name].fail++;
+      providerStats[rpc.name].lastError = (e && e.message) || String(e);
       lastErr = e;
       continue;
     }
@@ -136,7 +135,6 @@ async function getBlockAnyRpc(blockNumber, deadlineAt) {
   throw lastErr || new Error("All RPCs failed for getBlock");
 }
 
-// Worker pool that stops handing out new work once the deadline is reached.
 async function runPool(items, worker, concurrency, deadlineAt) {
   const results = new Array(items.length);
   const skipped = [];
