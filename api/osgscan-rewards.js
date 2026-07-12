@@ -11,9 +11,11 @@ const POOL = "0xDc4fE983ed301AD42F4E4C43951aa07A7a182855";
 const DEPLOY_BLOCK = 88008677;
 const CHUNK = 3000;
 const CONCURRENCY = 8;
-const SCAN_BUDGET_MS = 28000; // budget for the log-scanning phase
-const HARD_DEADLINE_MS = 50000; // overall hard deadline for the whole function
+const SCAN_BUDGET_MS = 28000;
+const HARD_DEADLINE_MS = 50000;
 const CHUNK_RETRIES = 3;
+const RPC_CALL_TIMEOUT_MS = 8000; // any single RPC call gets killed after this
+const MAX_BLOCKS_PER_REQUEST = 500000; // only scan recent ~500k blocks per request
 
 const IFACE = new Interface([
   "event Distributed(address indexed user, uint256 amount, uint8 indexed category)",
@@ -41,6 +43,18 @@ function sleep(ms) {
   });
 }
 
+// Wraps any promise so it never blocks execution longer than ms
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise(function (_, reject) {
+      setTimeout(function () {
+        reject(new Error("RPC call timed out after " + ms + "ms"));
+      }, ms);
+    }),
+  ]);
+}
+
 const providerStats = {};
 for (const rpc of RPC_LIST) providerStats[rpc.name] = { success: 0, fail: 0 };
 
@@ -49,7 +63,7 @@ async function getLogsOnePass(params) {
   for (const rpc of RPC_LIST) {
     try {
       const p = getProviderFor(rpc.url);
-      const logs = await p.getLogs(params);
+      const logs = await withTimeout(p.getLogs(params), RPC_CALL_TIMEOUT_MS);
       providerStats[rpc.name].success++;
       return { logs: logs, provider: rpc.name };
     } catch (e) {
@@ -79,7 +93,7 @@ async function getBlockNumberAnyRpc() {
   for (const rpc of RPC_LIST) {
     try {
       const p = getProviderFor(rpc.url);
-      const n = await p.getBlockNumber();
+      const n = await withTimeout(p.getBlockNumber(), RPC_CALL_TIMEOUT_MS);
       return n;
     } catch (e) {
       lastErr = e;
@@ -94,7 +108,7 @@ async function getBlockAnyRpc(blockNumber) {
   for (const rpc of RPC_LIST) {
     try {
       const p = getProviderFor(rpc.url);
-      const b = await p.getBlock(blockNumber);
+      const b = await withTimeout(p.getBlock(blockNumber), RPC_CALL_TIMEOUT_MS);
       if (b) return b;
     } catch (e) {
       lastErr = e;
@@ -146,11 +160,15 @@ export default async function handler(req, res) {
     const distributedTopic = IFACE.getEvent("Distributed").topicHash;
     const claimedTopic = IFACE.getEvent("Claimed").topicHash;
 
-    // Scan latest -> oldest so recent history is covered first, even if we run out of time
+    // Only scan the most recent MAX_BLOCKS_PER_REQUEST blocks in one call.
+    // Older history (before scanStartBlock) is not covered by this request.
+    const scanStartBlock = Math.max(DEPLOY_BLOCK, latest - MAX_BLOCKS_PER_REQUEST);
+    const olderHistoryNotScanned = scanStartBlock > DEPLOY_BLOCK;
+
     const ranges = [];
     let to = latest;
-    while (to >= DEPLOY_BLOCK) {
-      const from = Math.max(to - CHUNK + 1, DEPLOY_BLOCK);
+    while (to >= scanStartBlock) {
+      const from = Math.max(to - CHUNK + 1, scanStartBlock);
       ranges.push([from, to]);
       to = from - 1;
     }
@@ -206,9 +224,6 @@ export default async function handler(req, res) {
       if (logs) for (const l of logs) allLogs.push(l);
     }
 
-    // Second phase: fetch block timestamps, but respect a hard deadline.
-    // Any block whose timestamp we don't have time to fetch gets ts=0
-    // (entry is NOT dropped, only its timestamp/sort position is approximate).
     const blockTimeCache = {};
     const uniqueBlocks = Array.from(
       new Set(allLogs.map(function (l) { return l.blockNumber; })),
@@ -279,7 +294,8 @@ export default async function handler(req, res) {
       timedOut: timedOut,
       timestampsTruncated: timestampsTruncated,
       failedChunkCount: failedChunkCount,
-      scannedFrom: DEPLOY_BLOCK,
+      scannedFrom: scanStartBlock,
+      olderHistoryNotScanned: olderHistoryNotScanned,
       latestBlock: latest,
       providerStats: providerStats,
       chunkDebug: chunkDebug,
