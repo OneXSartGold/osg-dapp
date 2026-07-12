@@ -11,8 +11,9 @@ const POOL = "0xDc4fE983ed301AD42F4E4C43951aa07A7a182855";
 const DEPLOY_BLOCK = 88008677;
 const CHUNK = 3000;
 const CONCURRENCY = 8;
-const TIME_BUDGET_MS = 50000;
-const CHUNK_RETRIES = 3; // retry each chunk across all RPCs before giving up
+const SCAN_BUDGET_MS = 28000; // budget for the log-scanning phase
+const HARD_DEADLINE_MS = 50000; // overall hard deadline for the whole function
+const CHUNK_RETRIES = 3;
 
 const IFACE = new Interface([
   "event Distributed(address indexed user, uint256 amount, uint8 indexed category)",
@@ -40,11 +41,9 @@ function sleep(ms) {
   });
 }
 
-// Global tracker for how often each RPC provider succeeded/failed
 const providerStats = {};
 for (const rpc of RPC_LIST) providerStats[rpc.name] = { success: 0, fail: 0 };
 
-// Tries each RPC in order; also returns which provider actually succeeded
 async function getLogsOnePass(params) {
   let lastErr = null;
   for (const rpc of RPC_LIST) {
@@ -62,7 +61,6 @@ async function getLogsOnePass(params) {
   throw lastErr || new Error("All RPCs failed for getLogs");
 }
 
-// Retries the full RPC list multiple times before treating a chunk as failed
 async function getLogsWithRetry(params) {
   let lastErr = null;
   for (let attempt = 0; attempt < CHUNK_RETRIES; attempt++) {
@@ -160,7 +158,7 @@ export default async function handler(req, res) {
     let timedOut = false;
     const cutRanges = [];
     for (const r of ranges) {
-      if (Date.now() - startedAt > TIME_BUDGET_MS) {
+      if (Date.now() - startedAt > SCAN_BUDGET_MS) {
         timedOut = true;
         break;
       }
@@ -168,7 +166,6 @@ export default async function handler(req, res) {
     }
 
     let failedChunkCount = 0;
-    // Debug list: chunks where logs were actually found, with range/count/provider
     const chunkDebug = [];
 
     const chunkResults = await runPool(
@@ -191,7 +188,6 @@ export default async function handler(req, res) {
           }
           return result.logs;
         } catch (e) {
-          // All retries across all RPCs failed for this chunk - honestly count it as failed
           failedChunkCount++;
           console.warn(
             "osgscan-rewards: chunk permanently failed",
@@ -210,12 +206,26 @@ export default async function handler(req, res) {
       if (logs) for (const l of logs) allLogs.push(l);
     }
 
+    // Second phase: fetch block timestamps, but respect a hard deadline.
+    // Any block whose timestamp we don't have time to fetch gets ts=0
+    // (entry is NOT dropped, only its timestamp/sort position is approximate).
     const blockTimeCache = {};
     const uniqueBlocks = Array.from(
       new Set(allLogs.map(function (l) { return l.blockNumber; })),
     );
+
+    let timestampsTruncated = false;
+    const blocksInTime = [];
+    for (const bn of uniqueBlocks) {
+      if (Date.now() - startedAt > HARD_DEADLINE_MS - 5000) {
+        timestampsTruncated = true;
+        break;
+      }
+      blocksInTime.push(bn);
+    }
+
     await runPool(
-      uniqueBlocks,
+      blocksInTime,
       async function (bn) {
         try {
           const b = await getBlockAnyRpc(bn);
@@ -259,7 +269,7 @@ export default async function handler(req, res) {
       return b.ts - a.ts;
     });
 
-    const partial = timedOut || failedChunkCount > 0;
+    const partial = timedOut || failedChunkCount > 0 || timestampsTruncated;
 
     res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate=180");
     res.status(200).json({
@@ -267,6 +277,7 @@ export default async function handler(req, res) {
       entries: entries,
       partial: partial,
       timedOut: timedOut,
+      timestampsTruncated: timestampsTruncated,
       failedChunkCount: failedChunkCount,
       scannedFrom: DEPLOY_BLOCK,
       latestBlock: latest,
