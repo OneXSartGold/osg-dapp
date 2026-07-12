@@ -10,7 +10,7 @@ const RPC_LIST = [
 const POOL = "0xDc4fE983ed301AD42F4E4C43951aa07A7a182855";
 const DEPLOY_BLOCK = 88008677;
 const CHUNK = 3000;
-const CONCURRENCY = 8;
+const CONCURRENCY = 4;
 const HARD_DEADLINE_MS = 45000; // return well before Vercel's 60s hard kill
 const RPC_CALL_TIMEOUT_MS = 6000;
 const CHUNK_RETRIES = 2;
@@ -58,7 +58,7 @@ function withTimeout(promise, ms) {
 }
 
 const providerStats = {};
-for (const rpc of RPC_LIST) providerStats[rpc.name] = { success: 0, fail: 0 };
+for (const rpc of RPC_LIST) providerStats[rpc.name] = { success: 0, fail: 0, lastError: null };
 
 // Every RPC attempt first checks the global deadline. If time is up, it
 // bails immediately instead of starting another network call.
@@ -76,7 +76,7 @@ async function getLogsOnePass(params, deadlineAt) {
       providerStats[rpc.name].success++;
       return { logs: logs, provider: rpc.name };
     } catch (e) {
-      providerStats[rpc.name].fail++;
+      providerStats[rpc.name].fail++; providerStats[rpc.name].lastError = (e && e.message) || String(e);
       lastErr = e;
       continue;
     }
