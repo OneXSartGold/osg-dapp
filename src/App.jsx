@@ -1704,7 +1704,7 @@ function Staking({ wallet, data, refParam, actions, busy, t }) {
     if (refParam && isAddress(refParam)) setRefInput(refParam);
   }, [refParam]);
   const [history, setHistory] = useState(null);
-  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);   const [historyFilter, setHistoryFilter] = useState("all");
   useEffect(
     function () {
       setHistory(null);
@@ -2028,6 +2028,43 @@ function Staking({ wallet, data, refParam, actions, busy, t }) {
       {tab === "history" && (
         <div className="card">
           <div className="sec">{t.rewardHistory || "Reward History"}</div>
+          <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+            {[
+              ["all", t.filterAll || "All"],
+              ["staking", t.filterStaking || "Staking"],
+              ["referral", t.filterReferral || "Referral"],
+              ["claimed", t.filterClaimed || "Claimed"],
+            ].map(function (f) {
+              return (
+                <button
+                  key={f[0]}
+                  onClick={function () {
+                    setHistoryFilter(f[0]);
+                  }}
+                  style={{
+                    flex: 1,
+                    border:
+                      "1px solid " +
+                      (historyFilter === f[0]
+                        ? "rgba(233,185,73,.5)"
+                        : "rgba(255,255,255,.12)"),
+                    background:
+                      historyFilter === f[0]
+                        ? "rgba(233,185,73,.12)"
+                        : "transparent",
+                    color: historyFilter === f[0] ? C.gold1 : C.txt3,
+                    borderRadius: 9,
+                    padding: "7px 4px",
+                    fontSize: 10.5,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  {f[1]}
+                </button>
+              );
+            })}
+          </div>
           {!wallet ? (
             <div style={{ fontSize: 12, color: C.txt3, padding: "10px 0" }}>
               {t.connectSee}
@@ -2042,9 +2079,9 @@ function Staking({ wallet, data, refParam, actions, busy, t }) {
             </div>
           ) : (
             (function () {
-              var groups = {};
+              var filtered =                 historyFilter === "all"                   ? history                   : history.filter(function (e) {                       return e.type === historyFilter;                     });               var groups = {};
               var order = [];
-              history.forEach(function (e) {
+              filtered.forEach(function (e) {
                 var d = new Date(e.ts * 1000);
                 var key = d.toLocaleDateString();
                 if (!groups[key]) {
@@ -2060,7 +2097,7 @@ function Staking({ wallet, data, refParam, actions, busy, t }) {
                 mining: { label: "Mining Reward", color: C.purple },
                 claimed: { label: "Claimed to Wallet", color: C.green },
               };
-              return order.map(function (key) {
+              if (order.length === 0) {                 return (                   <div                     style={{ fontSize: 12, color: C.txt3, padding: "10px 0" }}                   >                     {t.noHistoryFiltered || "No entries for this filter"}                   </div>                 );               }               return order.map(function (key) {
                 var g = groups[key];
                 return (
                   <div key={key} style={{ marginBottom: 16 }}>
