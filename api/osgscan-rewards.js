@@ -11,11 +11,10 @@ const POOL = "0xDc4fE983ed301AD42F4E4C43951aa07A7a182855";
 const DEPLOY_BLOCK = 88008677;
 const CHUNK = 3000;
 const CONCURRENCY = 8;
-const SCAN_BUDGET_MS = 28000;
-const HARD_DEADLINE_MS = 50000;
-const CHUNK_RETRIES = 3;
-const RPC_CALL_TIMEOUT_MS = 8000; // any single RPC call gets killed after this
-const MAX_BLOCKS_PER_REQUEST = 500000; // only scan recent ~500k blocks per request
+const HARD_DEADLINE_MS = 45000; // return well before Vercel's 60s hard kill
+const RPC_CALL_TIMEOUT_MS = 6000;
+const CHUNK_RETRIES = 2;
+const MAX_BLOCKS_PER_REQUEST = 500000;
 
 const IFACE = new Interface([
   "event Distributed(address indexed user, uint256 amount, uint8 indexed category)",
@@ -43,7 +42,10 @@ function sleep(ms) {
   });
 }
 
-// Wraps any promise so it never blocks execution longer than ms
+function timeLeft(deadlineAt) {
+  return deadlineAt - Date.now();
+}
+
 function withTimeout(promise, ms) {
   return Promise.race([
     promise,
@@ -58,12 +60,19 @@ function withTimeout(promise, ms) {
 const providerStats = {};
 for (const rpc of RPC_LIST) providerStats[rpc.name] = { success: 0, fail: 0 };
 
-async function getLogsOnePass(params) {
+// Every RPC attempt first checks the global deadline. If time is up, it
+// bails immediately instead of starting another network call.
+async function getLogsOnePass(params, deadlineAt) {
   let lastErr = null;
   for (const rpc of RPC_LIST) {
+    const remaining = timeLeft(deadlineAt);
+    if (remaining <= 500) {
+      throw new Error("Global deadline reached, skipping remaining RPCs");
+    }
     try {
       const p = getProviderFor(rpc.url);
-      const logs = await withTimeout(p.getLogs(params), RPC_CALL_TIMEOUT_MS);
+      const callTimeout = Math.min(RPC_CALL_TIMEOUT_MS, remaining);
+      const logs = await withTimeout(p.getLogs(params), callTimeout);
       providerStats[rpc.name].success++;
       return { logs: logs, provider: rpc.name };
     } catch (e) {
@@ -75,25 +84,32 @@ async function getLogsOnePass(params) {
   throw lastErr || new Error("All RPCs failed for getLogs");
 }
 
-async function getLogsWithRetry(params) {
+async function getLogsWithRetry(params, deadlineAt) {
   let lastErr = null;
   for (let attempt = 0; attempt < CHUNK_RETRIES; attempt++) {
+    if (timeLeft(deadlineAt) <= 500) {
+      throw lastErr || new Error("Global deadline reached before retry");
+    }
     try {
-      return await getLogsOnePass(params);
+      return await getLogsOnePass(params, deadlineAt);
     } catch (e) {
       lastErr = e;
-      if (attempt < CHUNK_RETRIES - 1) await sleep(300 * (attempt + 1));
+      if (attempt < CHUNK_RETRIES - 1 && timeLeft(deadlineAt) > 1000) {
+        await sleep(250);
+      }
     }
   }
   throw lastErr || new Error("getLogs failed after retries");
 }
 
-async function getBlockNumberAnyRpc() {
+async function getBlockNumberAnyRpc(deadlineAt) {
   let lastErr = null;
   for (const rpc of RPC_LIST) {
+    const remaining = timeLeft(deadlineAt);
+    if (remaining <= 500) break;
     try {
       const p = getProviderFor(rpc.url);
-      const n = await withTimeout(p.getBlockNumber(), RPC_CALL_TIMEOUT_MS);
+      const n = await withTimeout(p.getBlockNumber(), Math.min(RPC_CALL_TIMEOUT_MS, remaining));
       return n;
     } catch (e) {
       lastErr = e;
@@ -103,12 +119,14 @@ async function getBlockNumberAnyRpc() {
   throw lastErr || new Error("All RPCs failed for getBlockNumber");
 }
 
-async function getBlockAnyRpc(blockNumber) {
+async function getBlockAnyRpc(blockNumber, deadlineAt) {
   let lastErr = null;
   for (const rpc of RPC_LIST) {
+    const remaining = timeLeft(deadlineAt);
+    if (remaining <= 300) break;
     try {
       const p = getProviderFor(rpc.url);
-      const b = await withTimeout(p.getBlock(blockNumber), RPC_CALL_TIMEOUT_MS);
+      const b = await withTimeout(p.getBlock(blockNumber), Math.min(RPC_CALL_TIMEOUT_MS, remaining));
       if (b) return b;
     } catch (e) {
       lastErr = e;
@@ -118,11 +136,21 @@ async function getBlockAnyRpc(blockNumber) {
   throw lastErr || new Error("All RPCs failed for getBlock");
 }
 
-async function runPool(items, worker, concurrency) {
+// Worker pool that stops handing out new work once the deadline is reached.
+async function runPool(items, worker, concurrency, deadlineAt) {
   const results = new Array(items.length);
+  const skipped = [];
   let idx = 0;
   async function runner() {
     while (idx < items.length) {
+      if (timeLeft(deadlineAt) <= 500) {
+        while (idx < items.length) {
+          skipped.push(items[idx]);
+          results[idx] = null;
+          idx++;
+        }
+        return;
+      }
       const my = idx++;
       try {
         results[my] = await worker(items[my], my);
@@ -134,11 +162,12 @@ async function runPool(items, worker, concurrency) {
   const runners = [];
   for (let i = 0; i < concurrency; i++) runners.push(runner());
   await Promise.all(runners);
-  return results;
+  return { results: results, skipped: skipped };
 }
 
 export default async function handler(req, res) {
   const startedAt = Date.now();
+  const deadlineAt = startedAt + HARD_DEADLINE_MS;
   try {
     const rawWallet = req.query.wallet;
     if (!rawWallet) {
@@ -153,15 +182,13 @@ export default async function handler(req, res) {
       return;
     }
 
-    const latest = await getBlockNumberAnyRpc();
+    const latest = await getBlockNumberAnyRpc(deadlineAt);
 
     const userTopic =
       "0x000000000000000000000000" + wallet.slice(2).toLowerCase();
     const distributedTopic = IFACE.getEvent("Distributed").topicHash;
     const claimedTopic = IFACE.getEvent("Claimed").topicHash;
 
-    // Only scan the most recent MAX_BLOCKS_PER_REQUEST blocks in one call.
-    // Older history (before scanStartBlock) is not covered by this request.
     const scanStartBlock = Math.max(DEPLOY_BLOCK, latest - MAX_BLOCKS_PER_REQUEST);
     const olderHistoryNotScanned = scanStartBlock > DEPLOY_BLOCK;
 
@@ -173,29 +200,22 @@ export default async function handler(req, res) {
       to = from - 1;
     }
 
-    let timedOut = false;
-    const cutRanges = [];
-    for (const r of ranges) {
-      if (Date.now() - startedAt > SCAN_BUDGET_MS) {
-        timedOut = true;
-        break;
-      }
-      cutRanges.push(r);
-    }
-
     let failedChunkCount = 0;
     const chunkDebug = [];
 
-    const chunkResults = await runPool(
-      cutRanges,
+    const poolResult = await runPool(
+      ranges,
       async function (range) {
         try {
-          const result = await getLogsWithRetry({
-            address: POOL,
-            fromBlock: range[0],
-            toBlock: range[1],
-            topics: [[distributedTopic, claimedTopic], userTopic],
-          });
+          const result = await getLogsWithRetry(
+            {
+              address: POOL,
+              fromBlock: range[0],
+              toBlock: range[1],
+              topics: [[distributedTopic, claimedTopic], userTopic],
+            },
+            deadlineAt,
+          );
           if (result.logs.length > 0) {
             chunkDebug.push({
               from: range[0],
@@ -208,7 +228,7 @@ export default async function handler(req, res) {
         } catch (e) {
           failedChunkCount++;
           console.warn(
-            "osgscan-rewards: chunk permanently failed",
+            "osgscan-rewards: chunk failed",
             range[0],
             range[1],
             (e && e.message) || e,
@@ -217,7 +237,11 @@ export default async function handler(req, res) {
         }
       },
       CONCURRENCY,
+      deadlineAt,
     );
+
+    const chunkResults = poolResult.results;
+    const timedOut = poolResult.skipped.length > 0;
 
     const allLogs = [];
     for (const logs of chunkResults) {
@@ -229,28 +253,20 @@ export default async function handler(req, res) {
       new Set(allLogs.map(function (l) { return l.blockNumber; })),
     );
 
-    let timestampsTruncated = false;
-    const blocksInTime = [];
-    for (const bn of uniqueBlocks) {
-      if (Date.now() - startedAt > HARD_DEADLINE_MS - 5000) {
-        timestampsTruncated = true;
-        break;
-      }
-      blocksInTime.push(bn);
-    }
-
-    await runPool(
-      blocksInTime,
+    const tsPoolResult = await runPool(
+      uniqueBlocks,
       async function (bn) {
         try {
-          const b = await getBlockAnyRpc(bn);
+          const b = await getBlockAnyRpc(bn, deadlineAt);
           blockTimeCache[bn] = b ? b.timestamp : 0;
         } catch (e) {
           blockTimeCache[bn] = 0;
         }
       },
       CONCURRENCY,
+      deadlineAt,
     );
+    const timestampsTruncated = tsPoolResult.skipped.length > 0;
 
     const entries = [];
     for (const log of allLogs) {
