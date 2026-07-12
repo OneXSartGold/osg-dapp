@@ -120,12 +120,16 @@ export default async function handler(req, res) {
     const distributedTopic = IFACE.getEvent("Distributed").topicHash;
     const claimedTopic = IFACE.getEvent("Claimed").topicHash;
 
+    /* महत्त्वाचं: सर्वात नवीन (latest) block पासून मागे (जुन्याकडे) रांग
+       बनवतो, जेणेकरून वेळ संपली तरी सर्वात अलीकडचा (सर्वात उपयोगी)
+       इतिहास आधी scan होईल — deploy पासून पुढे गेलं तर जुने रिकामे
+       chunks scan करण्यात वेळ जातो आणि अलीकडचा data कधीच scan होत नाही. */
     const ranges = [];
-    let from = DEPLOY_BLOCK;
-    while (from <= latest) {
-      const to = Math.min(from + CHUNK - 1, latest);
+    let to = latest;
+    while (to >= DEPLOY_BLOCK) {
+      const from = Math.max(to - CHUNK + 1, DEPLOY_BLOCK);
       ranges.push([from, to]);
-      from = to + 1;
+      to = from - 1;
     }
 
     let partial = false;
@@ -210,7 +214,7 @@ export default async function handler(req, res) {
     });
 
     res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate=180");
-    res.status(200).json({ wallet: wallet, entries: entries, partial: partial });
+    res.status(200).json({ wallet: wallet, entries: entries, partial: partial, scannedFrom: DEPLOY_BLOCK, latestBlock: latest });
   } catch (e) {
     res.status(500).json({ error: (e && e.message) || "Server error" });
   }
