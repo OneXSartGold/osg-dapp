@@ -10,6 +10,8 @@ const RPC_URLS = [
 const POOL = "0xDc4fE983ed301AD42F4E4C43951aa07A7a182855";
 const DEPLOY_BLOCK = 88008677;
 const CHUNK = 3000;
+const CONCURRENCY = 8;
+const TIME_BUDGET_MS = 50000;
 
 const IFACE = new Interface([
   "event Distributed(address indexed user, uint256 amount, uint8 indexed category)",
@@ -37,7 +39,7 @@ async function getLogsAnyRpc(params) {
     try {
       const p = getProviderFor(url);
       const logs = await p.getLogs(params);
-      return { logs: logs, provider: p };
+      return logs;
     } catch (e) {
       lastErr = e;
       continue;
@@ -52,7 +54,7 @@ async function getBlockNumberAnyRpc() {
     try {
       const p = getProviderFor(url);
       const n = await p.getBlockNumber();
-      return { number: n, provider: p };
+      return n;
     } catch (e) {
       lastErr = e;
       continue;
@@ -76,7 +78,27 @@ async function getBlockAnyRpc(blockNumber) {
   throw lastErr || new Error("All RPCs failed for getBlock");
 }
 
+async function runPool(items, worker, concurrency) {
+  const results = new Array(items.length);
+  let idx = 0;
+  async function runner() {
+    while (idx < items.length) {
+      const my = idx++;
+      try {
+        results[my] = await worker(items[my], my);
+      } catch (e) {
+        results[my] = null;
+      }
+    }
+  }
+  const runners = [];
+  for (let i = 0; i < concurrency; i++) runners.push(runner());
+  await Promise.all(runners);
+  return results;
+}
+
 export default async function handler(req, res) {
+  const startedAt = Date.now();
   try {
     const rawWallet = req.query.wallet;
     if (!rawWallet) {
@@ -91,73 +113,96 @@ export default async function handler(req, res) {
       return;
     }
 
-    const latestInfo = await getBlockNumberAnyRpc();
-    const latest = latestInfo.number;
+    const latest = await getBlockNumberAnyRpc();
 
     const userTopic =
       "0x000000000000000000000000" + wallet.slice(2).toLowerCase();
-
     const distributedTopic = IFACE.getEvent("Distributed").topicHash;
     const claimedTopic = IFACE.getEvent("Claimed").topicHash;
 
-    const blockTimeCache = {};
-    const entries = [];
-
+    const ranges = [];
     let from = DEPLOY_BLOCK;
     while (from <= latest) {
       const to = Math.min(from + CHUNK - 1, latest);
+      ranges.push([from, to]);
+      from = to + 1;
+    }
 
-      let logs = [];
+    let partial = false;
+    const cutRanges = [];
+    for (const r of ranges) {
+      if (Date.now() - startedAt > TIME_BUDGET_MS) {
+        partial = true;
+        break;
+      }
+      cutRanges.push(r);
+    }
+
+    const chunkResults = await runPool(
+      cutRanges,
+      async function (range) {
+        try {
+          return await getLogsAnyRpc({
+            address: POOL,
+            fromBlock: range[0],
+            toBlock: range[1],
+            topics: [[distributedTopic, claimedTopic], userTopic],
+          });
+        } catch (e) {
+          return [];
+        }
+      },
+      CONCURRENCY,
+    );
+
+    const allLogs = [];
+    for (const logs of chunkResults) {
+      if (logs) for (const l of logs) allLogs.push(l);
+    }
+
+    const blockTimeCache = {};
+    const uniqueBlocks = Array.from(
+      new Set(allLogs.map(function (l) { return l.blockNumber; })),
+    );
+    await runPool(
+      uniqueBlocks,
+      async function (bn) {
+        try {
+          const b = await getBlockAnyRpc(bn);
+          blockTimeCache[bn] = b ? b.timestamp : 0;
+        } catch (e) {
+          blockTimeCache[bn] = 0;
+        }
+      },
+      CONCURRENCY,
+    );
+
+    const entries = [];
+    for (const log of allLogs) {
+      let parsed;
       try {
-        const r = await getLogsAnyRpc({
-          address: POOL,
-          fromBlock: from,
-          toBlock: to,
-          topics: [[distributedTopic, claimedTopic], userTopic],
-        });
-        logs = r.logs;
-      } catch (chunkErr) {
-        from = to + 1;
+        parsed = IFACE.parseLog(log);
+      } catch (e) {
         continue;
       }
+      if (!parsed) continue;
+      const ts = blockTimeCache[log.blockNumber] || 0;
 
-      for (const log of logs) {
-        let parsed;
-        try {
-          parsed = IFACE.parseLog(log);
-        } catch (e) {
-          continue;
-        }
-        if (!parsed) continue;
-
-        if (!blockTimeCache[log.blockNumber]) {
-          try {
-            const block = await getBlockAnyRpc(log.blockNumber);
-            blockTimeCache[log.blockNumber] = block ? block.timestamp : 0;
-          } catch (e) {
-            blockTimeCache[log.blockNumber] = 0;
-          }
-        }
-        const ts = blockTimeCache[log.blockNumber];
-
-        if (parsed.name === "Distributed") {
-          entries.push({
-            type: categoryLabel(Number(parsed.args.category)),
-            amount: formatUnits(parsed.args.amount, 18),
-            ts: ts,
-            txHash: log.transactionHash,
-          });
-        } else if (parsed.name === "Claimed") {
-          entries.push({
-            type: "claimed",
-            amount: formatUnits(parsed.args.amount, 18),
-            ts: ts,
-            txHash: log.transactionHash,
-          });
-        }
+      if (parsed.name === "Distributed") {
+        entries.push({
+          type: categoryLabel(Number(parsed.args.category)),
+          amount: formatUnits(parsed.args.amount, 18),
+          ts: ts,
+          txHash: log.transactionHash,
+        });
+      } else if (parsed.name === "Claimed") {
+        entries.push({
+          type: "claimed",
+          amount: formatUnits(parsed.args.amount, 18),
+          ts: ts,
+          txHash: log.transactionHash,
+        });
       }
-
-      from = to + 1;
     }
 
     entries.sort(function (a, b) {
@@ -165,7 +210,7 @@ export default async function handler(req, res) {
     });
 
     res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate=180");
-    res.status(200).json({ wallet: wallet, entries: entries });
+    res.status(200).json({ wallet: wallet, entries: entries, partial: partial });
   } catch (e) {
     res.status(500).json({ error: (e && e.message) || "Server error" });
   }
