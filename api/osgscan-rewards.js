@@ -1,20 +1,13 @@
-import { JsonRpcProvider, Interface, formatUnits, getAddress } from "ethers";
-
-// NOTE: ankr / polygon-rpc / publicnode now require paid API keys and
-// were removed from this list since every call to them failed (401/403).
-// Add a second real RPC key here later for redundancy if needed.
-const RPC_LIST = [
-  { name: "alchemy", url: "https://polygon-mainnet.g.alchemy.com/v2/ZyChInaPXbkZQdhA0Ep_V" },
-];
+import { Interface, formatUnits, getAddress } from "ethers";
 
 const POOL = "0xDc4fE983ed301AD42F4E4C43951aa07A7a182855";
 const DEPLOY_BLOCK = 88008677;
-const CHUNK = 8000;
-const CONCURRENCY = 2;
-const HARD_DEADLINE_MS = 50000;
-const RPC_CALL_TIMEOUT_MS = 12000;
-const CHUNK_RETRIES = 2;
-const MAX_BLOCKS_PER_REQUEST = 300000;
+const ETHERSCAN_API_KEY = "3DQM56GUDNBUSDR7CS9RNCEMGGNCSRDA7S";
+const CHAIN_ID = 137;
+const HARD_DEADLINE_MS = 45000;
+const REQUEST_TIMEOUT_MS = 15000;
+const PAGE_SIZE = 1000;
+const MAX_PAGES = 10;
 
 const IFACE = new Interface([
   "event Distributed(address indexed user, uint256 amount, uint8 indexed category)",
@@ -28,20 +21,6 @@ function categoryLabel(cat) {
   return "other";
 }
 
-const providerCache = {};
-function getProviderFor(url) {
-  if (!providerCache[url]) {
-    providerCache[url] = new JsonRpcProvider(url, 137, { batchMaxCount: 1 });
-  }
-  return providerCache[url];
-}
-
-function sleep(ms) {
-  return new Promise(function (r) {
-    setTimeout(r, ms);
-  });
-}
-
 function timeLeft(deadlineAt) {
   return deadlineAt - Date.now();
 }
@@ -51,116 +30,55 @@ function withTimeout(promise, ms) {
     promise,
     new Promise(function (_, reject) {
       setTimeout(function () {
-        reject(new Error("RPC call timed out after " + ms + "ms"));
+        reject(new Error("Request timed out after " + ms + "ms"));
       }, ms);
     }),
   ]);
 }
 
-const providerStats = {};
-for (const rpc of RPC_LIST) providerStats[rpc.name] = { success: 0, fail: 0, lastError: null };
-
-async function getLogsOnePass(params, deadlineAt) {
-  let lastErr = null;
-  for (const rpc of RPC_LIST) {
+// Etherscan's getLogs endpoint only matches one topic0 value at a time
+// (no OR array like raw eth_getLogs), so Distributed and Claimed are
+// fetched as two separate calls and merged.
+async function fetchLogsForTopic(topic0, userTopic, deadlineAt) {
+  const allItems = [];
+  for (let page = 1; page <= MAX_PAGES; page++) {
     const remaining = timeLeft(deadlineAt);
-    if (remaining <= 500) {
-      throw new Error("Global deadline reached, skipping remaining RPCs");
-    }
-    try {
-      const p = getProviderFor(rpc.url);
-      const callTimeout = Math.min(RPC_CALL_TIMEOUT_MS, remaining);
-      const logs = await withTimeout(p.getLogs(params), callTimeout);
-      providerStats[rpc.name].success++;
-      return { logs: logs, provider: rpc.name };
-    } catch (e) {
-      providerStats[rpc.name].fail++;
-      providerStats[rpc.name].lastError = (e && e.message) || String(e);
-      lastErr = e;
-      continue;
-    }
-  }
-  throw lastErr || new Error("All RPCs failed for getLogs");
-}
+    if (remaining <= 1000) break;
 
-async function getLogsWithRetry(params, deadlineAt) {
-  let lastErr = null;
-  for (let attempt = 0; attempt < CHUNK_RETRIES; attempt++) {
-    if (timeLeft(deadlineAt) <= 500) {
-      throw lastErr || new Error("Global deadline reached before retry");
-    }
-    try {
-      return await getLogsOnePass(params, deadlineAt);
-    } catch (e) {
-      lastErr = e;
-      if (attempt < CHUNK_RETRIES - 1 && timeLeft(deadlineAt) > 1000) {
-        await sleep(250);
-      }
-    }
-  }
-  throw lastErr || new Error("getLogs failed after retries");
-}
+    const url =
+      "https://api.etherscan.io/v2/api" +
+      "?chainid=" + CHAIN_ID +
+      "&module=logs&action=getLogs" +
+      "&address=" + POOL +
+      "&fromBlock=" + DEPLOY_BLOCK +
+      "&toBlock=latest" +
+      "&topic0=" + topic0 +
+      "&topic1=" + userTopic +
+      "&topic0_1_opr=and" +
+      "&page=" + page +
+      "&offset=" + PAGE_SIZE +
+      "&apikey=" + ETHERSCAN_API_KEY;
 
-async function getBlockNumberAnyRpc(deadlineAt) {
-  let lastErr = null;
-  for (const rpc of RPC_LIST) {
-    const remaining = timeLeft(deadlineAt);
-    if (remaining <= 500) break;
+    const callTimeout = Math.min(REQUEST_TIMEOUT_MS, remaining);
+    let json;
     try {
-      const p = getProviderFor(rpc.url);
-      const n = await withTimeout(p.getBlockNumber(), Math.min(RPC_CALL_TIMEOUT_MS, remaining));
-      return n;
+      const resp = await withTimeout(fetch(url), callTimeout);
+      json = await resp.json();
     } catch (e) {
-      lastErr = e;
-      continue;
+      throw new Error("Etherscan request failed: " + ((e && e.message) || e));
     }
-  }
-  throw lastErr || new Error("All RPCs failed for getBlockNumber");
-}
 
-async function getBlockAnyRpc(blockNumber, deadlineAt) {
-  let lastErr = null;
-  for (const rpc of RPC_LIST) {
-    const remaining = timeLeft(deadlineAt);
-    if (remaining <= 300) break;
-    try {
-      const p = getProviderFor(rpc.url);
-      const b = await withTimeout(p.getBlock(blockNumber), Math.min(RPC_CALL_TIMEOUT_MS, remaining));
-      if (b) return b;
-    } catch (e) {
-      lastErr = e;
-      continue;
+    if (json.status === "0") {
+      if (json.message === "No records found") break;
+      throw new Error("Etherscan error: " + json.message + " - " + (json.result || ""));
     }
-  }
-  throw lastErr || new Error("All RPCs failed for getBlock");
-}
 
-async function runPool(items, worker, concurrency, deadlineAt) {
-  const results = new Array(items.length);
-  const skipped = [];
-  let idx = 0;
-  async function runner() {
-    while (idx < items.length) {
-      if (timeLeft(deadlineAt) <= 500) {
-        while (idx < items.length) {
-          skipped.push(items[idx]);
-          results[idx] = null;
-          idx++;
-        }
-        return;
-      }
-      const my = idx++;
-      try {
-        results[my] = await worker(items[my], my);
-      } catch (e) {
-        results[my] = null;
-      }
-    }
+    const items = json.result || [];
+    for (const it of items) allItems.push(it);
+
+    if (items.length < PAGE_SIZE) break;
   }
-  const runners = [];
-  for (let i = 0; i < concurrency; i++) runners.push(runner());
-  await Promise.all(runners);
-  return { results: results, skipped: skipped };
+  return allItems;
 }
 
 export default async function handler(req, res) {
@@ -180,116 +98,52 @@ export default async function handler(req, res) {
       return;
     }
 
-    const latest = await getBlockNumberAnyRpc(deadlineAt);
-
-    const userTopic =
-      "0x000000000000000000000000" + wallet.slice(2).toLowerCase();
+    const userTopic = "0x000000000000000000000000" + wallet.slice(2).toLowerCase();
     const distributedTopic = IFACE.getEvent("Distributed").topicHash;
     const claimedTopic = IFACE.getEvent("Claimed").topicHash;
 
-    const scanStartBlock = Math.max(DEPLOY_BLOCK, latest - MAX_BLOCKS_PER_REQUEST);
-    const olderHistoryNotScanned = scanStartBlock > DEPLOY_BLOCK;
+    let distributedItems = [];
+    let claimedItems = [];
+    let errorMsg = null;
 
-    const ranges = [];
-    let to = latest;
-    while (to >= scanStartBlock) {
-      const from = Math.max(to - CHUNK + 1, scanStartBlock);
-      ranges.push([from, to]);
-      to = from - 1;
+    try {
+      distributedItems = await fetchLogsForTopic(distributedTopic, userTopic, deadlineAt);
+    } catch (e) {
+      errorMsg = (e && e.message) || String(e);
+    }
+    try {
+      claimedItems = await fetchLogsForTopic(claimedTopic, userTopic, deadlineAt);
+    } catch (e) {
+      errorMsg = errorMsg || (e && e.message) || String(e);
     }
 
-    let failedChunkCount = 0;
-    const chunkDebug = [];
-
-    const poolResult = await runPool(
-      ranges,
-      async function (range) {
-        try {
-          const result = await getLogsWithRetry(
-            {
-              address: POOL,
-              fromBlock: range[0],
-              toBlock: range[1],
-              topics: [[distributedTopic, claimedTopic], userTopic],
-            },
-            deadlineAt,
-          );
-          if (result.logs.length > 0) {
-            chunkDebug.push({
-              from: range[0],
-              to: range[1],
-              count: result.logs.length,
-              provider: result.provider,
-            });
-          }
-          return result.logs;
-        } catch (e) {
-          failedChunkCount++;
-          console.warn(
-            "osgscan-rewards: chunk failed",
-            range[0],
-            range[1],
-            (e && e.message) || e,
-          );
-          return [];
-        }
-      },
-      CONCURRENCY,
-      deadlineAt,
-    );
-
-    const chunkResults = poolResult.results;
-    const timedOut = poolResult.skipped.length > 0;
-
-    const allLogs = [];
-    for (const logs of chunkResults) {
-      if (logs) for (const l of logs) allLogs.push(l);
-    }
-
-    const blockTimeCache = {};
-    const uniqueBlocks = Array.from(
-      new Set(allLogs.map(function (l) { return l.blockNumber; })),
-    );
-
-    const tsPoolResult = await runPool(
-      uniqueBlocks,
-      async function (bn) {
-        try {
-          const b = await getBlockAnyRpc(bn, deadlineAt);
-          blockTimeCache[bn] = b ? b.timestamp : 0;
-        } catch (e) {
-          blockTimeCache[bn] = 0;
-        }
-      },
-      CONCURRENCY,
-      deadlineAt,
-    );
-    const timestampsTruncated = tsPoolResult.skipped.length > 0;
+    const allItems = distributedItems.concat(claimedItems);
 
     const entries = [];
-    for (const log of allLogs) {
+    for (const it of allItems) {
       let parsed;
       try {
-        parsed = IFACE.parseLog(log);
+        parsed = IFACE.parseLog({ topics: it.topics, data: it.data });
       } catch (e) {
         continue;
       }
       if (!parsed) continue;
-      const ts = blockTimeCache[log.blockNumber] || 0;
+
+      const ts = parseInt(it.timeStamp, 16) || 0;
 
       if (parsed.name === "Distributed") {
         entries.push({
           type: categoryLabel(Number(parsed.args.category)),
           amount: formatUnits(parsed.args.amount, 18),
           ts: ts,
-          txHash: log.transactionHash,
+          txHash: it.transactionHash,
         });
       } else if (parsed.name === "Claimed") {
         entries.push({
           type: "claimed",
           amount: formatUnits(parsed.args.amount, 18),
           ts: ts,
-          txHash: log.transactionHash,
+          txHash: it.transactionHash,
         });
       }
     }
@@ -298,21 +152,14 @@ export default async function handler(req, res) {
       return b.ts - a.ts;
     });
 
-    const partial = timedOut || failedChunkCount > 0 || timestampsTruncated;
-
     res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate=180");
     res.status(200).json({
       wallet: wallet,
       entries: entries,
-      partial: partial,
-      timedOut: timedOut,
-      timestampsTruncated: timestampsTruncated,
-      failedChunkCount: failedChunkCount,
-      scannedFrom: scanStartBlock,
-      olderHistoryNotScanned: olderHistoryNotScanned,
-      latestBlock: latest,
-      providerStats: providerStats,
-      chunkDebug: chunkDebug,
+      partial: !!errorMsg,
+      error: errorMsg,
+      scannedFrom: DEPLOY_BLOCK,
+      source: "etherscan-v2-api",
     });
   } catch (e) {
     res.status(500).json({ error: (e && e.message) || "Server error" });
