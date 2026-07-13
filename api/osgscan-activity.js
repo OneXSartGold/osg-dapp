@@ -23,16 +23,52 @@ const TOPIC_SWAP_V2  = "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130
 const BLOCKS_PER_DAY_APPROX = 43200; // Polygon ~2s block time
 const MAX_TRANSFERS_RETURNED = 50;
 const MAX_SWAP_TX_LOOKUPS = 60; // cap how many tx.from lookups we do, for speed
-const TX_LOOKUP_CONCURRENCY = 5; // parallel eth_getTransactionByHash calls
+const TX_LOOKUP_CONCURRENCY = 3; // stay safely under Etherscan free-tier's 5 req/sec
+const CALL_RETRIES = 3;
 
+function sleep(ms) {
+  return new Promise(function (r) { setTimeout(r, ms); });
+}
+
+// Retries on rate-limit / transient errors instead of silently treating
+// a failed call as "no data" — this was the root cause of Swappers
+// sometimes showing 0 when swaps actually happened (many more Etherscan
+// calls are needed for Swappers than for Transfers, so it hit the
+// free-tier 5 req/sec limit far more often).
 async function callEtherscan(params) {
   const apikey = process.env.POLYGONSCAN_KEY;
   if (!apikey) throw new Error("POLYGONSCAN_KEY not set in environment variables");
   const qs = new URLSearchParams({ chainid: String(CHAIN_ID), apikey, ...params });
   const url = ETHERSCAN_BASE + "?" + qs.toString();
-  const res = await fetch(url);
-  if (!res.ok) throw new Error("Etherscan HTTP error " + res.status + " for " + params.action);
-  return res.json();
+
+  let lastErr = null;
+  for (let attempt = 0; attempt < CALL_RETRIES; attempt++) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) {
+        if (res.status === 429 || res.status >= 500) {
+          lastErr = new Error("Etherscan HTTP " + res.status + " for " + params.action);
+          await sleep(300 * (attempt + 1));
+          continue;
+        }
+        throw new Error("Etherscan HTTP error " + res.status + " for " + params.action);
+      }
+      const json = await res.json();
+      // Etherscan reports rate limiting via status:"0" + a message, not always HTTP 429
+      if (json && json.status === "0" && json.message && /rate limit|max calls/i.test(json.message)) {
+        lastErr = new Error("Etherscan rate limited: " + json.message);
+        console.warn("osgscan-activity: rate limited on", params.action, "attempt", attempt + 1);
+        await sleep(300 * (attempt + 1));
+        continue;
+      }
+      return json;
+    } catch (e) {
+      lastErr = e;
+      await sleep(300 * (attempt + 1));
+    }
+  }
+  console.warn("osgscan-activity: call failed after retries:", params.action, (lastErr && lastErr.message) || lastErr);
+  throw lastErr || new Error("Etherscan call failed after retries");
 }
 
 async function getLatestBlock() {
@@ -54,15 +90,27 @@ async function getLogs(address, fromBlock, toBlock, topic0) {
     toBlock: String(toBlock),
   };
   if (topic0) params.topic0 = topic0;
-  const data = await callEtherscan(params);
-  if (!Array.isArray(data.result)) return [];
-  return data.result;
+  try {
+    const data = await callEtherscan(params);
+    if (!Array.isArray(data.result)) {
+      console.warn("osgscan-activity: getLogs non-array result for", address, data && data.message);
+      return [];
+    }
+    return data.result;
+  } catch (e) {
+    console.warn("osgscan-activity: getLogs failed for", address, (e && e.message) || e);
+    return [];
+  }
 }
 
 async function getTxFrom(txHash) {
-  const data = await callEtherscan({ module: "proxy", action: "eth_getTransactionByHash", txhash: txHash });
-  if (data.result && data.result.from) return data.result.from.toLowerCase();
-  return null;
+  try {
+    const data = await callEtherscan({ module: "proxy", action: "eth_getTransactionByHash", txhash: txHash });
+    if (data.result && data.result.from) return data.result.from.toLowerCase();
+    return null;
+  } catch (e) {
+    return null;
+  }
 }
 
 // Runs async work over items with a limited number of parallel workers,
@@ -197,7 +245,7 @@ export default async function handler(req, res) {
     }
     const swappers = Object.values(swapperMap).sort((a, b) => b.volumeOSG - a.volumeOSG);
 
-    res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate=180");
+    res.setHeader("Cache-Control", "s-maxage=90, stale-while-revalidate=240");
     res.status(200).json({ transfers: transfersOut, swappers });
   } catch (err) {
     res.status(500).json({ error: err.message || "Unknown error in osgscan-activity" });
