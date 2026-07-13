@@ -23,7 +23,7 @@ const TOPIC_SWAP_V2  = "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130
 const BLOCKS_PER_DAY_APPROX = 43200; // Polygon ~2s block time
 const MAX_TRANSFERS_RETURNED = 50;
 const MAX_SWAP_TX_LOOKUPS = 60; // cap how many tx.from lookups we do, for speed
-const TX_LOOKUP_CONCURRENCY = 3; // stay safely under Etherscan free-tier's 5 req/sec
+const TX_LOOKUP_CONCURRENCY = 2; // stay safely under Etherscan free-tier's 5 req/sec
 const CALL_RETRIES = 3;
 
 function sleep(ms) {
@@ -104,13 +104,24 @@ async function getLogs(address, fromBlock, toBlock, topic0) {
 }
 
 async function getTxFrom(txHash) {
-  try {
-    const data = await callEtherscan({ module: "proxy", action: "eth_getTransactionByHash", txhash: txHash });
-    if (data.result && data.result.from) return data.result.from.toLowerCase();
-    return null;
-  } catch (e) {
-    return null;
+  // This call uses module=proxy, which replies in raw JSON-RPC format
+  // (no "status" field), so callEtherscan's status:"0" rate-limit check
+  // never fires for it. Retry here directly on any missing/invalid result,
+  // regardless of what shape the failure took.
+  for (let attempt = 0; attempt < CALL_RETRIES; attempt++) {
+    try {
+      const data = await callEtherscan({ module: "proxy", action: "eth_getTransactionByHash", txhash: txHash });
+      if (data && data.result && data.result.from) return data.result.from.toLowerCase();
+      if (data && data.error) {
+        console.warn("osgscan-activity: getTxFrom JSON-RPC error for", txHash, data.error.message || data.error);
+      }
+    } catch (e) {
+      console.warn("osgscan-activity: getTxFrom threw for", txHash, (e && e.message) || e);
+    }
+    if (attempt < CALL_RETRIES - 1) await sleep(350 * (attempt + 1));
   }
+  console.warn("osgscan-activity: getTxFrom gave up for", txHash);
+  return null;
 }
 
 // Runs async work over items with a limited number of parallel workers,
