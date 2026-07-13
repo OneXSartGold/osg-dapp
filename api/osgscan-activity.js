@@ -41,14 +41,20 @@ async function getLatestBlock() {
   return parseInt(data.result, 16);
 }
 
-async function getLogs(address, fromBlock, toBlock) {
-  const data = await callEtherscan({
+// Filters by topic0 SERVER-SIDE (on Etherscan's end) instead of fetching
+// every event type and filtering in JS. This avoids the 1000-record
+// response cap silently truncating away the events we actually want
+// (e.g. Swap events getting crowded out by Sync/Mint/Burn events).
+async function getLogs(address, fromBlock, toBlock, topic0) {
+  const params = {
     module: "logs",
     action: "getLogs",
     address,
     fromBlock: String(fromBlock),
     toBlock: String(toBlock),
-  });
+  };
+  if (topic0) params.topic0 = topic0;
+  const data = await callEtherscan(params);
   if (!Array.isArray(data.result)) return [];
   return data.result;
 }
@@ -133,8 +139,8 @@ export default async function handler(req, res) {
     const fromBlock = Math.max(0, latestBlock - rangeDays * BLOCKS_PER_DAY_APPROX); // buffer, filtered below
 
     const [tokenLogs, poolLogs] = await Promise.all([
-      getLogs(ADDR.token, fromBlock, latestBlock),
-      getLogs(ADDR.pool, fromBlock, latestBlock),
+      getLogs(ADDR.token, fromBlock, latestBlock, TOPIC_TRANSFER),
+      getLogs(ADDR.pool, fromBlock, latestBlock, TOPIC_SWAP_V2),
     ]);
 
     // ── Today's Transfers ──
