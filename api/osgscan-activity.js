@@ -22,8 +22,8 @@ const TOPIC_SWAP_V2  = "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130
 
 const BLOCKS_PER_DAY_APPROX = 43200; // Polygon ~2s block time
 const MAX_TRANSFERS_RETURNED = 50;
-const MAX_SWAP_TX_LOOKUPS = 60; // cap how many tx.from lookups we do, for speed
-const TX_LOOKUP_CONCURRENCY = 2; // stay safely under Etherscan free-tier's 5 req/sec
+const MAX_SWAP_TX_LOOKUPS = 30; // cap how many tx.from lookups we do, for speed
+const TX_LOOKUP_CONCURRENCY = 1; // stay safely under Etherscan free-tier's 5 req/sec
 const CALL_RETRIES = 3;
 
 function sleep(ms) {
