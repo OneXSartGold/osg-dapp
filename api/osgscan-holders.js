@@ -82,12 +82,20 @@ async function getGenesisBlock(latestBlock) {
 }
 
 async function getTotalSupply() {
-  const data = await callEtherscan({
-    module: "proxy", action: "eth_call",
-    to: TOKEN, data: "0x18160ddd", tag: "latest",
-  });
-  if (!data.result) return 0;
-  try { return Number(BigInt(data.result)) / 1e18; } catch (e) { return 0; }
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const data = await callEtherscan({
+        module: "proxy", action: "eth_call",
+        to: TOKEN, data: "0x18160ddd", tag: "latest",
+      });
+      if (data.result) {
+        const val = Number(BigInt(data.result)) / 1e18;
+        if (val > 0) return val;
+      }
+    } catch (e) { /* try again */ }
+    await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+  }
+  return 0;
 }
 
 async function getLogsRaw(fromBlock, toBlock) {
