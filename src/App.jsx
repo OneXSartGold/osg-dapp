@@ -6405,18 +6405,22 @@ function OSGScan({ wallet, data, holders, polUsd, chg24, t }) {
       <div className="scan-card">
         <div className="scan-ctitle">
           <div className="t">Verified Contracts</div>
-          <div className="tag">8 · Polygon</div>
+          <div className="tag">12 · Polygon</div>
         </div>
         {[
-          ["OSG Token", ADDRESSES.token],
-          ["Staking", ADDRESSES.staking],
-          ["Reward Pool", ADDRESSES.pool],
-          ["Reward Storage", ADDRESSES.rewardStorage],
-          ["TimelockDAO", ADDRESSES.timelock],
-          ["Bond", ADDRESSES.bond],
-          ["Messenger", ADDRESSES.messenger],
-          ["Media Storage", ADDRESSES.mediaStorage],
-        ].map(function (row) {
+  ["OSG Token", ADDRESSES.token],
+  ["Staking", ADDRESSES.staking],
+  ["Reward Pool", ADDRESSES.pool],
+  ["Reward Storage", ADDRESSES.rewardStorage],
+  ["TimelockDAO", ADDRESSES.timelock],
+  ["Bond", ADDRESSES.bond],
+  ["Messenger", ADDRESSES.messenger],
+  ["Media Storage", ADDRESSES.mediaStorage],
+  ["Referral Distributor", ADDRESSES.referralDistributor],
+  ["P2P Exchange", ADDRESSES.p2pExchange],
+  ["LP Mining", ADDRESSES.lpMining],
+  ["LP Referral", ADDRESSES.lpReferral],
+].map(function (row) {
           return (
             <div className="scan-row" key={row[1]}>
               <div className="lbl">{row[0]}</div>
