@@ -14,6 +14,7 @@ export const ADDRESSES = {
   mediaStorage: "0x88E64Cbc22a35c2928038f2bc13F06630C93D07A",
   // referral is built into staking (no separate contract)
   referral: "0x048E814C02e85ec1438Ab8C1d2e9150A5289A886",
+  referralDistributor: "0x4f1eFf6Fc4A0271096dD78B6F6284D4c9f1904F1",
   p2pExchange: "0xDc172cbbB940C8AF717De1cB46a89a6d91aFa567",
   // -- QuickSwap (for in-app Add Liquidity) --
   quickswapRouter: "0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff",
