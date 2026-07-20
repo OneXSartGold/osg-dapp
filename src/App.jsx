@@ -20,6 +20,8 @@ import {
   MESSENGER_ABI,
   QUICKSWAP_URL,
   P2P_ABI,
+  LP_MINING_ABI,
+  LP_REFERRAL_ABI,
 } from "./contracts.js";
 import {
   deriveKeypair,
