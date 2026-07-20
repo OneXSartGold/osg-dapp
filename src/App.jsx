@@ -22,6 +22,7 @@ import {
   P2P_ABI,
   LP_MINING_ABI,
   LP_REFERRAL_ABI,
+  LP_TOKEN_ABI,
 } from "./contracts.js";
 import {
   deriveKeypair,
