@@ -180,6 +180,55 @@ export const LP_TOKEN_ABI = [
   "function allowance(address owner, address spender) view returns (uint256)",
 ];
 
+// -- OSGLPMining v5 (LP Mining, category-2 distributor) --
+export const LP_MINING_ABI = [
+  // writes
+  "function deposit(uint8 tierId, uint256 lpAmount)",
+  "function withdraw(uint8 tierId, uint256 lpAmount)",
+  "function claim(uint8 tierId)",
+  // reads
+  "function pendingMiningReward(address user, uint8 tierId) view returns (uint256)",
+  "function tiers(uint8) view returns (uint256 minDeposit, uint256 capacityLp, uint256 totalDepositedLp, bool active, uint256 tierWeightBps, uint256 accRewardPerShare, uint256 lastRewardTime)",
+  "function userTier(address, uint8) view returns (uint256 lpAmount, uint256 rewardDebt)",
+  "function firstDepositTime(address) view returns (uint256)",
+  "function isWiredForMining() view returns (bool)",
+  "function getLpMiningDailyBudget() view returns (uint256)",
+  "function getTierDailyBudget(uint8 tierId) view returns (uint256)",
+  "function tierCapacityLp(uint8 tierId) view returns (uint256)",
+  "function referralContract() view returns (address)",
+  "function paused() view returns (bool)",
+  "function miningShareBps() view returns (uint256)",
+  "function FIRST_WITHDRAW_LOCK() view returns (uint256)",
+  // events
+  "event Deposited(address indexed user, uint8 tier, uint256 lpAmount)",
+  "event Withdrawn(address indexed user, uint8 tier, uint256 lpAmount)",
+  "event MiningClaimed(address indexed user, uint8 tier, uint256 amount)",
+];
+
+// -- OSGLPReferral v1 (LP Mining Referral, category-3 distributor) --
+export const LP_REFERRAL_ABI = [
+  // reads
+  "function getCurrentRank(address user) view returns (uint8)",
+  "function teamLiquidityLp(address) view returns (uint256)",
+  "function qualifiedSince(address) view returns (uint256)",
+  "function highestRankPaid(address) view returns (uint8)",
+  "function poolCapacityLp() view returns (uint256)",
+  "function owed(address user) view returns (uint256)",
+  "function levelCommissionOwed(address) view returns (uint256)",
+  "function levelCommissionPaid(address) view returns (uint256)",
+  "function milestoneBonusOwed(address) view returns (uint256)",
+  "function milestoneBonusPaid(address) view returns (uint256)",
+  "function rankThresholdBps(uint256) view returns (uint256)",
+  "function rankBonusBps(uint256) view returns (uint256)",
+  "function getRecurringBonusBps(address user) view returns (uint256)",
+  "function isWiredForReferral() view returns (bool)",
+  "function MAINTAIN_PERIOD() view returns (uint256)",
+  "function lpMining() view returns (address)",
+  // events
+  "event LevelCommissionAccrued(address indexed referrer, address indexed from, uint256 amount, uint8 level)",
+  "event MilestoneBonusAccrued(address indexed user, uint8 rank, uint256 amount)",
+  "event RecurringBonusPaid(address indexed user, uint256 amount, uint256 bps)",
+];
 // QuickSwap swap link (until liquidity pool exists)
 export const QUICKSWAP_URL =
   "https://quickswap.exchange/#/swap?outputCurrency=" + ADDRESSES.token;
