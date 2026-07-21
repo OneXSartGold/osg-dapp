@@ -891,6 +891,19 @@ const Ico = {
       <path d="m21 21-4.35-4.35" />
     </svg>
   ),
+  mining: (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M22 12l-4.5 4.5L12 22 2 12 12 2z" />
+      <path d="M12 2v20M2 12h20" strokeOpacity="0.4" />
+    </svg>
+  ),
 };
 
 // ── reusable Stat ────────────────────────────────────────
