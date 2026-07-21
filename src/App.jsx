@@ -3955,7 +3955,9 @@ function Mining({ wallet, ensureReady, showToast, setTab }) {
                   animationDelay: -(i * 0.7) + "s",
                 }}
               >
-                {"01OSG$".split("").sort(() => Math.random() - 0.5).join("\n")}
+                {Array.from({ length: 22 }).map(() =>
+                  "01OSG$"[Math.floor(Math.random() * 6)]
+                ).join("\n")}
               </div>
             ))}
           </div>
