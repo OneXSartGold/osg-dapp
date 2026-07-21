@@ -924,7 +924,7 @@ function Stat({ label, value, sub, accent }) {
 }
 
 // ══════════════ PAGES ══════════════
-function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvider, ensureReady, showToast }) {
+function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvider, ensureReady, showToast, setTab }) {
   const [calcUsd, setCalcUsd] = useState("");
   const [calcOsg, setCalcOsg] = useState("");
   const [calcUnit, setCalcUnit] = useState("USD");
@@ -1697,6 +1697,63 @@ function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvid
             </div>
           ))}
         </div>
+      </div>
+      <div
+        onClick={() => setTab("mining")}
+        style={{
+          marginTop: 14,
+          cursor: "pointer",
+          position: "relative",
+          overflow: "hidden",
+          background: "linear-gradient(155deg,#0d1220,#0b0d13)",
+          border: "1px solid rgba(80,180,255,.3)",
+          borderRadius: 18,
+          padding: "16px 16px",
+          display: "flex",
+          alignItems: "center",
+          gap: 14,
+        }}
+      >
+        <div
+          style={{
+            width: 46,
+            height: 46,
+            borderRadius: 12,
+            flex: "none",
+            background: "linear-gradient(160deg,rgba(56,163,255,.2),#0b0d13)",
+            border: "1px solid rgba(80,180,255,.4)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 20,
+            color: "#8FC7FF",
+          }}
+        >
+          ◆
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontWeight: 700, fontSize: 14, color: C.txt }}>
+            LP Mining{" "}
+            <span
+              style={{
+                fontSize: 9,
+                fontWeight: 700,
+                color: C.green,
+                background: "rgba(70,208,138,.12)",
+                border: "1px solid rgba(70,208,138,.35)",
+                borderRadius: 6,
+                padding: "2px 7px",
+                marginLeft: 6,
+              }}
+            >
+              LIVE
+            </span>
+          </div>
+          <div style={{ fontSize: 11.5, color: C.txt3, marginTop: 2 }}>
+            Stake OSG/WPOL LP tokens, earn Mining rewards
+          </div>
+        </div>
+        <span style={{ fontSize: 18, color: C.txt3 }}>→</span>
       </div>
       <div style={{ marginTop: 14 }}>
         <P2PPanel
