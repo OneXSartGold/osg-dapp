@@ -3908,31 +3908,39 @@ function Mining({ wallet, ensureReady, showToast, setTab }) {
       </div>
 
       <div className="card" style={{ textAlign: "center" }}>
+        <style>{`
+          @keyframes mnBreathe{0%,100%{opacity:.45}50%{opacity:1}}
+          @keyframes mnSpin{to{transform:rotate(360deg)}}
+          @keyframes mnFlash{
+            0%,80%{box-shadow:0 0 0 0 rgba(64,170,255,0)}
+            90%{box-shadow:0 0 40px 8px rgba(64,170,255,.65),0 0 80px 16px rgba(56,120,255,.25)}
+            100%{box-shadow:0 0 0 0 rgba(64,170,255,0)}
+          }
+          @keyframes mnDiamond{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+          .mn-stage{position:relative;width:100%;height:150px;margin:6px auto 4px;border-radius:16px;overflow:hidden;background:#07070c;border:1px solid rgba(255,255,255,.06)}
+          .mn-glow{position:absolute;inset:0;background:radial-gradient(60% 65% at 50% 45%,rgba(56,163,255,.20) 0%,rgba(56,163,255,.05) 45%,transparent 72%);animation:mnBreathe 4.2s ease-in-out infinite;pointer-events:none}
+          .mn-blockwrap{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:92px;height:92px}
+          .mn-ring{position:absolute;inset:0;border-radius:16px;border:1px solid rgba(80,180,255,.4);background:conic-gradient(from 0deg,rgba(56,163,255,0),rgba(140,210,255,.6),rgba(56,163,255,0) 40%);-webkit-mask:linear-gradient(#000,#000) content-box,linear-gradient(#000,#000);-webkit-mask-composite:xor;mask-composite:exclude;padding:1px;animation:mnSpin 6s linear infinite}
+          .mn-flash{position:absolute;inset:-3px;border-radius:18px;animation:mnFlash 3.6s ease-in-out infinite;pointer-events:none}
+          .mn-face{position:absolute;inset:2px;border-radius:14px;background:linear-gradient(160deg,rgba(90,170,255,.10),#0b0d13 55%);display:flex;align-items:center;justify-content:center;box-shadow:inset 0 1px 0 rgba(150,205,255,.18),inset 0 -10px 22px rgba(0,0,0,.55)}
+          .mn-diamond{font-size:26px;color:#8FC7FF;animation:mnDiamond 3.2s ease-in-out infinite;filter:drop-shadow(0 0 8px rgba(140,200,255,.6))}
+        `}</style>
         <div className="sec">LP Mining — Tier T1</div>
         <div style={{ fontSize: 11, color: C.txt3, marginBottom: 10 }}>
           {info.isWired ? "🟢 Live & wired" : "🟡 Not yet wired to RewardPool"}
         </div>
-        <div
-          key={blockPulse}
-          style={{
-            margin: "10px auto 14px",
-            width: 88,
-            height: 88,
-            borderRadius: 14,
-            background:
-              "linear-gradient(160deg,rgba(56,163,255,.14),#0b0d13)",
-            border: "1px solid rgba(80,180,255,.4)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            boxShadow: blockPulse
-              ? "0 0 34px rgba(64,170,255,.55)"
-              : "0 0 0 rgba(64,170,255,0)",
-            transition: "box-shadow .7s ease",
-          }}
-        >
-          <span style={{ fontSize: 24, color: "#8FC7FF" }}>◆</span>
+
+        <div className="mn-stage">
+          <div className="mn-glow" />
+          <div className="mn-blockwrap" key={blockPulse}>
+            <div className="mn-ring" />
+            <div className="mn-flash" />
+            <div className="mn-face">
+              <span className="mn-diamond">◆</span>
+            </div>
+          </div>
         </div>
+
         <div
           style={{
             height: 8,
@@ -3955,7 +3963,6 @@ function Mining({ wallet, ensureReady, showToast, setTab }) {
           {fillPct.toFixed(1)}%)
         </div>
       </div>
-
       <div className="stat-grid" style={{ marginTop: 14 }}>
         <Stat
           label="Your LP Staked"
