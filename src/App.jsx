@@ -3699,6 +3699,7 @@ function Mining({ wallet, ensureReady, showToast, setTab }) {
   const [amount, setAmount] = useState("");
   const [busy, setBusy] = useState({});
   const [blockPulse, setBlockPulse] = useState(0);
+  const [blockCount, setBlockCount] = useState(0);
 
   const loadRead = useCallback(async () => {
     try {
@@ -3791,7 +3792,7 @@ function Mining({ wallet, ensureReady, showToast, setTab }) {
     try {
       const p = new JsonRpcProvider(RPC_URLS[0], 137);
       mining = new Contract(ADDRESSES.lpMining, LP_MINING_ABI, p);
-      const onEvt = () => setBlockPulse(Date.now());
+      const onEvt = () => { setBlockPulse(Date.now()); setBlockCount((c) => c + 1); };
       mining.on("Deposited", onEvt);
       mining.on("MiningClaimed", onEvt);
       return () => {
@@ -3970,10 +3971,14 @@ function Mining({ wallet, ensureReady, showToast, setTab }) {
             <div className="mn-face">
               <div className="mn-coinwrap">
                 <div className="mn-coin">
-                  <span>◆</span>
+                  <img
+                    src="/logo-mini.png"
+                    alt="OSG"
+                    style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                  />
                 </div>
               </div>
-              <div className="mn-coinname">◆ <b>OSG</b> COIN</div>
+              <div className="mn-coinname">Block #{blockCount}</div>
             </div>
           </div>
         </div>
