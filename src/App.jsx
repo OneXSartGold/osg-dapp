@@ -4178,11 +4178,7 @@ function Mining({ wallet, ensureReady, showToast, setTab }) {
         </div>
       </div>
 
-      <div className="note" style={{ marginTop: 14 }}>
-        ⓘ Level Commission & Milestone/Recurring bonuses are paid manually
-        by the admin from the Referral bucket — they show here as "owed"
-        until paid to your wallet balance.
-      </div>
+      
     </div>
   );
 }
