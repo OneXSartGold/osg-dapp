@@ -19,7 +19,7 @@ export const ADDRESSES = {
   // -- QuickSwap (for in-app Add Liquidity) --
   quickswapRouter: "0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff",
   wpol: "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270",
-  lpPair: "0xA15214B09a9b3E1c821b94fB97D6D3bcA8201Cd2",
+  lpPair: "0xA15214B09a9b3E1c821B94fB97d6d3BcA8201Cd2",
   // -- LP Mining (Stage 1, live) --
   lpMining: "0xF534adff723b5c89AD86343B9E4b1E64E6c82aba",
   lpReferral: "0xFa1CC9D7a9643156d797142D47e3930895401565",
