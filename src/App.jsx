@@ -7885,19 +7885,28 @@ export default function App() {
         <main className="screen" onClick={() => setLangOpen(false)}>
           <NewsPopup logo={LOGO} />{" "}
          {tab === "dashboard" && (
-            <Dashboard
-              data={data}
-              wallet={wallet}
-              polUsd={polUsd}
-              holders={holders}
-              chg24={chg24}
-              t={t}
-              network={network}
-              getProvider={getProvider}
-              ensureReady={ensureReady}
-              showToast={showToast}
-            />
-          )}
+  <Dashboard
+    data={data}
+    wallet={wallet}
+    polUsd={polUsd}
+    holders={holders}
+    chg24={chg24}
+    t={t}
+    network={network}
+    getProvider={getProvider}
+    ensureReady={ensureReady}
+    showToast={showToast}
+    setTab={setTab}
+  />
+)}
+{tab === "mining" && (
+  <Mining
+    wallet={wallet}
+    ensureReady={ensureReady}
+    showToast={showToast}
+    setTab={setTab}
+  />
+)}
           {tab === "staking" && (
             <Staking
               wallet={wallet}
