@@ -3925,7 +3925,7 @@ function Mining({ wallet, ensureReady, showToast, setTab }) {
 }
 .mn-stage{position:relative;width:100%;height:170px;margin:6px auto 4px;border-radius:14px;overflow:hidden;background:#07070c;border:1px solid rgba(255,255,255,.06)}
 .mn-rain{position:absolute;inset:0;opacity:.55;pointer-events:none}
-.mn-col{position:absolute;top:0;width:16px;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:14px;text-align:center;white-space:pre;color:rgba(90,170,255,.65);animation-name:mnFall;animation-timing-function:linear;animation-iteration-count:infinite}
+.mn-col{position:absolute;top:0;width:16px;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:14px;text-align:center;white-space:pre;animation-name:mnFall;animation-timing-function:linear;animation-iteration-count:infinite}
 .mn-vignette{position:absolute;inset:0;background:radial-gradient(50% 55% at 50% 45%,rgba(7,7,12,.9) 0%,rgba(7,7,12,.5) 55%,transparent 78%);pointer-events:none}
 .mn-glow{position:absolute;inset:0;background:radial-gradient(55% 60% at 50% 46%,rgba(56,163,255,.20) 0%,rgba(56,163,255,.05) 45%,transparent 72%);animation:mnBreathe 4.2s ease-in-out infinite;pointer-events:none}
 .mn-blockwrap{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:120px;height:88px;z-index:1}
@@ -3950,9 +3950,10 @@ function Mining({ wallet, ensureReady, showToast, setTab }) {
                 key={i}
                 className="mn-col"
                 style={{
-                  left: (i * (100 / 14)) + "%",
+                   left: (i * (100 / 14)) + "%",
                   animationDuration: 4 + (i % 5) + "s",
                   animationDelay: -(i * 0.7) + "s",
+                  color: ["#5AA8FF", "#46D08A", "#F7D27A", "#F2675C", "#D07AF2"][i % 5],
                 }}
               >
                 {Array.from({ length: 22 }).map(() =>
