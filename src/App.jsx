@@ -3702,7 +3702,16 @@ function Mining({ wallet, ensureReady, showToast, setTab }) {
 
   const loadRead = useCallback(async () => {
     try {
-      const p = new JsonRpcProvider(RPC_URLS[0], 137);
+      const p = new FallbackProvider(
+  RPC_URLS.map((u, i) => ({
+    provider: new JsonRpcProvider(u, 137),
+    priority: i + 1,
+    weight: 1,
+    stallTimeout: 900,
+  })),
+  137,
+  { quorum: 1 },
+);
       const mining = new Contract(ADDRESSES.lpMining, LP_MINING_ABI, p);
       const referral = new Contract(ADDRESSES.lpReferral, LP_REFERRAL_ABI, p);
       const lpToken = new Contract(ADDRESSES.lpPair, LP_TOKEN_ABI, p);
