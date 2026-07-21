@@ -3606,6 +3606,462 @@ function Swap({
   );
 }
 
+function Mining({ wallet, ensureReady, showToast, setTab }) {
+  const TIER = 0; // T1
+  const [info, setInfo] = useState({
+    capacity: "0",
+    filled: "0",
+    active: false,
+    userLp: "0",
+    pendingReward: "0",
+    firstDepositTime: 0,
+    isWired: false,
+  });
+  const [refInfo, setRefInfo] = useState({
+    rank: 0,
+    teamLiquidity: "0",
+    recurringBps: 0,
+    milestoneOwed: "0",
+    levelOwed: "0",
+  });
+  const [lpBalance, setLpBalance] = useState("0");
+  const [tab, setInnerTab] = useState("deposit");
+  const [amount, setAmount] = useState("");
+  const [busy, setBusy] = useState({});
+  const [blockPulse, setBlockPulse] = useState(0);
+
+  const loadRead = useCallback(async () => {
+    try {
+      const p = new JsonRpcProvider(RPC_URLS[0], 137);
+      const mining = new Contract(ADDRESSES.lpMining, LP_MINING_ABI, p);
+      const referral = new Contract(ADDRESSES.lpReferral, LP_REFERRAL_ABI, p);
+      const lpToken = new Contract(ADDRESSES.lpPair, LP_TOKEN_ABI, p);
+
+      const [tierData, wired] = await Promise.all([
+        mining.tiers(TIER),
+        mining.isWiredForMining(),
+      ]);
+
+      let userLp = "0",
+        pending = "0",
+        fdt = 0,
+        lpBal = "0";
+      let rank = 0,
+        teamLp = "0",
+        recBps = 0,
+        msOwed = "0",
+        lvlOwed = "0";
+
+      if (wallet) {
+        const [ut, pend, fd, bal] = await Promise.all([
+          mining.userTier(wallet, TIER),
+          mining.pendingMiningReward(wallet, TIER),
+          mining.firstDepositTime(wallet),
+          lpToken.balanceOf(wallet),
+        ]);
+        userLp = f18(ut.lpAmount);
+        pending = f18(pend);
+        fdt = Number(fd);
+        lpBal = f18(bal);
+
+        const [rk, tlp, rbps, mso, lvo] = await Promise.all([
+          referral.getCurrentRank(wallet),
+          referral.teamLiquidityLp(wallet),
+          referral.getRecurringBonusBps(wallet),
+          referral.milestoneBonusOwed(wallet),
+          referral.levelCommissionOwed(wallet),
+        ]);
+        rank = Number(rk);
+        teamLp = f18(tlp);
+        recBps = Number(rbps);
+        msOwed = f18(mso);
+        lvlOwed = f18(lvo);
+      }
+
+      setInfo({
+        capacity: f18(tierData.capacityLp),
+        filled: f18(tierData.totalDepositedLp),
+        active: tierData.active,
+        userLp,
+        pendingReward: pending,
+        firstDepositTime: fdt,
+        isWired: wired,
+      });
+      setRefInfo({
+        rank,
+        teamLiquidity: teamLp,
+        recurringBps: recBps,
+        milestoneOwed: msOwed,
+        levelOwed: lvlOwed,
+      });
+      setLpBalance(lpBal);
+    } catch (e) {
+      console.error("mining load failed", e);
+    }
+  }, [wallet]);
+
+  useEffect(() => {
+    loadRead();
+    const id = setInterval(loadRead, 15000);
+    return () => clearInterval(id);
+  }, [loadRead]);
+
+  // live block pulse on Deposited / MiningClaimed events
+  useEffect(() => {
+    let mining;
+    try {
+      const p = new JsonRpcProvider(RPC_URLS[0], 137);
+      mining = new Contract(ADDRESSES.lpMining, LP_MINING_ABI, p);
+      const onEvt = () => setBlockPulse(Date.now());
+      mining.on("Deposited", onEvt);
+      mining.on("MiningClaimed", onEvt);
+      return () => {
+        mining.off("Deposited", onEvt);
+        mining.off("MiningClaimed", onEvt);
+      };
+    } catch (e) {}
+  }, []);
+
+  const nowSec = Math.floor(Date.now() / 1000);
+  const lockUntil = info.firstDepositTime
+    ? info.firstDepositTime + 24 * 3600
+    : 0;
+  const locked = lockUntil > nowSec;
+
+  async function doDeposit() {
+    if (!amount || Number(amount) <= 0) {
+      showToast("⚠️ Enter an amount");
+      return;
+    }
+    if (Number(amount) < 0.1) {
+      showToast("⚠️ Minimum deposit is 0.10 LP");
+      return;
+    }
+    const signer = await ensureReady();
+    if (!signer) return;
+    setBusy((b) => ({ ...b, dep: true }));
+    try {
+      const amt = parseUnits(String(amount), 18);
+      const lpToken = new Contract(ADDRESSES.lpPair, LP_TOKEN_ABI, signer);
+      const allowance = await lpToken.allowance(wallet, ADDRESSES.lpMining);
+      if (allowance < amt) {
+        showToast("1/2 — Approving LP token…");
+        const txA = await lpToken.approve(ADDRESSES.lpMining, amt);
+        await txA.wait();
+      }
+      const mining = new Contract(ADDRESSES.lpMining, LP_MINING_ABI, signer);
+      showToast("2/2 — Depositing…");
+      const tx = await mining.deposit(0, amt);
+      await tx.wait();
+      showToast("✅ Deposited!");
+      setAmount("");
+      await loadRead();
+    } catch (e) {
+      showToast("❌ " + (e?.shortMessage || e?.reason || "Deposit failed"));
+    } finally {
+      setBusy((b) => ({ ...b, dep: false }));
+    }
+  }
+
+  async function doWithdraw() {
+    if (!amount || Number(amount) <= 0) {
+      showToast("⚠️ Enter an amount");
+      return;
+    }
+    if (locked) {
+      showToast("⏳ 24h lock active on first deposit");
+      return;
+    }
+    const signer = await ensureReady();
+    if (!signer) return;
+    setBusy((b) => ({ ...b, wd: true }));
+    try {
+      const amt = parseUnits(String(amount), 18);
+      const mining = new Contract(ADDRESSES.lpMining, LP_MINING_ABI, signer);
+      const tx = await mining.withdraw(0, amt);
+      await tx.wait();
+      showToast("✅ Withdrawn!");
+      setAmount("");
+      await loadRead();
+    } catch (e) {
+      showToast("❌ " + (e?.shortMessage || e?.reason || "Withdraw failed"));
+    } finally {
+      setBusy((b) => ({ ...b, wd: false }));
+    }
+  }
+
+  async function doClaim() {
+    const signer = await ensureReady();
+    if (!signer) return;
+    setBusy((b) => ({ ...b, cl: true }));
+    try {
+      const mining = new Contract(ADDRESSES.lpMining, LP_MINING_ABI, signer);
+      const tx = await mining.claim(0);
+      await tx.wait();
+      showToast("💰 Reward claimed!");
+      await loadRead();
+    } catch (e) {
+      showToast("❌ " + (e?.shortMessage || e?.reason || "Claim failed"));
+    } finally {
+      setBusy((b) => ({ ...b, cl: false }));
+    }
+  }
+
+  const RANK_LABELS = ["—", "A1", "A2", "A3", "A4", "A5"];
+  const fillPct =
+    Number(info.capacity) > 0
+      ? Math.min(100, (Number(info.filled) / Number(info.capacity)) * 100)
+      : 0;
+
+  return (
+    <div className="page stag">
+      <div
+        className="page-head"
+        style={{ display: "flex", alignItems: "center", gap: 10 }}
+      >
+        <span
+          onClick={() => setTab("dashboard")}
+          style={{ cursor: "pointer", fontSize: 20, color: C.txt2 }}
+        >
+          ←
+        </span>
+        <h1 style={{ margin: 0 }}>Mining</h1>
+      </div>
+
+      <div className="card" style={{ textAlign: "center" }}>
+        <div className="sec">LP Mining — Tier T1</div>
+        <div style={{ fontSize: 11, color: C.txt3, marginBottom: 10 }}>
+          {info.isWired ? "🟢 Live & wired" : "🟡 Not yet wired to RewardPool"}
+        </div>
+        <div
+          key={blockPulse}
+          style={{
+            margin: "10px auto 14px",
+            width: 88,
+            height: 88,
+            borderRadius: 14,
+            background:
+              "linear-gradient(160deg,rgba(56,163,255,.14),#0b0d13)",
+            border: "1px solid rgba(80,180,255,.4)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: blockPulse
+              ? "0 0 34px rgba(64,170,255,.55)"
+              : "0 0 0 rgba(64,170,255,0)",
+            transition: "box-shadow .7s ease",
+          }}
+        >
+          <span style={{ fontSize: 24, color: "#8FC7FF" }}>◆</span>
+        </div>
+        <div
+          style={{
+            height: 8,
+            borderRadius: 99,
+            background: "#0e0e16",
+            border: "1px solid " + C.line,
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              height: "100%",
+              width: fillPct + "%",
+              background: "linear-gradient(90deg,#38A3FF,#7ad6ff)",
+            }}
+          />
+        </div>
+        <div style={{ fontSize: 11, color: C.txt3, marginTop: 8 }}>
+          {fmt(info.filled, 2)} / {fmt(info.capacity, 2)} LP filled (
+          {fillPct.toFixed(1)}%)
+        </div>
+      </div>
+
+      <div className="stat-grid" style={{ marginTop: 14 }}>
+        <Stat
+          label="Your LP Staked"
+          value={wallet ? fmt(info.userLp, 4) : "—"}
+          sub="LP tokens"
+          accent={C.blue}
+        />
+        <Stat
+          label="Pending Reward"
+          value={wallet ? fmt(info.pendingReward, 4) : "—"}
+          sub="OSG"
+          accent={C.green}
+        />
+        <Stat
+          label="Your LP Balance"
+          value={wallet ? fmt(lpBalance, 4) : "—"}
+          sub="wallet"
+          accent={C.gold2}
+        />
+        <Stat
+          label="Team Rank"
+          value={RANK_LABELS[refInfo.rank] || "—"}
+          sub={"+" + (refInfo.recurringBps / 100).toFixed(2) + "% recurring"}
+          accent={C.purple}
+        />
+      </div>
+
+      <div className="card" style={{ marginTop: 14 }}>
+        <div className="tabs2">
+          {["deposit", "withdraw", "claim"].map((k) => (
+            <button
+              key={k}
+              className={"tab2 " + (tab === k ? "on" : "")}
+              onClick={() => setInnerTab(k)}
+            >
+              {k[0].toUpperCase() + k.slice(1)}
+            </button>
+          ))}
+        </div>
+
+        {(tab === "deposit" || tab === "withdraw") && (
+          <div className="field">
+            <div className="row">
+              <label>
+                {tab === "deposit" ? "Amount to Deposit" : "Amount to Withdraw"}
+              </label>
+              <span className="bal">
+                Balance:{" "}
+                {fmt(tab === "deposit" ? lpBalance : info.userLp, 4)} LP
+              </span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <input
+                className="inp"
+                placeholder="0.0"
+                value={amount}
+                inputMode="decimal"
+                onChange={(e) =>
+                  setAmount(e.target.value.replace(/[^0-9.]/g, ""))
+                }
+              />
+              <button
+                className="maxb"
+                onClick={() =>
+                  setAmount(
+                    String(tab === "deposit" ? lpBalance : info.userLp).replace(
+                      /,/g,
+                      "",
+                    ),
+                  )
+                }
+              >
+                MAX
+              </button>
+            </div>
+          </div>
+        )}
+
+        {tab === "deposit" && (
+          <>
+            <div className="note" style={{ margin: "14px 0" }}>
+              ⓘ Minimum deposit 0.10 LP. First deposit locks withdrawals for
+              24h — after that, deposits and withdrawals are instant.
+            </div>
+            <button
+              className="btn-gold"
+              disabled={busy.dep || !wallet}
+              onClick={doDeposit}
+            >
+              {busy.dep ? <span className="spin" /> : `Deposit ${amount || "0"} LP`}
+            </button>
+          </>
+        )}
+
+        {tab === "withdraw" && (
+          <>
+            {locked && (
+              <div
+                className="note"
+                style={{
+                  margin: "14px 0",
+                  color: C.red,
+                  borderColor: "rgba(242,103,92,.3)",
+                  background: "rgba(242,103,92,.08)",
+                }}
+              >
+                ⏳ 24h lock active — unlocks{" "}
+                {new Date(lockUntil * 1000).toLocaleString()}
+              </div>
+            )}
+            <button
+              className="btn-danger"
+              disabled={busy.wd || !wallet || locked}
+              onClick={doWithdraw}
+              style={{ marginTop: 14 }}
+            >
+              {busy.wd ? (
+                <span className="spin" />
+              ) : (
+                `Withdraw ${amount || "0"} LP`
+              )}
+            </button>
+          </>
+        )}
+
+        {tab === "claim" && (
+          <div style={{ textAlign: "center", padding: "10px 0" }}>
+            <div className="sec">Claimable Mining Reward</div>
+            <div
+              className="mono"
+              style={{
+                fontSize: 34,
+                fontWeight: 600,
+                color: C.green,
+                margin: "8px 0",
+              }}
+            >
+              {fmt(info.pendingReward, 4)}
+            </div>
+            <div style={{ fontSize: 12, color: C.txt3, marginBottom: 14 }}>
+              OSG
+            </div>
+            <button
+              className="btn-gold"
+              disabled={busy.cl || !wallet || Number(info.pendingReward) <= 0}
+              onClick={doClaim}
+            >
+              {busy.cl ? <span className="spin" /> : "Claim Reward"}
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="card" style={{ marginTop: 14 }}>
+        <div className="sec">Team Rank & Referral</div>
+        <div className="mini-grid">
+          <div className="mini">
+            <div className="k">Current Rank</div>
+            <div className="vv">{RANK_LABELS[refInfo.rank] || "—"}</div>
+          </div>
+          <div className="mini">
+            <div className="k">Team Liquidity</div>
+            <div className="vv">{fmt(refInfo.teamLiquidity, 2)} LP</div>
+          </div>
+          <div className="mini">
+            <div className="k">Recurring Bonus</div>
+            <div className="vv">
+              {(refInfo.recurringBps / 100).toFixed(2)}%
+            </div>
+          </div>
+          <div className="mini">
+            <div className="k">Milestone Owed</div>
+            <div className="vv">{fmt(refInfo.milestoneOwed, 4)} OSG</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="note" style={{ marginTop: 14 }}>
+        ⓘ Level Commission & Milestone/Recurring bonuses are paid manually
+        by the admin from the Referral bucket — they show here as "owed"
+        until paid to your wallet balance.
+      </div>
+    </div>
+  );
+}
 // IPFS helpers (talk to our own /api routes; no secrets here)
 async function uploadToIpfs(content) {
   const r = await fetch("/api/pinata-upload", {
