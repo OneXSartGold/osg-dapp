@@ -3910,20 +3910,33 @@ function Mining({ wallet, ensureReady, showToast, setTab }) {
       <div className="card" style={{ textAlign: "center" }}>
         <style>{`
           @keyframes mnBreathe{0%,100%{opacity:.45}50%{opacity:1}}
-          @keyframes mnSpin{to{transform:rotate(360deg)}}
-          @keyframes mnFlash{
-            0%,80%{box-shadow:0 0 0 0 rgba(64,170,255,0)}
-            90%{box-shadow:0 0 40px 8px rgba(64,170,255,.65),0 0 80px 16px rgba(56,120,255,.25)}
-            100%{box-shadow:0 0 0 0 rgba(64,170,255,0)}
-          }
-          @keyframes mnDiamond{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
-          .mn-stage{position:relative;width:100%;height:150px;margin:6px auto 4px;border-radius:16px;overflow:hidden;background:#07070c;border:1px solid rgba(255,255,255,.06)}
-          .mn-glow{position:absolute;inset:0;background:radial-gradient(60% 65% at 50% 45%,rgba(56,163,255,.20) 0%,rgba(56,163,255,.05) 45%,transparent 72%);animation:mnBreathe 4.2s ease-in-out infinite;pointer-events:none}
-          .mn-blockwrap{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:92px;height:92px}
-          .mn-ring{position:absolute;inset:0;border-radius:16px;border:1px solid rgba(90,170,255,.35)}
-          .mn-flash{position:absolute;inset:-3px;border-radius:18px;animation:mnFlash 3.6s ease-in-out infinite;pointer-events:none}
-          .mn-face{position:absolute;inset:2px;border-radius:14px;background:radial-gradient(70% 70% at 50% 25%,rgba(90,170,255,.15),transparent 60%),linear-gradient(160deg,rgba(90,170,255,.10),#0b0d13 55%);display:flex;align-items:center;justify-content:center;box-shadow:inset 0 1px 0 rgba(150,205,255,.18),inset 0 -10px 22px rgba(0,0,0,.55)}
-          .mn-diamond{font-size:26px;color:#8FC7FF;animation:mnDiamond 3.2s ease-in-out infinite;filter:drop-shadow(0 0 8px rgba(140,200,255,.6));text-shadow:0 0 10px rgba(140,190,255,.6)}
+@keyframes mnFlash{
+  0%,80%{box-shadow:0 0 0 0 rgba(64,170,255,0)}
+  90%{box-shadow:0 0 40px 8px rgba(64,170,255,.65),0 0 80px 16px rgba(56,120,255,.25)}
+  100%{box-shadow:0 0 0 0 rgba(64,170,255,0)}
+}
+@keyframes mnSpin3d{
+  0%{transform:rotateY(0deg)}
+  100%{transform:rotateY(360deg)}
+}
+@keyframes mnFall{
+  0%{transform:translateY(-100%)}
+  100%{transform:translateY(100%)}
+}
+.mn-stage{position:relative;width:100%;height:170px;margin:6px auto 4px;border-radius:14px;overflow:hidden;background:#07070c;border:1px solid rgba(255,255,255,.06)}
+.mn-rain{position:absolute;inset:0;opacity:.55;pointer-events:none}
+.mn-col{position:absolute;top:0;width:16px;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:14px;text-align:center;white-space:pre;color:rgba(90,170,255,.65);animation-name:mnFall;animation-timing-function:linear;animation-iteration-count:infinite}
+.mn-vignette{position:absolute;inset:0;background:radial-gradient(50% 55% at 50% 45%,rgba(7,7,12,.9) 0%,rgba(7,7,12,.5) 55%,transparent 78%);pointer-events:none}
+.mn-glow{position:absolute;inset:0;background:radial-gradient(55% 60% at 50% 46%,rgba(56,163,255,.20) 0%,rgba(56,163,255,.05) 45%,transparent 72%);animation:mnBreathe 4.2s ease-in-out infinite;pointer-events:none}
+.mn-blockwrap{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:120px;height:88px;z-index:1}
+.mn-ring{position:absolute;inset:0;border-radius:13px;border:1px solid rgba(90,170,255,.35)}
+.mn-flash{position:absolute;inset:-3px;border-radius:15px;animation:mnFlash 3.6s ease-in-out infinite;pointer-events:none}
+.mn-face{position:absolute;inset:1px;border-radius:12px;background:radial-gradient(70% 70% at 50% 25%,rgba(90,170,255,.15),transparent 60%),linear-gradient(160deg,rgba(255,255,255,.03),rgba(15,15,22,.96));display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;overflow:hidden}
+.mn-coinwrap{width:38px;height:38px;perspective:400px}
+.mn-coin{width:100%;height:100%;position:relative;transform-style:preserve-3d;animation:mnSpin3d 9s linear infinite}
+.mn-coin span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:22px;color:#8FC7FF;filter:drop-shadow(0 0 8px rgba(140,200,255,.6));backface-visibility:hidden}
+.mn-coinname{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;color:#9A9AA8}
+.mn-coinname b{color:#8FC7FF;text-shadow:0 0 8px rgba(140,190,255,.5)}
         `}</style>
         <div className="sec">LP Mining — Tier T1</div>
         <div style={{ fontSize: 11, color: C.txt3, marginBottom: 10 }}>
@@ -3931,12 +3944,33 @@ function Mining({ wallet, ensureReady, showToast, setTab }) {
         </div>
 
         <div className="mn-stage">
+          <div className="mn-rain">
+            {Array.from({ length: 14 }).map((_, i) => (
+              <div
+                key={i}
+                className="mn-col"
+                style={{
+                  left: (i * (100 / 14)) + "%",
+                  animationDuration: 4 + (i % 5) + "s",
+                  animationDelay: -(i * 0.7) + "s",
+                }}
+              >
+                {"01OSG$".split("").sort(() => Math.random() - 0.5).join("\n")}
+              </div>
+            ))}
+          </div>
+          <div className="mn-vignette" />
           <div className="mn-glow" />
           <div className="mn-blockwrap" key={blockPulse}>
             <div className="mn-ring" />
             <div className="mn-flash" />
             <div className="mn-face">
-              <span className="mn-diamond">◆</span>
+              <div className="mn-coinwrap">
+                <div className="mn-coin">
+                  <span>◆</span>
+                </div>
+              </div>
+              <div className="mn-coinname">◆ <b>OSG</b> COIN</div>
             </div>
           </div>
         </div>
