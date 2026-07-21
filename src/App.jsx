@@ -3971,14 +3971,10 @@ function Mining({ wallet, ensureReady, showToast, setTab }) {
             <div className="mn-face">
               <div className="mn-coinwrap">
                 <div className="mn-coin">
-                  <img
-                    src="/logo-mini.png"
-                    alt="OSG"
-                    style={{ width: "100%", height: "100%", objectFit: "contain" }}
-                  />
+                  <span>◆</span>
                 </div>
               </div>
-              <div className="mn-coinname">Block #{blockCount}</div>
+              <div className="mn-coinname">◆ <b>OSG</b> COIN</div>
             </div>
           </div>
         </div>
