@@ -3744,18 +3744,20 @@ function Mining({ wallet, ensureReady, showToast, setTab }) {
         fdt = Number(fd);
         lpBal = f18(bal);
 
-        const [rk, tlp, rbps, mso, lvo] = await Promise.all([
+        const [rk, tlp, rbps, mso, lvo, msp, lvp] = await Promise.all([
           referral.getCurrentRank(wallet),
           referral.teamLiquidityLp(wallet),
           referral.getRecurringBonusBps(wallet),
           referral.milestoneBonusOwed(wallet),
           referral.levelCommissionOwed(wallet),
+          referral.milestoneBonusPaid(wallet),
+          referral.levelCommissionPaid(wallet),
         ]);
         rank = Number(rk);
         teamLp = f18(tlp);
         recBps = Number(rbps);
-        msOwed = f18(mso);
-        lvlOwed = f18(lvo);
+        msOwed = f18(mso > msp ? mso - msp : 0n);
+        lvlOwed = f18(lvo > lvp ? lvo - lvp : 0n);
       }
 
       setInfo({
