@@ -3724,6 +3724,30 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
       const mining = new Contract(ADDRESSES.lpMining, LP_MINING_ABI, p);
       const referral = new Contract(ADDRESSES.lpReferral, LP_REFERRAL_ABI, p);
       const lpToken = new Contract(ADDRESSES.lpPair, LP_TOKEN_ABI, p);
+      const pairC = new Contract(ADDRESSES.lpPair, PAIR_ABI, p);
+
+      try {
+        const [res, tok0, lpSupply] = await Promise.all([
+          pairC.getReserves(),
+          pairC.token0(),
+          lpToken.totalSupply(),
+        ]);
+        const osgIsToken0 =
+          String(tok0).toLowerCase() === String(ADDRESSES.token).toLowerCase();
+        const osgRes = Number(f18(osgIsToken0 ? res[0] : res[1]));
+        const polRes = Number(f18(osgIsToken0 ? res[1] : res[0]));
+        const supply = Number(f18(lpSupply));
+        if (supply > 0 && osgRes > 0 && polRes > 0) {
+          const pUsd = typeof polUsd === "number" && polUsd > 0 ? polUsd : 0.077;
+          const osgUsd = (polRes / osgRes) * pUsd;
+          setPool({
+            osgPerLp: osgRes / supply,
+            polPerLp: polRes / supply,
+            polPerOsg: polRes / osgRes,
+            lpUsd: (polRes * pUsd + osgRes * osgUsd) / supply,
+          });
+        }
+      } catch (e) {}
 
       const [tierData, wired] = await Promise.all([
         mining.tiers(TIER),
