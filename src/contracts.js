@@ -174,6 +174,7 @@ export const PAIR_ABI = [
 
 // -- LP Token (ERC20-style, same shape as TOKEN_ABI) --
 export const LP_TOKEN_ABI = [
+  "function totalSupply() view returns (uint256)",
   "function balanceOf(address owner) view returns (uint256)",
   "function decimals() view returns (uint8)",
   "function approve(address spender, uint256 amount) returns (bool)",
