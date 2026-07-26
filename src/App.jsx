@@ -3678,7 +3678,7 @@ function Swap({
   );
 }
 
-function Mining({ wallet, ensureReady, showToast, setTab }) {
+function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
   const TIER = 0; // T1
   const [info, setInfo] = useState({
     capacity: "0",
