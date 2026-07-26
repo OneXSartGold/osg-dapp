@@ -23,6 +23,8 @@ import {
   LP_MINING_ABI,
   LP_REFERRAL_ABI,
   LP_TOKEN_ABI,
+PAIR_ABI,
+  ROUTER_ABI,
 } from "./contracts.js";
 import {
   deriveKeypair,
@@ -7953,6 +7955,7 @@ export default function App() {
 )}
 {tab === "mining" && (
   <Mining
+    polUsd={polUsd}
     wallet={wallet}
     ensureReady={ensureReady}
     showToast={showToast}
