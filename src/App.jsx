@@ -3738,6 +3738,16 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
       const pairC = new Contract(ADDRESSES.lpPair, PAIR_ABI, p);
 
       try {
+        const osgC = new Contract(ADDRESSES.token, TOKEN_ABI, p);
+        const [obal, pbal] = await Promise.all([
+          osgC.balanceOf(wallet),
+          p.getBalance(wallet),
+        ]);
+        setOsgBal(Number(f18(obal)));
+        setPolBal(Number(f18(pbal)));
+      } catch (e) {}
+
+      try {
         const [res, tok0, lpSupply] = await Promise.all([
           pairC.getReserves(),
           pairC.token0(),
