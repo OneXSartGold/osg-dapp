@@ -3687,6 +3687,7 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
   const TIER = 0; // T1
   const [info, setInfo] = useState({
     capacity: "0",
+    dailyBudget: "0",
     filled: "0",
     active: false,
     userLp: "0",
@@ -3770,8 +3771,9 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
         }
       } catch (e) {}
 
-      const [tierData, wired] = await Promise.all([
+      const [tierData, budget, wired] = await Promise.all([
         mining.tiers(TIER),
+        mining.getLpMiningDailyBudget(),
         mining.isWiredForMining(),
       ]);
 
@@ -3815,6 +3817,7 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
 
       setInfo({
         capacity: f18(tierData.capacityLp),
+        dailyBudget: f18(budget),
         filled: f18(tierData.totalDepositedLp),
         active: tierData.active,
         userLp,
