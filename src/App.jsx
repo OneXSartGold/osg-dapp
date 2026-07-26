@@ -27,6 +27,11 @@ PAIR_ABI,
   ROUTER_ABI,
 } from "./contracts.js";
 import {
+  calculateRequiredPOL,
+  ensureOSGApproval,
+  addLiquidity as addLiquidityTx,
+} from "./addLiquidity.js";
+import {
   deriveKeypair,
   encryptMessage,
   decryptMessage,
@@ -3697,6 +3702,12 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
     levelOwed: "0",
   });
   const [lpBalance, setLpBalance] = useState("0");
+  const [osgIn, setOsgIn] = useState("");
+  const [osgBal, setOsgBal] = useState(0);
+  const [polBal, setPolBal] = useState(0);
+  const [agree, setAgree] = useState(false);
+  const [liqStep, setLiqStep] = useState(1);
+  const [busyLiq, setBusyLiq] = useState(false);
   const [pool, setPool] = useState({
     osgPerLp: 0,
     polPerLp: 0,
