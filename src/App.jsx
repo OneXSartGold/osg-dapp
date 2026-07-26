@@ -4116,7 +4116,7 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
         {tab === "deposit" && (
           <>
             <div className="note" style={{ margin: "14px 0" }}>
-              ⓘ Minimum deposit 100 LP. First deposit locks withdrawals for
+              ⓘ Minimum deposit 100 LP{pool.lpUsd > 0 ? " (≈ $" + (100 * pool.lpUsd).toFixed(0) + ")" : ""}. First deposit locks withdrawals for
               24h — after that, deposits and withdrawals are instant.
             </div>
             <button
