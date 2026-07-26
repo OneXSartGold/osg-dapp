@@ -3863,6 +3863,38 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
     : 0;
   const locked = lockUntil > nowSec;
 
+  async function doAddLiq() {
+    if (!wallet || busyLiq) return;
+    const amt = Number(osgIn);
+    if (!amt || amt <= 0) return;
+    setBusyLiq(true);
+    try {
+      const signer = await ensureReady();
+      if (!signer) {
+        setBusyLiq(false);
+        return;
+      }
+      const quote = await calculateRequiredPOL(signer.provider, String(osgIn));
+      if (liqStep === 1) {
+        await ensureOSGApproval(signer, quote.osgAmount);
+        setLiqStep(2);
+        showToast("OSG approved — now add liquidity", "ok");
+      } else {
+        await addLiquidityTx(signer, String(osgIn), quote.polAmount);
+        setLiqStep(3);
+        setOsgIn("");
+        showToast("Liquidity added — LP is in your wallet", "ok");
+        loadRead();
+      }
+    } catch (e) {
+      showToast(
+        (e && (e.shortMessage || e.reason || e.message)) || "Transaction failed",
+        "err"
+      );
+    }
+    setBusyLiq(false);
+  }
+
   async function doDeposit() {
     if (!amount || Number(amount) <= 0) {
       showToast("⚠️ Enter an amount");
