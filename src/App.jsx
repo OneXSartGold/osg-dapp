@@ -4166,6 +4166,119 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
           </div>
         )}
 
+        {tab === "deposit" && lpBalance !== null && (
+          <div
+            style={{
+              background: "linear-gradient(160deg,#171426,#12121a)",
+              border: "1px solid rgba(140,90,255,.25)",
+              borderRadius: 16,
+              padding: 16,
+              margin: "0 0 16px",
+            }}
+          >
+            <div style={{ fontSize: 11, letterSpacing: ".14em", textTransform: "uppercase", color: C.txt3, fontWeight: 600, marginBottom: 10 }}>
+              Step 1 · Create LP
+            </div>
+            <div style={{ fontSize: 13.5, lineHeight: 1.55, color: C.txt2, marginBottom: 12 }}>
+              No LP yet? Add OSG and POL together and the LP token lands straight
+              in your wallet — you never leave the app.
+            </div>
+
+            <div style={{ background: "#0d0d14", border: "1px solid rgba(255,255,255,.07)", borderRadius: 12, padding: "13px 14px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: C.txt3, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 7 }}>
+                <span>OSG to add</span>
+                <span>Balance: {osgBal.toFixed(1)} OSG</span>
+              </div>
+              <input
+                value={osgIn}
+                onChange={(e) => setOsgIn(e.target.value)}
+                placeholder="0.0"
+                inputMode="decimal"
+                style={{ width: "100%", background: "transparent", border: 0, outline: 0, color: C.txt, fontFamily: "'JetBrains Mono',monospace", fontSize: 24, fontWeight: 700, padding: 0 }}
+              />
+            </div>
+
+            <div style={{ display: "flex", gap: 7, marginTop: 11 }}>
+              <button
+                className="chip"
+                onClick={() => setOsgIn((100 * pool.osgPerLp).toFixed(2))}
+                style={{ flex: 1, background: "#1b1b26", border: "1px solid rgba(255,255,255,.07)", color: C.txt2, padding: "8px 4px", borderRadius: 9, fontSize: 11.5 }}
+              >
+                For 100 LP
+              </button>
+              <button
+                className="chip"
+                onClick={() => setOsgIn((250 * pool.osgPerLp).toFixed(2))}
+                style={{ flex: 1, background: "#1b1b26", border: "1px solid rgba(255,255,255,.07)", color: C.txt2, padding: "8px 4px", borderRadius: 9, fontSize: 11.5 }}
+              >
+                250 LP · A1
+              </button>
+              <button
+                className="chip"
+                onClick={() => {
+                  const byPol = pool.polPerOsg > 0 ? Math.max(polBal - 2, 0) / pool.polPerOsg : 0;
+                  setOsgIn(Math.min(osgBal, byPol).toFixed(2));
+                }}
+                style={{ flex: 1, background: "#1b1b26", border: "1px solid rgba(255,255,255,.07)", color: C.txt2, padding: "8px 4px", borderRadius: 9, fontSize: 11.5 }}
+              >
+                Max
+              </button>
+            </div>
+
+            {Number(osgIn) > 0 && pool.polPerOsg > 0 && (
+              <div style={{ background: "#0d0d14", border: "1px solid rgba(255,255,255,.07)", borderRadius: 12, padding: "13px 14px", marginTop: 10 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 0" }}>
+                  <span style={{ fontSize: 13, color: C.txt2 }}>POL required</span>
+                  <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 15, fontWeight: 700 }}>
+                    {(Number(osgIn) * pool.polPerOsg).toFixed(2)} POL
+                  </span>
+                </div>
+                <div style={{ height: 1, background: "rgba(255,255,255,.07)", margin: "8px 0" }} />
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 0" }}>
+                  <span style={{ fontSize: 13, color: C.txt2 }}>You receive</span>
+                  <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 19, fontWeight: 700, color: "#8C5AFF" }}>
+                    ≈ {(Number(osgIn) / (pool.osgPerLp || 1)).toFixed(1)} LP
+                  </span>
+                </div>
+              </div>
+            )}
+
+            <div className="note" style={{ margin: "10px 0 0", fontSize: 12.5 }}>
+              Keep about 2 POL spare for gas. Prices move, so the value of your LP
+              moves with them (impermanent loss). Slippage 1.5%; unused POL is refunded.
+            </div>
+
+            <label style={{ display: "flex", gap: 10, alignItems: "flex-start", marginTop: 13, cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={agree}
+                onChange={(e) => setAgree(e.target.checked)}
+                style={{ width: 19, height: 19, margin: "1px 0 0", accentColor: "#8C5AFF", flex: "none" }}
+              />
+              <span style={{ fontSize: 12.5, lineHeight: 1.5, color: C.txt2 }}>
+                I understand the value of my LP can go down as well as up.
+              </span>
+            </label>
+
+            <button
+              className="btn-gold"
+              disabled={busyLiq || !wallet || !agree || !(Number(osgIn) > 0)}
+              onClick={doAddLiq}
+              style={{ marginTop: 13 }}
+            >
+              {busyLiq ? (
+                <span className="spin" />
+              ) : liqStep === 1 ? (
+                "Approve OSG"
+              ) : liqStep === 2 ? (
+                "Add liquidity"
+              ) : (
+                "Add more liquidity"
+              )}
+            </button>
+          </div>
+        )}
+
         {tab === "deposit" && (
           <>
             <div className="note" style={{ margin: "14px 0" }}>
