@@ -3703,6 +3703,7 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
     levelOwed: "0",
   });
   const [lpBalance, setLpBalance] = useState("0");
+  const [rankBps, setRankBps] = useState([0, 0, 0, 0, 0]);
   const [osgIn, setOsgIn] = useState("");
   const [osgBal, setOsgBal] = useState(0);
   const [polBal, setPolBal] = useState(0);
@@ -3769,6 +3770,17 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
             lpUsd: (polRes * pUsd + osgRes * osgUsd) / supply,
           });
         }
+      } catch (e) {}
+
+      try {
+        const rb = await Promise.all([
+          referral.rankThresholdBps(1),
+          referral.rankThresholdBps(2),
+          referral.rankThresholdBps(3),
+          referral.rankThresholdBps(4),
+          referral.rankThresholdBps(5),
+        ]);
+        setRankBps(rb.map((x) => Number(x)));
       } catch (e) {}
 
       const [tierData, budget, wired] = await Promise.all([
