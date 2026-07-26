@@ -3697,6 +3697,12 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
     levelOwed: "0",
   });
   const [lpBalance, setLpBalance] = useState("0");
+  const [pool, setPool] = useState({
+    osgPerLp: 0,
+    polPerLp: 0,
+    polPerOsg: 0,
+    lpUsd: 0,
+  });
   const [tab, setInnerTab] = useState("deposit");
   const [amount, setAmount] = useState("");
   const [busy, setBusy] = useState({});
