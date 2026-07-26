@@ -4091,6 +4091,67 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
           {fillPct.toFixed(1)}%)
         </div>
       </div>
+      {Number(info.dailyBudget) > 0 && (() => {
+        const dB = Number(info.dailyBudget) || 0;
+        const fl = Number(info.filled) || 0;
+        const cap = Number(info.capacity) || 0;
+        const myLp = Number(info.userLp) || 0;
+        const shownLp = myLp > 0 ? myLp : 100;
+        const denom = myLp > 0 ? fl : fl + 100;
+        const perDay = denom > 0 ? dB * (shownLp / denom) : dB;
+        const atFull = cap > 0 ? dB * (shownLp / cap) : 0;
+        const pUsd = typeof polUsd === "number" && polUsd > 0 ? polUsd : 0.077;
+        const osgUsd = pool.polPerOsg > 0 ? pool.polPerOsg * pUsd : 0;
+        return (
+          <div
+            className="card"
+            style={{
+              marginTop: 14,
+              border: "1px solid rgba(56,189,248,.22)",
+              background: "linear-gradient(160deg,#101725,#0f0f18)",
+            }}
+          >
+            <div style={{ fontSize: 10.5, letterSpacing: ".14em", textTransform: "uppercase", color: C.txt3, fontWeight: 600, marginBottom: 12 }}>
+              Reward rate
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "9px 0", borderBottom: "1px solid " + C.line }}>
+              <span style={{ fontSize: 13, color: C.txt2 }}>Shared out each day</span>
+              <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 15, fontWeight: 700, color: C.gold1 }}>
+                {fmt(info.dailyBudget, 3)} OSG
+              </span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "9px 0" }}>
+              <span style={{ fontSize: 13, color: C.txt2 }}>Tier filled</span>
+              <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 15, fontWeight: 700 }}>
+                {fillPct.toFixed(1)}%
+              </span>
+            </div>
+
+            <div style={{ background: "#0b0f18", border: "1px solid rgba(56,189,248,.25)", borderRadius: 12, padding: 14, marginTop: 10 }}>
+              <div style={{ fontSize: 10.5, letterSpacing: ".1em", textTransform: "uppercase", color: C.txt3, marginBottom: 6 }}>
+                {myLp > 0
+                  ? "Your " + fmt(info.userLp, 2) + " LP earns today"
+                  : "100 LP would earn today"}
+              </div>
+              <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 23, fontWeight: 700, color: C.blue, lineHeight: 1.15 }}>
+                {perDay.toFixed(3)} OSG / day
+              </div>
+              <div style={{ fontSize: 12, color: C.txt3, marginTop: 5 }}>
+                about {(perDay * 30).toFixed(0)} OSG a month
+                {osgUsd > 0 ? " (≈ $" + (perDay * 30 * osgUsd).toFixed(0) + ")" : ""}
+              </div>
+            </div>
+
+            <div style={{ fontSize: 11.5, color: C.txt3, lineHeight: 1.55, marginTop: 11 }}>
+              Not a fixed rate — the daily amount is split across everyone who has
+              deposited, so it falls as more LP comes in. At full capacity
+              {" " + shownLp.toFixed(0)} LP earns about {atFull.toFixed(2)} OSG a day.
+            </div>
+          </div>
+        );
+      })()}
+
       <div className="stat-grid" style={{ marginTop: 14 }}>
         <Stat
           label="Your LP Staked"
