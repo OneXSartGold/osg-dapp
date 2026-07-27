@@ -9,9 +9,9 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /*
  * ======================================================================
- *  WARNING: DRAFT v4 -- LP-AMOUNT-BASED + tierWeightBps budget split.
- *  Verified against actual RewardPool.sol / Staking.sol, but STILL
- *  requires Remix compile + testnet dry-run before mainnet.
+ *  DEPLOYED v5 -- LP-AMOUNT-BASED + tierWeightBps budget split.
+ *  Live on Polygon Mainnet since 20 July 2026 at
+ *  0xF534adff723b5c89AD86343B9E4b1E64E6c82aba (verified on Polygonscan).
  * ======================================================================
  *  KEY CHANGE vs v3 draft:
  *  Each tier now has its own tierWeightBps -- its slice of the TOTAL
