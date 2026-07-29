@@ -10,7 +10,9 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 /*
  * ======================================================================
  *  OSGLPMining v6
- *  Successor to v5 (0xF534adff723b5c89AD86343B9E4b1E64E6c82aba).
+ *  Live on Polygon Mainnet since 29 July 2026 at
+ *  0xb0510d6f707dF47fE7427732D5507290D847b736 (verified on Polygonscan).
+ *  Successor to v5 (0xF534adff723b5c89AD86343B9E4b1E64E6c82aba, paused).
  * ======================================================================
  *
  *  WHY v6 -- four fixes, all found by re-reading the deployed v5 source:
