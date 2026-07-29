@@ -181,16 +181,17 @@ export const LP_TOKEN_ABI = [
   "function allowance(address owner, address spender) view returns (uint256)",
 ];
 
-// -- OSGLPMining v5 (LP Mining, category-2 distributor) --
+// -- OSGLPMining v6 (LP Mining, category-2 distributor) --
 export const LP_MINING_ABI = [
   // writes
   "function deposit(uint8 tierId, uint256 lpAmount)",
   "function withdraw(uint8 tierId, uint256 lpAmount)",
   "function claim(uint8 tierId)",
+  "function emergencyWithdraw(uint8 tierId)",
   // reads
   "function pendingMiningReward(address user, uint8 tierId) view returns (uint256)",
   "function tiers(uint8) view returns (address lpToken, uint256 minDeposit, uint256 capacityLp, uint256 totalDepositedLp, bool active, uint256 tierWeightBps, uint256 accRewardPerShare, uint256 lastRewardTime)",
-  "function userTier(address, uint8) view returns (uint256 lpAmount, uint256 rewardDebt)",
+  "function userTier(address, uint8) view returns (uint256 lpAmount, uint256 rewardDebt, uint256 unpaid)",
   "function firstDepositTime(address) view returns (uint256)",
   "function isWiredForMining() view returns (bool)",
   "function getLpMiningDailyBudget() view returns (uint256)",
@@ -200,10 +201,16 @@ export const LP_MINING_ABI = [
   "function paused() view returns (bool)",
   "function miningShareBps() view returns (uint256)",
   "function FIRST_WITHDRAW_LOCK() view returns (uint256)",
+  "function payoutHealth() view returns (bool canPayNow, string reason)",
+  "function nextPayoutChunk(address user, uint8 tierId) view returns (uint256)",
+  "function version() view returns (string)",
   // events
   "event Deposited(address indexed user, uint8 tier, uint256 lpAmount)",
   "event Withdrawn(address indexed user, uint8 tier, uint256 lpAmount)",
   "event MiningClaimed(address indexed user, uint8 tier, uint256 amount)",
+  "event EmergencyWithdrawn(address indexed user, uint8 tier, uint256 lpAmount, uint256 unpaidKept)",
+  "event SettlementDeferred(address indexed user, uint8 tier, uint256 unpaidTotal, string reason)",
+  "event PayoutCapped(address indexed user, uint8 tier, uint256 paid, uint256 remaining)",
 ];
 
 // -- OSGLPReferral v1 (LP Mining Referral, category-3 distributor) --
