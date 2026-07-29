@@ -9,53 +9,81 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /*
  * ======================================================================
- *  DEPLOYED v5 -- LP-AMOUNT-BASED + tierWeightBps budget split.
- *  Live on Polygon Mainnet since 20 July 2026 at
- *  0xF534adff723b5c89AD86343B9E4b1E64E6c82aba (verified on Polygonscan).
+ *  OSGLPMining v6
+ *  Successor to v5 (0xF534adff723b5c89AD86343B9E4b1E64E6c82aba).
  * ======================================================================
- *  KEY CHANGE vs v3 draft:
- *  Each tier now has its own tierWeightBps -- its slice of the TOTAL
- *  LP-mining daily budget (getLpMiningDailyBudget()). Without this, if
- *  a second tier (T2) were ever activated alongside T1, BOTH would
- *  independently claim the FULL total budget (double-counting), which
- *  would either overpay depositors or fail against RewardPool's daily
- *  cap. Now, activating a new tier is just:
- *    updateTierConfig(T2, ...) + setTierWeightBps(T2, X) +
- *    setTierWeightBps(T1, 10000-X)   -- NO redeploy needed.
- *  setTierWeightBps() always validates all 5 tiers' weights sum to
- *  <= 100% (bounded 5-iteration loop, gas-safe).
- *  KEY CHANGE vs v2 draft:
- *  Rewards, capacity, and deposits are now tracked in raw LP-token
- *  units (accRewardPerShare per LP unit), NOT in discrete "slots".
- *  This fixes an inconsistency where OSGLPMining tracked positions by
- *  slot-count while OSGLPReferral's teamLiquidityLp always tracked raw
- *  LP amount -- the two are now aligned on the same unit.
  *
- *  "T1 = 10 slots x 0.10 LP" is still the PUBLIC/marketing framing
- *  (see minDeposit + capacityLp below), but internally there are no
- *  discrete slots: a user can deposit ANY amount >= minDeposit, not
- *  just multiples of 0.10 LP, and rewards scale exactly with LP held.
+ *  WHY v6 -- four fixes, all found by re-reading the deployed v5 source:
  *
- *  KEY ARCHITECTURAL FIX (carried over from v2):
- *  RewardPool.setDistributor(addr, cat) binds ONE address to ONE
- *  category permanently. So Mining (cat 2) and Referral (cat 3)
- *  payouts CANNOT come from the same contract address. This contract
- *  (OSGLPMining) is registered ONLY as the category-2 (Mining)
- *  distributor. All referral/bonus logic lives in the companion
- *  OSGLPReferral.sol, registered separately as category-3.
+ *  FIX 1 -- DEPOSITED LP COULD BECOME UNWITHDRAWABLE.
+ *    In v5, withdraw() called _settlePending() which called
+ *    pool.distribute() fail-loud. So ANY condition that blocked the
+ *    reward payout also blocked the LP withdrawal: RewardPool paused,
+ *    emissionStopped, this contract de-registered as distributor,
+ *    daily Mining cap hit, per-block cooldown collision, RewardStorage
+ *    paused -- and, permanently, RewardPool.emissionEndTime passing
+ *    (distribute() has an emissionActive modifier and emissionEndTime
+ *    is immutable, so after ~June 2041 every distribute() reverts
+ *    forever, locking all deposited LP with no recovery path).
+ *    v6 fixes this two ways:
+ *      (a) withdraw() now banks the accrued reward FIRST via _accrue()
+ *          and only then attempts the payout inside try/catch, so a
+ *          failed payout blocks neither the LP transfer nor the reward.
+ *      (b) emergencyWithdraw() returns LP with NO distribute() call at
+ *          all, and is deliberately NOT whenNotPaused, so depositors
+ *          can always exit even if the owner is unavailable or the
+ *          wider reward system is permanently down. It still refreshes
+ *          the tier rate first, but through try/catch, so the user is
+ *          credited in full when RewardPool is healthy without the exit
+ *          ever depending on it.
  *
- *  This contract calls OSGLPReferral's hooks on every deposit/withdraw
- *  so team-liquidity tracking there stays in sync. The hook call is
- *  wrapped in try/catch so a referral-side failure (e.g. per-block-
- *  cooldown collision) NEVER blocks or reverts a user's own Mining
- *  deposit/withdraw/claim.
+ *  FIX 2 -- 10,000 OSG PERMANENT LOCK.
+ *    v5's _settlePending had require(pending <= MAX_SINGLE_ALLOC).
+ *    Once a user's pending crossed 10,000 OSG, deposit(), withdraw()
+ *    AND claim() all reverted forever -- accRewardPerShare can never be
+ *    reduced, and no admin function could clear it. The revert string
+ *    said "contact support" but no support function existed.
+ *    v6 pays out in capped chunks instead of reverting, mirroring
+ *    RewardPool v2's own chunked-claim approach.
  *
- *  STILL TO VERIFY BEFORE DEPLOY:
- *   1. LP token decimals (assumed 18 below -- QuickSwap V2 pairs are
- *      normally 18, confirm on Polygonscan for 0xA15214B0...Cd2).
- *   2. Compile in Remix against the real RewardPool/Staking bytecode.
- *   3. setDistributor(thisAddress, 2) done AFTER full testnet dry-run --
- *      no 48h delay protects this call, per project rule section 11.
+ *  FIX 3 -- UNPAID REWARD IS NOW TRACKED EXPLICITLY.
+ *    New UserTierInfo.unpaid field, filled by _accrue(). rewardDebt
+ *    always advances to the full accumulated figure (so lpAmount
+ *    changes stay safe with the standard staking formula), while
+ *    anything accrued but not yet sent sits in unpaid and is paid on
+ *    the next settlement.
+ *
+ *    IMPORTANT ORDERING RULE: _accrue() must run in the OUTER call
+ *    frame, before _trySettle(). _trySettle() deliberately swallows a
+ *    reverting payout, and that revert rolls back everything the inner
+ *    call touched. If the accrual happened only inside that inner call,
+ *    a failed payout would roll it back while the caller went on to
+ *    recompute rewardDebt against the NEW lpAmount -- silently erasing
+ *    the pending reward. Accruing outside first makes the rollback
+ *    affect only the payout attempt itself.
+ *
+ *  FIX 4 -- lpToken IS NOW PER-TIER, NOT CONTRACT-WIDE.
+ *    v5 had IERC20 public immutable lpToken, so every tier had to use
+ *    the same LP token and a second pair (e.g. OSG/USDT) would have
+ *    required a whole new contract + new distributor slot. In v6 each
+ *    tier carries its own lpToken, so a future pair is just a new tier.
+ *    An existing tier's lpToken can only be changed while that tier
+ *    holds zero deposits.
+ *
+ * ----------------------------------------------------------------------
+ *  UNCHANGED FROM v5 (deliberately -- these were correct):
+ *   - LP-amount-based accounting (not discrete slots)
+ *   - tierWeightBps budget split across tiers, sum <= 100%
+ *   - _settleAllActiveTiers() hygiene before any rate change
+ *   - Referral hooks wrapped in try/catch, never block Mining
+ *   - 24h first-withdraw lock (applies to emergencyWithdraw too)
+ *   - No unbounded loops anywhere
+ *
+ *  ARCHITECTURE REMINDER:
+ *   RewardPool.setDistributor(addr, cat) binds ONE address to ONE
+ *   category. This contract is category 2 (Mining) only. All referral
+ *   and rank-bonus logic lives in the companion OSGLPReferral, which is
+ *   registered separately as category 3.
  * ======================================================================
  */
 
@@ -88,58 +116,60 @@ contract OSGLPMining is Ownable, ReentrancyGuard, Pausable {
     uint8   public constant CAT_MINING  = 2;
     uint256 public constant BPS_DENOM   = 10_000;
     uint256 public constant ABSOLUTE_MAX_SHARE_BPS = 9_000; // 90% hard ceiling
-    uint256 public constant FIRST_WITHDRAW_LOCK = 24 hours; // only the first-ever deposit
-    /// Mirrors RewardPool.MAX_SINGLE_ALLOC (10,000 OSG) -- belt-and-braces
-    /// check here too, so a huge accrued claim fails fast with a clear
-    /// reason instead of reverting deep inside RewardPool.
+    /// Applies to the wallet's first-ever deposit, and gates BOTH
+    /// withdraw() and emergencyWithdraw() -- confirmed design choice.
+    uint256 public constant FIRST_WITHDRAW_LOCK = 24 hours;
+    /// Mirrors RewardPool.MAX_SINGLE_ALLOC (10,000 OSG). v6 CAPS the
+    /// payout at this value instead of reverting above it.
     uint256 public constant MAX_SINGLE_ALLOC = 10_000 * 1e18;
+    uint256 public constant TIER_COUNT = 5;
 
     // ====================== IMMUTABLES ======================
-    IERC20         public immutable lpToken;
     IOSGRewardPool public immutable pool;
 
     // ====================== REFERRAL HOOK TARGET ======================
-    /// The companion OSGLPReferral contract. Owner-settable (not
-    /// immutable) so it can be pointed at a redeployed referral
-    /// contract if ever needed, without redeploying Mining itself.
     IOSGLPReferral public referralContract;
 
     // ====================== MINING SHARE (owner-adjustable) ======================
-    uint256 public miningShareBps = 50;    // 0.5% of the Mining bucket, per finalized spec
-    uint256 public maxShareBps    = 5_000; // 50% ceiling, owner-adjustable up to ABSOLUTE_MAX
+    uint256 public miningShareBps = 50;    // 0.5% of the Mining bucket
+    uint256 public maxShareBps    = 5_000; // 50% ceiling, up to ABSOLUTE_MAX
 
-    // ====================== TIERS (LP-amount based) ======================
+    // ====================== TIERS ======================
     enum TierId { T1, T2, T3, T4, T5 }
 
     struct TierConfig {
-        uint256 minDeposit;        // minimum LP per deposit call (e.g. 0.10 LP = "1 slot")
-        uint256 capacityLp;        // total LP capacity for this tier (e.g. 1.0 LP for T1)
-        uint256 totalDepositedLp;  // currently deposited LP, system-wide, this tier
-        bool    active;            // owner can enable/disable
-        uint256 tierWeightBps;     // this tier's share of getLpMiningDailyBudget(), in bps
-        uint256 accRewardPerShare; // cumulative reward per LP unit, scaled 1e18
+        address lpToken;           // FIX 4: per-tier LP token
+        uint256 minDeposit;        // minimum LP per deposit call
+        uint256 capacityLp;        // total LP capacity for this tier
+        uint256 totalDepositedLp;  // currently deposited LP, this tier
+        bool    active;
+        uint256 tierWeightBps;     // share of getLpMiningDailyBudget()
+        uint256 accRewardPerShare; // cumulative reward per LP unit, 1e18
         uint256 lastRewardTime;
     }
     mapping(TierId => TierConfig) public tiers;
-    /// Sum of all 5 tiers' tierWeightBps -- kept in sync by setTierWeightBps()
-    /// so it never needs to be recomputed with an unbounded loop elsewhere.
     uint256 public totalTierWeightBps;
 
     struct UserTierInfo {
-        uint256 lpAmount;   // raw LP deposited by this user in this tier
-        uint256 rewardDebt; // staking-style accounting against accRewardPerShare
+        uint256 lpAmount;
+        uint256 rewardDebt;
+        uint256 unpaid;    // FIX 3: accrued but not yet distributed
     }
     mapping(address => mapping(TierId => UserTierInfo)) public userTier;
 
-    /// Set once on a wallet's very first deposit (any tier), never updated again.
+    /// Set once on a wallet's very first deposit (any tier), never updated.
     mapping(address => uint256) public firstDepositTime;
 
     // ====================== EVENTS ======================
     event Deposited(address indexed user, TierId tier, uint256 lpAmount);
     event Withdrawn(address indexed user, TierId tier, uint256 lpAmount);
+    event EmergencyWithdrawn(address indexed user, TierId tier, uint256 lpAmount, uint256 unpaidKept);
     event MiningClaimed(address indexed user, TierId tier, uint256 amount);
+    event SettlementDeferred(address indexed user, TierId tier, uint256 unpaidTotal, string reason);
+    event PayoutCapped(address indexed user, TierId tier, uint256 paid, uint256 remaining);
     event ReferralHookFailed(address indexed user, string what, bytes reason);
     event TierConfigUpdated(TierId tier, uint256 minDeposit, uint256 capacityLp, bool active);
+    event TierLpTokenUpdated(TierId indexed tier, address indexed lpToken);
     event MiningShareUpdated(uint256 newBps, address indexed by);
     event TierWeightUpdated(TierId indexed tier, uint256 newWeightBps, uint256 totalWeightBps);
     event ReferralContractUpdated(address indexed newContract);
@@ -147,17 +177,16 @@ contract OSGLPMining is Ownable, ReentrancyGuard, Pausable {
     constructor(address _lpToken, address _pool, address _owner) Ownable(_owner) {
         require(_lpToken.code.length > 0, "lpToken not contract");
         require(_pool.code.length    > 0, "pool not contract");
-        lpToken = IERC20(_lpToken);
-        pool    = IOSGRewardPool(_pool);
+        pool = IOSGRewardPool(_pool);
 
-        // T1 active at launch -- min deposit 0.10 LP ("1 slot"), total
-        // capacity 1.0 LP (== 10 slots worth), 100% of the LP-mining
-        // budget (only active tier at launch), per finalized spec.
-        // WARNING: 0.10/1.0 ether assumes 18 decimals -- VERIFY on
-        // Polygonscan for the real LP token before deploy.
+        // T1 active at launch. Values below match the live v5
+        // configuration on mainnet (min 100 LP, capacity 2500 LP,
+        // verified via tiers(0) on 29 July 2026) so the migration is
+        // like-for-like.
         tiers[TierId.T1] = TierConfig({
-            minDeposit: 0.10 ether,
-            capacityLp: 1.0 ether,
+            lpToken: _lpToken,
+            minDeposit: 100 ether,
+            capacityLp: 2500 ether,
             totalDepositedLp: 0,
             active: true,
             tierWeightBps: BPS_DENOM, // 100% -- only active tier at launch
@@ -165,27 +194,22 @@ contract OSGLPMining is Ownable, ReentrancyGuard, Pausable {
             lastRewardTime: block.timestamp
         });
         totalTierWeightBps = BPS_DENOM;
-        // T2-T5 remain inactive/zeroed/zero-weight; owner configures +
-        // activates later via updateTierConfig() + setTierWeightBps(),
-        // rebalancing weights across tiers WITHOUT redeploying.
     }
 
     // ====================== DEPOSIT / WITHDRAW / CLAIM ======================
 
-    /// Deposits lpAmount of LP into tierId. Must be >= tier.minDeposit
-    /// (the "1 slot" floor), but does NOT need to be a multiple of it --
-    /// any amount above the floor is accepted, and rewards scale exactly
-    /// with LP held (no discrete slots internally).
     function deposit(TierId tierId, uint256 lpAmount) external nonReentrant whenNotPaused {
         TierConfig storage t = tiers[tierId];
         require(t.active, "tier not active");
-        require(lpAmount >= t.minDeposit, "below minimum deposit (1 slot)");
+        require(t.lpToken != address(0), "tier lpToken not set");
+        require(lpAmount >= t.minDeposit, "below minimum deposit");
         require(t.totalDepositedLp + lpAmount <= t.capacityLp, "exceeds tier capacity");
 
         _updateTierRewards(tierId);
-        _settlePending(msg.sender, tierId);
+        _accrue(msg.sender, tierId);      // bank first -- see FIX 3 ordering rule
+        _trySettle(msg.sender, tierId);
 
-        lpToken.safeTransferFrom(msg.sender, address(this), lpAmount);
+        IERC20(t.lpToken).safeTransferFrom(msg.sender, address(this), lpAmount);
 
         UserTierInfo storage u = userTier[msg.sender][tierId];
         u.lpAmount += lpAmount;
@@ -201,9 +225,10 @@ contract OSGLPMining is Ownable, ReentrancyGuard, Pausable {
         emit Deposited(msg.sender, tierId, lpAmount);
     }
 
-    /// Withdraws lpAmount of LP from tierId. Partial withdrawal is
-    /// always allowed (any amount up to the user's balance, no minimum)
-    /// -- only the FIRST-EVER deposit is time-locked, per finalized spec.
+    /// FIX 1(a): the accrual is banked into unpaid BEFORE the payout is
+    /// attempted, and the payout itself is wrapped in try/catch. So a
+    /// failed payout blocks neither the LP transfer nor the reward --
+    /// the reward simply waits in unpaid until the next claim().
     function withdraw(TierId tierId, uint256 lpAmount) external nonReentrant whenNotPaused {
         require(lpAmount > 0, "zero amount");
         require(
@@ -216,22 +241,60 @@ contract OSGLPMining is Ownable, ReentrancyGuard, Pausable {
         require(u.lpAmount >= lpAmount, "insufficient balance");
 
         _updateTierRewards(tierId);
-        _settlePending(msg.sender, tierId);
+        _accrue(msg.sender, tierId);      // bank first -- see FIX 3 ordering rule
+        _trySettle(msg.sender, tierId);
 
         u.lpAmount -= lpAmount;
         u.rewardDebt = (u.lpAmount * t.accRewardPerShare) / 1e18;
         t.totalDepositedLp -= lpAmount;
 
-        lpToken.safeTransfer(msg.sender, lpAmount);
+        IERC20(t.lpToken).safeTransfer(msg.sender, lpAmount);
 
         _notifyLiquidityChange(msg.sender, lpAmount, false);
 
         emit Withdrawn(msg.sender, tierId, lpAmount);
     }
 
-    /// Claims pending mining reward for one tier. Also notifies the
-    /// Referral contract so it can pay any live Recurring Maintenance
-    /// Bonus in the same transaction (best-effort -- see _notifyClaim).
+    /// FIX 1(b): unconditional exit. Makes NO call to RewardPool, is NOT
+    /// whenNotPaused, and cannot be blocked by anything outside this
+    /// contract. Any accrued-but-unpaid reward is KEPT (not burned) and
+    /// stays claimable via claim() if/when the reward system recovers.
+    /// The 24h first-deposit lock still applies, by design.
+    function emergencyWithdraw(TierId tierId) external nonReentrant {
+        require(
+            block.timestamp >= firstDepositTime[msg.sender] + FIRST_WITHDRAW_LOCK,
+            "24h lock active on first deposit"
+        );
+
+        TierConfig storage t = tiers[tierId];
+        UserTierInfo storage u = userTier[msg.sender][tierId];
+
+        uint256 amount = u.lpAmount;
+        require(amount > 0, "nothing deposited");
+
+        // Bring accRewardPerShare up to date so the user is credited for
+        // time elapsed since the tier was last touched -- but do it via
+        // try/catch, because _updateTierRewards() reads the budget from
+        // RewardPool. If RewardPool is unreachable the update is skipped
+        // and the exit still succeeds, which is the whole point of this
+        // function. Then bank the accrual, BEFORE lpAmount is zeroed.
+        _tryUpdateTierRewards(tierId);
+        _accrue(msg.sender, tierId);
+
+        u.lpAmount   = 0;
+        u.rewardDebt = 0;
+        t.totalDepositedLp -= amount;
+
+        IERC20(t.lpToken).safeTransfer(msg.sender, amount);
+
+        _notifyLiquidityChange(msg.sender, amount, false);
+
+        emit EmergencyWithdrawn(msg.sender, tierId, amount, u.unpaid);
+    }
+
+    /// Claims pending mining reward for one tier. Fail-loud on purpose:
+    /// if the user explicitly asked to claim and it cannot be paid, they
+    /// should see the reason rather than a silent no-op.
     function claim(TierId tierId) external nonReentrant whenNotPaused {
         _updateTierRewards(tierId);
         _settlePending(msg.sender, tierId);
@@ -239,26 +302,91 @@ contract OSGLPMining is Ownable, ReentrancyGuard, Pausable {
 
     // ====================== INTERNAL -- REWARD SETTLEMENT ======================
 
-    function _settlePending(address user, TierId tierId) internal {
+    /// Banks newly accrued reward into unpaid and advances rewardDebt.
+    /// Touches NO external contract, so it can never revert. Calling
+    /// this in the outer frame before _trySettle() is what keeps a
+    /// failed payout from erasing the user's pending reward.
+    function _accrue(address user, TierId tierId) internal {
         TierConfig storage t = tiers[tierId];
         UserTierInfo storage u = userTier[user][tierId];
         if (u.lpAmount == 0) return;
-
         uint256 accumulated = (u.lpAmount * t.accRewardPerShare) / 1e18;
-        uint256 pending = accumulated > u.rewardDebt ? accumulated - u.rewardDebt : 0;
+        if (accumulated > u.rewardDebt) {
+            u.unpaid += accumulated - u.rewardDebt;
+        }
         u.rewardDebt = accumulated;
+    }
 
-        if (pending == 0) return;
-        require(pending <= MAX_SINGLE_ALLOC, "single claim exceeds cap - contact support");
+    /// Self-call wrapper letting emergencyWithdraw() refresh the tier
+    /// rate without inheriting RewardPool's failure modes.
+    function _updateTierRewardsExternal(TierId tierId) external {
+        require(msg.sender == address(this), "internal only");
+        _updateTierRewards(tierId);
+    }
 
-        // Fail-loud by design for the MINING payout itself: if this
-        // reverts (e.g. per-block cooldown already used by this
-        // contract this block), the whole tx reverts, rewardDebt is
-        // NOT advanced, and pending stays fully claimable on retry.
-        pool.distribute(user, pending, CAT_MINING);
-        emit MiningClaimed(user, tierId, pending);
+    function _tryUpdateTierRewards(TierId tierId) internal {
+        try this._updateTierRewardsExternal(tierId) {
+            // rate refreshed
+        } catch {
+            // RewardPool unreachable -- proceed with the stale rate
+            // rather than blocking the emergency exit.
+        }
+    }
 
-        _notifyClaim(user, pending);
+    /// Self-call wrapper so deposit()/withdraw() can try/catch the
+    /// payout. A revert inside rolls back only what the inner call
+    /// touched -- the _accrue() done by the caller survives.
+    /// NOTE: intentionally NOT nonReentrant -- it is invoked via
+    /// this._settleExternal(...) from inside a nonReentrant function,
+    /// and is access-gated to this contract only.
+    function _settleExternal(address user, TierId tierId) external {
+        require(msg.sender == address(this), "internal only");
+        _settlePending(user, tierId);
+    }
+
+    function _trySettle(address user, TierId tierId) internal {
+        try this._settleExternal(user, tierId) {
+            // paid (or nothing to pay)
+        } catch Error(string memory reason) {
+            emit SettlementDeferred(user, tierId, userTier[user][tierId].unpaid, reason);
+        } catch (bytes memory lowLevelData) {
+            emit SettlementDeferred(
+                user, tierId, userTier[user][tierId].unpaid,
+                lowLevelData.length == 0 ? "out of gas or no reason" : "low-level revert"
+            );
+        }
+    }
+
+    /// FIX 2 + FIX 3. Accrues, then pays out as much of unpaid as both
+    /// caps allow; the remainder stays in unpaid for a later call.
+    function _settlePending(address user, TierId tierId) internal {
+        UserTierInfo storage u = userTier[user][tierId];
+
+        _accrue(user, tierId);
+
+        if (u.unpaid == 0) return;
+
+        // Cap by BOTH limits. MAX_SINGLE_ALLOC alone is not enough: the
+        // Mining bucket's whole daily budget (~2,352 OSG at a 40% split
+        // of 5,881/day, up to ~9,409 with 3 days of carry) is smaller
+        // than MAX_SINGLE_ALLOC, so a 10,000 payout would ALWAYS revert
+        // with "Mining cap exceeded". Reading miningAvail live keeps the
+        // payout inside whatever RewardPool can actually distribute today.
+        uint256 payout = u.unpaid > MAX_SINGLE_ALLOC ? MAX_SINGLE_ALLOC : u.unpaid;
+        ( , , , , uint256 miningAvail, , ) = pool.getTodayStats();
+        if (payout > miningAvail) payout = miningAvail;
+        require(payout > 0, "no mining budget available today");
+
+        u.unpaid -= payout;
+
+        pool.distribute(user, payout, CAT_MINING);
+        emit MiningClaimed(user, tierId, payout);
+
+        if (u.unpaid > 0) {
+            emit PayoutCapped(user, tierId, payout, u.unpaid);
+        }
+
+        _notifyClaim(user, payout);
     }
 
     function _updateTierRewards(TierId tierId) internal {
@@ -275,46 +403,39 @@ contract OSGLPMining is Ownable, ReentrancyGuard, Pausable {
         t.lastRewardTime = block.timestamp;
     }
 
-    /// Settles every currently-active tier at its OLD rate before any
-    /// change that affects reward-rate math shared across tiers
-    /// (miningShareBps) or a specific tier's own share (tierWeightBps).
-    /// Bounded 5-iteration loop, gas-safe regardless of tier count.
+    /// Settles every active tier at its OLD rate before any change that
+    /// affects shared reward-rate math. Bounded 5-iteration loop.
     function _settleAllActiveTiers() internal {
         TierId[5] memory all = [TierId.T1, TierId.T2, TierId.T3, TierId.T4, TierId.T5];
-        for (uint8 i = 0; i < 5; i++) {
+        for (uint8 i = 0; i < TIER_COUNT; i++) {
             if (tiers[all[i]].active) {
                 _updateTierRewards(all[i]);
             }
         }
     }
 
-    /// LP Mining's own daily OSG budget = miningShareBps % of RewardPool's
-    /// live Mining-category bucket (dailyBase * miningPercent / 100).
-    /// NOTE: RewardPool's miningPercent is 0-100 (not bps); miningShareBps
-    /// here IS in bps (10000 = 100%) -- units differ by design, kept
-    /// explicit below to avoid mixing them up. This is the TOTAL budget
-    /// across ALL tiers combined -- use getTierDailyBudget() for a
-    /// single tier's actual share.
+    // ====================== VIEW -- BUDGET ======================
+
+    /// LP Mining's total daily OSG budget across ALL tiers.
+    /// RewardPool.miningPercent is 0-100; miningShareBps is bps.
     function getLpMiningDailyBudget() public view returns (uint256) {
         ( , , , , , , uint256 dailyBase) = pool.getTodayStats();
-        uint256 miningPct    = pool.miningPercent();           // e.g. 40, out of 100
-        uint256 miningBucket = (dailyBase * miningPct) / 100;  // RewardPool convention
-        return (miningBucket * miningShareBps) / BPS_DENOM;    // our own bps convention
+        uint256 miningPct    = pool.miningPercent();
+        uint256 miningBucket = (dailyBase * miningPct) / 100;
+        return (miningBucket * miningShareBps) / BPS_DENOM;
     }
 
-    /// This specific tier's slice of getLpMiningDailyBudget(), per its
-    /// tierWeightBps. This is what makes multiple active tiers
-    /// (T1 + T2 + ...) split the SAME total budget instead of each
-    /// independently claiming the full amount (which would double-count
-    /// and blow through RewardPool's daily cap).
     function getTierDailyBudget(TierId tierId) public view returns (uint256) {
         return (getLpMiningDailyBudget() * tiers[tierId].tierWeightBps) / BPS_DENOM;
     }
 
-    function pendingMiningReward(address user, TierId tierId) external view returns (uint256) {
+    /// Includes any carried-over unpaid from a capped or deferred payout.
+    function pendingMiningReward(address user, TierId tierId) public view returns (uint256) {
         TierConfig storage t = tiers[tierId];
         UserTierInfo storage u = userTier[user][tierId];
-        if (u.lpAmount == 0) return 0;
+
+        uint256 total = u.unpaid;
+        if (u.lpAmount == 0) return total;
 
         uint256 acc = t.accRewardPerShare;
         if (block.timestamp > t.lastRewardTime && t.totalDepositedLp > 0) {
@@ -323,14 +444,26 @@ contract OSGLPMining is Ownable, ReentrancyGuard, Pausable {
             acc += (reward * 1e18) / t.totalDepositedLp;
         }
         uint256 accumulated = (u.lpAmount * acc) / 1e18;
-        return accumulated > u.rewardDebt ? accumulated - u.rewardDebt : 0;
+        if (accumulated > u.rewardDebt) {
+            total += accumulated - u.rewardDebt;
+        }
+        return total;
     }
 
-    // ====================== INTERNAL -- REFERRAL CONTRACT NOTIFICATIONS ======================
-    // Both hooks are wrapped in try/catch: a Referral-side failure (e.g.
-    // per-block-cooldown collision on ITS distribute() call, or the
-    // referral contract not yet configured) must NEVER block or revert
-    // a user's own deposit/withdraw/claim in THIS contract.
+    /// How much of pendingMiningReward() the NEXT settlement can actually
+    /// send right now, capped by MAX_SINGLE_ALLOC AND by today's remaining
+    /// Mining budget. Returns 0 when nothing can be paid today -- useful
+    /// for honest UI messaging ("X OSG accrued, Y payable now").
+    function nextPayoutChunk(address user, TierId tierId) external view returns (uint256) {
+        uint256 total = pendingMiningReward(user, tierId);
+        if (total > MAX_SINGLE_ALLOC) total = MAX_SINGLE_ALLOC;
+        ( , , , , uint256 miningAvail, , ) = pool.getTodayStats();
+        return total > miningAvail ? miningAvail : total;
+    }
+
+    // ====================== INTERNAL -- REFERRAL NOTIFICATIONS ======================
+    // Both hooks stay in try/catch: a referral-side failure must NEVER
+    // block a user's own deposit/withdraw/claim/emergency exit.
 
     function _notifyLiquidityChange(address depositor, uint256 lpDelta, bool isAdd) internal {
         if (address(referralContract) == address(0)) return;
@@ -357,19 +490,43 @@ contract OSGLPMining is Ownable, ReentrancyGuard, Pausable {
             && pool.distributorActive(address(this));
     }
 
-    /// Total LP capacity for a tier (used by OSGLPReferral as the 100%
-    /// basis for rank thresholds -- keep OSGLPReferral.poolCapacityLp in
-    /// sync manually via setPoolCapacityLp() whenever this changes).
+    /// One-call diagnosis for the UI: explains WHY a reward settlement
+    /// would currently fail, so the app can show a real reason instead
+    /// of a generic revert. Note this does NOT gate withdrawals --
+    /// emergencyWithdraw() works regardless of what this returns, and
+    /// withdraw() only defers the reward rather than failing.
+    /// Does not cover the per-block cooldown (which is transient and
+    /// resolves on the next block) or per-user payout caps.
+    function payoutHealth() external view returns (bool canPayNow, string memory reason) {
+        if (!isWiredForMining())    return (false, "not registered as category-2 distributor");
+        if (paused())               return (false, "mining contract paused");
+        if (pool.paused())          return (false, "RewardPool paused");
+        if (pool.emissionStopped()) return (false, "emission stopped");
+        ( , , , , uint256 miningAvail, , ) = pool.getTodayStats();
+        if (miningAvail == 0)       return (false, "daily mining budget exhausted");
+        return (true, "ready");
+    }
+
     function tierCapacityLp(TierId tierId) external view returns (uint256) {
         return tiers[tierId].capacityLp;
     }
 
+    function tierLpToken(TierId tierId) external view returns (address) {
+        return tiers[tierId].lpToken;
+    }
+
+    /// True if token is the LP token of ANY tier -- used by rescueToken
+    /// to make sure depositor funds can never be swept out.
+    function isProtectedToken(address token) public view returns (bool) {
+        TierId[5] memory all = [TierId.T1, TierId.T2, TierId.T3, TierId.T4, TierId.T5];
+        for (uint8 i = 0; i < TIER_COUNT; i++) {
+            if (tiers[all[i]].lpToken == token) return true;
+        }
+        return false;
+    }
+
     // ====================== ADMIN -- CONFIG ======================
 
-    /// Validates the address is non-zero and IS a deployed contract,
-    /// reducing the risk of pointing hooks at a wrong/EOA address by
-    /// mistake (a wrong contract address would silently fail every
-    /// hook call via the try/catch, going unnoticed for a while).
     function setReferralContract(address _referral) external onlyOwner {
         require(_referral != address(0), "zero address");
         require(_referral.code.length > 0, "referral must be a contract");
@@ -377,17 +534,28 @@ contract OSGLPMining is Ownable, ReentrancyGuard, Pausable {
         emit ReferralContractUpdated(_referral);
     }
 
-    /// If active is set to false here, this tier's tierWeightBps is
-    /// AUTOMATICALLY forced to 0 (its budget share is freed up for
-    /// other tiers) -- an inactive tier can never silently keep a
-    /// non-zero weight. Re-enabling a tier does NOT restore a weight;
-    /// call setTierWeightBps() explicitly afterward to give it a share.
+    /// FIX 4: assign or change a tier's LP token. Only allowed while the
+    /// tier holds ZERO deposits -- otherwise existing depositors' balances
+    /// would be denominated in a token the contract no longer transfers.
+    function setTierLpToken(TierId tierId, address _lpToken) external onlyOwner {
+        require(_lpToken.code.length > 0, "lpToken not contract");
+        TierConfig storage t = tiers[tierId];
+        require(t.totalDepositedLp == 0, "tier has deposits");
+        t.lpToken = _lpToken;
+        emit TierLpTokenUpdated(tierId, _lpToken);
+    }
+
+    /// Deactivating a tier automatically zeroes its weight, freeing that
+    /// budget share for other tiers. Re-enabling does NOT restore weight.
     function updateTierConfig(
         TierId tierId, uint256 minDeposit, uint256 capacityLp, bool active
     ) external onlyOwner {
         _updateTierRewards(tierId);
         TierConfig storage t = tiers[tierId];
         require(capacityLp >= t.totalDepositedLp, "capacity below deposited amount");
+        if (active) {
+            require(t.lpToken != address(0), "set tier lpToken first");
+        }
         t.minDeposit = minDeposit;
         t.capacityLp = capacityLp;
         t.active     = active;
@@ -401,14 +569,6 @@ contract OSGLPMining is Ownable, ReentrancyGuard, Pausable {
         emit TierConfigUpdated(tierId, minDeposit, capacityLp, active);
     }
 
-    /// miningShareBps affects getLpMiningDailyBudget() which EVERY tier's
-    /// reward rate depends on -- so ALL currently-active tiers are
-    /// settled at their OLD rate first, before the new share takes
-    /// effect. Otherwise a tier not touched around the change moment
-    /// could have some of its pending reward computed retroactively at
-    /// the NEW rate instead of the rate that actually applied during
-    /// that elapsed time (not a fund-safety bug, just an accounting
-    /// precision issue this avoids).
     function setMiningShareBps(uint256 newBps) external onlyOwner {
         require(newBps <= maxShareBps, "exceeds maxShareBps");
         _settleAllActiveTiers();
@@ -416,20 +576,9 @@ contract OSGLPMining is Ownable, ReentrancyGuard, Pausable {
         emit MiningShareUpdated(newBps, msg.sender);
     }
 
-    /// Rebalances how much of the TOTAL LP-mining daily budget each
-    /// tier receives. Always validates that the sum across all 5 tiers
-    /// stays <= 100% (BPS_DENOM), so activating a new tier (T2, T3...)
-    /// later just means calling this -- NO redeploy needed, and no risk
-    /// of tiers double-claiming the same budget.
-    ///
-    /// Before applying the change, ALL currently-active tiers are
-    /// settled (_updateTierRewards) at their OLD weights first, so
-    /// reward accounting up to the exact moment of this change stays
-    /// accurate for every tier, not just the one being reweighted.
-    ///
-    /// An inactive tier can never hold a non-zero weight -- this
-    /// prevents budget share silently sitting unused (or being
-    /// double-booked) on a tier nobody can deposit into.
+    /// Rebalances each tier's slice of the total budget. Always validates
+    /// the sum across all 5 tiers stays <= 100%, and settles every active
+    /// tier at its OLD weight first.
     function setTierWeightBps(TierId tierId, uint256 newWeightBps) external onlyOwner {
         require(newWeightBps == 0 || tiers[tierId].active, "cannot weight an inactive tier");
 
@@ -437,7 +586,7 @@ contract OSGLPMining is Ownable, ReentrancyGuard, Pausable {
 
         TierId[5] memory all = [TierId.T1, TierId.T2, TierId.T3, TierId.T4, TierId.T5];
         uint256 total = 0;
-        for (uint8 i = 0; i < 5; i++) {
+        for (uint8 i = 0; i < TIER_COUNT; i++) {
             total += (all[i] == tierId) ? newWeightBps : tiers[all[i]].tierWeightBps;
         }
         require(total <= BPS_DENOM, "total tier weights exceed 100%");
@@ -455,15 +604,15 @@ contract OSGLPMining is Ownable, ReentrancyGuard, Pausable {
     function pause()   external onlyOwner { _pause(); }
     function unpause() external onlyOwner { _unpause(); }
 
-    /// Recover tokens sent here by mistake. Cannot touch the LP token
-    /// itself -- deposited LP belongs to depositors and must stay safe.
+    /// Recover tokens sent here by mistake. Can never touch ANY tier's
+    /// LP token -- deposited LP belongs to depositors.
     function rescueToken(address token, address to, uint256 amount) external onlyOwner {
-        require(token != address(lpToken), "cannot rescue deposited LP token");
+        require(!isProtectedToken(token), "cannot rescue a tier LP token");
         require(to != address(0) && amount > 0, "bad args");
         IERC20(token).safeTransfer(to, amount);
     }
 
     function version() external pure returns (string memory) {
-        return "OSGLPMining v5 (draft, LP-amount-based + tierWeightBps + settlement hygiene, T1 launch)";
+        return "OSGLPMining v6";
     }
 }
