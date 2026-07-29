@@ -189,7 +189,7 @@ export const LP_MINING_ABI = [
   "function claim(uint8 tierId)",
   // reads
   "function pendingMiningReward(address user, uint8 tierId) view returns (uint256)",
-  "function tiers(uint8) view returns (uint256 minDeposit, uint256 capacityLp, uint256 totalDepositedLp, bool active, uint256 tierWeightBps, uint256 accRewardPerShare, uint256 lastRewardTime)",
+  "function tiers(uint8) view returns (address lpToken, uint256 minDeposit, uint256 capacityLp, uint256 totalDepositedLp, bool active, uint256 tierWeightBps, uint256 accRewardPerShare, uint256 lastRewardTime)",
   "function userTier(address, uint8) view returns (uint256 lpAmount, uint256 rewardDebt)",
   "function firstDepositTime(address) view returns (uint256)",
   "function isWiredForMining() view returns (bool)",
