@@ -23,6 +23,9 @@ export const ADDRESSES = {
   // -- LP Mining (Stage 1, live) --
   lpMining: "0xb0510d6f707dF47fE7427732D5507290D847b736",
   lpReferral: "0xFa1CC9D7a9643156d797142D47e3930895401565",
+  // -- Term Staking + Referral v3 (deployed 4 Aug 2026) --
+  termStaking: "0x9432B8C2B67C4c86c26EdB98893611013FAdF562",
+  referralV3: "0x0A7a88B23076F35ee2c0B41E85a892C17ae2aC92",
 };
 
 export const ZERO = "0x0000000000000000000000000000000000000000";
@@ -237,6 +240,91 @@ export const LP_REFERRAL_ABI = [
   "event MilestoneBonusAccrued(address indexed user, uint8 rank, uint256 amount)",
   "event RecurringBonusPaid(address indexed user, uint256 amount, uint256 bps)",
 ];
+// -- OSGTermStaking v1 (deposit OSG, earn OSG to a 2x cap; category-2) --
+export const TERM_STAKING_ABI = [
+  // writes
+  "function deposit(uint256 amount)",
+  "function claim(uint256 posId)",
+  "function claimAll()",
+  "function withdraw(uint256 posId)",
+  "function withdrawAll()",
+  "function forfeitAndWithdraw(uint256 posId)",
+  "function settle()",
+  // reads -- user
+  "function positions(address, uint256) view returns (uint256 amount, uint256 cap, uint256 rewardDebt, uint256 rewardPaid, uint256 unpaid, uint256 startTime, bool capped, bool closed)",
+  "function positionCount(address user) view returns (uint256)",
+  "function openPositions(address user) view returns (uint256)",
+  "function pendingReward(address user, uint256 posId) view returns (uint256)",
+  "function remainingCap(address user, uint256 posId) view returns (uint256)",
+  // reads -- pool
+  "function totalStaked() view returns (uint256)",
+  "function totalPrincipal() view returns (uint256)",
+  "function effectiveRateBps() view returns (uint256)",
+  "function maxRateBps() view returns (uint256)",
+  "function minDeposit() view returns (uint256)",
+  "function minDepositFor() view returns (uint256)",
+  "function getTermStakingDailyBudget() view returns (uint256)",
+  "function miningShareBps() view returns (uint256)",
+  "function maxShareBps() view returns (uint256)",
+  "function depositDeadline() view returns (uint256)",
+  "function CAP_MULTIPLIER() view returns (uint256)",
+  "function MAX_POSITIONS() view returns (uint256)",
+  "function referralContract() view returns (address)",
+  "function paused() view returns (bool)",
+  "function payoutHealth() view returns (bool canPayNow, string reason)",
+  "function version() view returns (string)",
+  // events
+  "event Deposited(address indexed user, uint256 posId, uint256 amount, uint256 cap)",
+  "event Claimed(address indexed user, uint256 posId, uint256 amount)",
+  "event Withdrawn(address indexed user, uint256 posId, uint256 principal)",
+];
+
+// -- OSGReferral v3 (15-level volume distribution; category-3) --
+export const REFERRAL_V3_ABI = [
+  // writes
+  "function claimMyReferral()",
+  "function settleInstant(address depositor)",
+  "function settleGift(address referrer, address depositor)",
+  // reads -- user
+  "function directReferrals(address user) view returns (uint256)",
+  "function unlockedLevels(address user) view returns (uint256 n)",
+  "function activeBps(address user) view returns (uint256 total)",
+  "function owed(address) view returns (uint256)",
+  "function paid(address) view returns (uint256)",
+  "function totalVolume(address) view returns (uint256)",
+  "function directVolume(address, address) view returns (uint256)",
+  "function instantEntitled(address) view returns (uint256)",
+  "function instantPaid(address) view returns (uint256)",
+  "function instantPending(address depositor) view returns (uint256)",
+  "function giftEarned(address) view returns (uint256)",
+  "function giftPayable(address referrer, address depositor) view returns (uint256)",
+  // reads -- config
+  "function getLevelTable() view returns (uint256[15] bps, uint256[15] conditions)",
+  "function levelBps(uint256) view returns (uint256)",
+  "function levelConditions(uint256) view returns (uint256)",
+  "function totalLevelBps() view returns (uint256)",
+  "function referralDailyBudget() view returns (uint256)",
+  "function sourceWeightBps(address) view returns (uint256)",
+  "function sourceCount() view returns (uint256)",
+  "function instantPool() view returns (uint256)",
+  "function giftPool() view returns (uint256)",
+  "function instantBps() view returns (uint256)",
+  "function giftBps() view returns (uint256)",
+  "function giftStep() view returns (uint256)",
+  "function staking() view returns (address)",
+  "function paused() view returns (bool)",
+  "function payoutHealth() view returns (bool canPayNow, string reason)",
+  "function version() view returns (string)",
+  // events
+  "event ReferralPaid(address indexed user, uint256 amount, uint256 remainingOwed)",
+  "event InstantEntitled(address indexed earner, address indexed from, uint256 amount)",
+  "event InstantPaid(address indexed earner, address indexed from, uint256 amount)",
+  "event InstantPending(address indexed earner, address indexed from, uint256 shortfall)",
+  "event GiftPaid(address indexed earner, address indexed from, uint256 steps, uint256 amount)",
+  "event PayoutCapped(address indexed user, uint256 paidNow, uint256 remaining)",
+  "event TreasuryExhausted(bool isInstant)",
+];
+
 // QuickSwap swap link (until liquidity pool exists)
 export const QUICKSWAP_URL =
   "https://quickswap.exchange/#/swap?outputCurrency=" + ADDRESSES.token;
