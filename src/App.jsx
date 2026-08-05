@@ -3976,14 +3976,6 @@ function Earn({ wallet, ensureReady, showToast }) {
                 <div className="vv">{fmt(pool.dailyBudget, 2)}</div>
               </div>
             </div>
-            <div className="note" style={{ marginTop: 12 }}>
-              <span>ℹ️</span>
-              <span>
-                Stake 1,000 and it distributes until you have received 2,000 in
-                total — then it stops and your principal comes back. The rate
-                moves with how much is staked; the 2× total never does.
-              </span>
-            </div>
           </div>
 
           {rows.length === 0 && (
