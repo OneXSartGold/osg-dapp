@@ -4498,7 +4498,7 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
   useEffect(() => {
     let mining;
     try {
-      const p = new JsonRpcProvider(RPC_URLS[0], 137);
+     const p = miningProviderRef.current;
       mining = new Contract(ADDRESSES.lpMining, LP_MINING_ABI, p);
       const onEvt = () => { setBlockPulse(Date.now()); setBlockCount((c) => c + 1); };
       mining.on("Deposited", onEvt);
