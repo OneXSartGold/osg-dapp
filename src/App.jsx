@@ -25,6 +25,8 @@ import {
   LP_TOKEN_ABI,
 PAIR_ABI,
   ROUTER_ABI,
+  TERM_STAKING_ABI,
+  REFERRAL_V3_ABI,
 } from "./contracts.js";
 import {
   calculateRequiredPOL,
