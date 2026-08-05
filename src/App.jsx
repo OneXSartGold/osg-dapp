@@ -2592,9 +2592,15 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
   const [acceptBusyId, setAcceptBusyId] = useState(null);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [acceptAmount, setAcceptAmount] = useState("");
+
+  const p2pProviderRef = useRef(null);
+  if (!p2pProviderRef.current) {
+    p2pProviderRef.current = new JsonRpcProvider(RPC_URLS[0], 137);
+  }
+  
   const loadBook = useCallback(async () => {
     try {
-      const p = new JsonRpcProvider(RPC_URLS[0], 137);
+      const p = p2pProviderRef.current;
       const c = new Contract(ADDRESSES.p2pExchange, P2P_ABI, p);
       const scale = await c.PRICE_SCALE().catch(function () {
         return 1000000000000000000n;
