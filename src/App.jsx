@@ -8741,6 +8741,7 @@ export default function App() {
   const navItems = [
     ["dashboard", Ico.home, t.dashboard],
     ["staking", Ico.stake, t.staking],
+    ["earn", Ico.stake, "Earn"],
     ["referral", Ico.ref, t.referral],
     ["swap", Ico.swap, t.swap],
     ["messenger", Ico.chat, t.messenger],
@@ -8928,6 +8929,10 @@ export default function App() {
     setTab={setTab}
   />
 )}
+        {tab === "earn" && (
+            <Earn wallet={wallet} ensureReady={ensureReady} showToast={showToast} />
+          )}  
+          
           {tab === "staking" && (
             <Staking
               wallet={wallet}
