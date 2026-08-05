@@ -822,6 +822,10 @@ body{font-family:'Hanken Grotesk',sans-serif;background:${C.bg};color:${C.txt}}
 @keyframes tIn{from{transform:translate(-50%,16px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
 .spin{display:inline-block;width:15px;height:15px;border:2px solid rgba(0,0,0,.25);border-top-color:#1A1407;border-radius:50%;animation:sp .7s linear infinite;vertical-align:middle}
 @keyframes sp{to{transform:rotate(360deg)}}
+.capmeter{position:relative;height:30px;background:#0E0E14;border:1px solid rgba(255,255,255,.07);border-radius:9px;overflow:hidden}
+.capfill{position:absolute;top:0;bottom:0;left:0;width:0;background:linear-gradient(135deg,#F7D27A 0%,#E9B949 45%,#C4912E 100%);transition:width .9s cubic-bezier(.22,1,.36,1)}
+.capfill.past{background:linear-gradient(90deg,#C4912E,#E9B949 40%,#46D08A 100%)}
+.capnotch{position:absolute;top:-1px;bottom:-1px;left:50%;width:2px;background:#08080B;box-shadow:0 0 0 1px rgba(244,244,245,.28)}
 `;
 
 // ── icons ────────────────────────────────────────────────
@@ -3682,6 +3686,631 @@ function Swap({
     </div>
   );
 }
+
+function Earn({ wallet, ensureReady, showToast }) {
+  const [tab, setTab2] = useState("stake");
+  const [pool, setPool] = useState({
+    rate: 0,
+    rateMax: 0,
+    totalStaked: "0",
+    dailyBudget: "0",
+    minDeposit: "0",
+    paused: false,
+    healthy: false,
+    reason: "",
+  });
+  const [rows, setRows] = useState([]);
+  const [team, setTeam] = useState({
+    directs: 0,
+    levels: 0,
+    bps: 0,
+    owed: "0",
+    paid: "0",
+    volume: "0",
+    refBudget: "0",
+    lvBps: [],
+    lvCond: [],
+  });
+  const [osgBal, setOsgBal] = useState("0");
+  const [amount, setAmount] = useState("");
+  const [busy, setBusy] = useState({});
+
+  const setB = (k, v) => setBusy((b) => ({ ...b, [k]: v }));
+
+  /* ---------------- read ---------------- */
+  const loadRead = useCallback(async () => {
+    try {
+      const p = new FallbackProvider(
+        RPC_URLS.map((u, i) => ({
+          provider: new JsonRpcProvider(u, 137),
+          priority: i + 1,
+          weight: 1,
+          stallTimeout: 900,
+        })),
+        137,
+        { quorum: 1 },
+      );
+
+      const term = new Contract(ADDRESSES.termStaking, TERM_STAKING_ABI, p);
+      const ref = new Contract(ADDRESSES.referralV3, REFERRAL_V3_ABI, p);
+
+      const [rate, rateMax, tot, bud, minD, isPaused, health, refBud, lvT] =
+        await Promise.all([
+          term.effectiveRateBps(),
+          term.maxRateBps(),
+          term.totalStaked(),
+          term.getTermStakingDailyBudget(),
+          term.minDeposit(),
+          term.paused(),
+          term.payoutHealth(),
+          ref.referralDailyBudget(),
+          ref.getLevelTable(),
+        ]);
+
+      setPool({
+        rate: Number(rate),
+        rateMax: Number(rateMax),
+        totalStaked: f18(tot),
+        dailyBudget: f18(bud),
+        minDeposit: f18(minD),
+        paused: isPaused,
+        healthy: health[0],
+        reason: health[1],
+      });
+
+      const lvBps = lvT[0].map((x) => Number(x));
+      const lvCond = lvT[1].map((x) => Number(x));
+
+      if (!wallet) {
+        setRows([]);
+        setTeam((t) => ({ ...t, refBudget: f18(refBud), lvBps, lvCond }));
+        return;
+      }
+
+      const osg = new Contract(ADDRESSES.token, TOKEN_ABI, p);
+      const [bal, n, directs, levels, bps, owed, paid, vol] = await Promise.all([
+        osg.balanceOf(wallet),
+        term.positionCount(wallet),
+        ref.directReferrals(wallet),
+        ref.unlockedLevels(wallet),
+        ref.activeBps(wallet),
+        ref.owed(wallet),
+        ref.paid(wallet),
+        ref.totalVolume(wallet),
+      ]);
+      setOsgBal(f18(bal));
+
+      const cnt = Number(n);
+      const list = [];
+      for (let i = 0; i < cnt; i++) {
+        const [pos, pend] = await Promise.all([
+          term.positions(wallet, i),
+          term.pendingReward(wallet, i),
+        ]);
+        const amt = Number(f18(pos.amount));
+        const pd = Number(f18(pend));
+        if (pos.closed && amt === 0 && pd === 0) continue;
+        list.push({
+          id: i,
+          amount: amt,
+          cap: Number(f18(pos.cap)),
+          paid: Number(f18(pos.rewardPaid)),
+          pend: pd,
+          capped: pos.capped,
+          closed: pos.closed,
+        });
+      }
+      setRows(list);
+
+      setTeam({
+        directs: Number(directs),
+        levels: Number(levels),
+        bps: Number(bps),
+        owed: f18(owed),
+        paid: f18(paid),
+        volume: f18(vol),
+        refBudget: f18(refBud),
+        lvBps,
+        lvCond,
+      });
+    } catch (e) {
+      console.error("earn load failed", e);
+    }
+  }, [wallet]);
+
+  useEffect(() => {
+    loadRead();
+    const id = setInterval(loadRead, 20000);
+    return () => clearInterval(id);
+  }, [loadRead]);
+
+  /* ---------------- writes ---------------- */
+  async function doDeposit() {
+    const v = Number(amount);
+    if (!v || v <= 0) return showToast("⚠️ Enter an amount");
+    if (v < Number(pool.minDeposit))
+      return showToast("⚠️ Minimum is " + fmt(pool.minDeposit, 0) + " OSG");
+    const signer = await ensureReady();
+    if (!signer) return;
+    setB("dep", true);
+    try {
+      const amt = parseUnits(String(amount), 18);
+      const osg = new Contract(ADDRESSES.token, TOKEN_ABI, signer);
+      const allow = await osg.allowance(wallet, ADDRESSES.termStaking);
+      if (allow < amt) {
+        showToast("1/2 — Approving OSG…");
+        await (await osg.approve(ADDRESSES.termStaking, amt)).wait();
+      }
+      showToast("2/2 — Staking…");
+      const term = new Contract(ADDRESSES.termStaking, TERM_STAKING_ABI, signer);
+      await (await term.deposit(amt)).wait();
+      showToast("✅ Staked");
+      setAmount("");
+      await loadRead();
+    } catch (e) {
+      showToast("❌ " + (e.shortMessage || "Transaction failed"));
+    }
+    setB("dep", false);
+  }
+
+  async function runTerm(method, arg, key, label) {
+    const signer = await ensureReady();
+    if (!signer) return;
+    setB(key, true);
+    try {
+      showToast(label + "…");
+      const term = new Contract(ADDRESSES.termStaking, TERM_STAKING_ABI, signer);
+      await (await term[method](arg)).wait();
+      showToast("✅ " + label + " done");
+      await loadRead();
+    } catch (e) {
+      showToast("❌ " + (e.shortMessage || "Transaction failed"));
+    }
+    setB(key, false);
+  }
+
+  async function claimReferral() {
+    const signer = await ensureReady();
+    if (!signer) return;
+    setB("ref", true);
+    try {
+      showToast("Claiming commission…");
+      const ref = new Contract(ADDRESSES.referralV3, REFERRAL_V3_ABI, signer);
+      await (await ref.claimMyReferral()).wait();
+      showToast("✅ Commission claimed");
+      await loadRead();
+    } catch (e) {
+      showToast("❌ " + (e.shortMessage || "Transaction failed"));
+    }
+    setB("ref", false);
+  }
+
+  /* ---------------- derived ---------------- */
+  const stakeClaimable = rows.reduce((s, r) => s + r.pend, 0);
+  const totalClaimable = stakeClaimable + Number(team.owed);
+  const nextLv = team.levels + 1;
+  const needMore =
+    nextLv <= 15 && team.lvCond.length
+      ? team.lvCond[nextLv - 1] - team.directs
+      : 0;
+
+  return (
+    <div className="page">
+      <div className="page-head">
+        <h1>Earn</h1>
+      </div>
+
+      {/* ---------- claimable header ---------- */}
+      <div className="card" style={{ marginBottom: 12 }}>
+        <div className="sec">Claimable now</div>
+        <div
+          className="disp"
+          style={{
+            fontSize: 30,
+            fontWeight: 800,
+            letterSpacing: "-.6px",
+            background: C.grad,
+            WebkitBackgroundClip: "text",
+            backgroundClip: "text",
+            color: "transparent",
+          }}
+        >
+          {fmt(totalClaimable, 3)}{" "}
+          <span style={{ fontSize: 13, color: C.txt3 }}>OSG</span>
+        </div>
+        <div className="mini-grid" style={{ marginTop: 12 }}>
+          <div className="mini">
+            <div className="k">Staking</div>
+            <div className="vv">{fmt(stakeClaimable, 3)}</div>
+          </div>
+          <div className="mini">
+            <div className="k">Team</div>
+            <div className="vv">{fmt(team.owed, 3)}</div>
+          </div>
+        </div>
+        {!pool.healthy && (
+          <div className="note" style={{ marginTop: 12 }}>
+            <span>⏳</span>
+            <span>Payouts are paused right now — {pool.reason}</span>
+          </div>
+        )}
+      </div>
+
+      {/* ---------- tabs ---------- */}
+      <div className="tabs2">
+        {[
+          ["stake", "Stake"],
+          ["team", "Team"],
+          ["facts", "Facts"],
+        ].map(([k, label]) => (
+          <button
+            key={k}
+            className={"tab2 " + (tab === k ? "on" : "")}
+            onClick={() => setTab2(k)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* =================== STAKE =================== */}
+      {tab === "stake" && (
+        <>
+          <div className="card" style={{ marginBottom: 12 }}>
+            <div className="sec">Today's rate</div>
+            <div className="mini-grid">
+              <div className="mini">
+                <div className="k">Distributing now</div>
+                <div className="vv">{(pool.rate / 100).toFixed(3)} %/day</div>
+              </div>
+              <div className="mini">
+                <div className="k">Ceiling</div>
+                <div className="vv">{(pool.rateMax / 100).toFixed(2)} %/day</div>
+              </div>
+              <div className="mini">
+                <div className="k">Total staked</div>
+                <div className="vv">{fmt(pool.totalStaked, 0)}</div>
+              </div>
+              <div className="mini">
+                <div className="k">Daily budget</div>
+                <div className="vv">{fmt(pool.dailyBudget, 2)}</div>
+              </div>
+            </div>
+            <div className="note" style={{ marginTop: 12 }}>
+              <span>ℹ️</span>
+              <span>
+                Stake 1,000 and it distributes until you have received 2,000 in
+                total — then it stops and your principal comes back. The rate
+                moves with how much is staked; the 2× total never does.
+              </span>
+            </div>
+          </div>
+
+          {rows.length === 0 && (
+            <div
+              className="card"
+              style={{
+                marginBottom: 12,
+                textAlign: "center",
+                color: C.txt3,
+                fontSize: 13,
+                lineHeight: 1.7,
+                padding: 26,
+              }}
+            >
+              No stake yet.
+              <br />
+              Stake below to open your first position.
+            </div>
+          )}
+
+          {rows.map((r) => {
+            const got = r.paid + r.pend;
+            const pct = Math.min(100, (got / r.cap) * 100);
+            const past = got >= r.amount;
+            return (
+              <div className="card" key={r.id} style={{ marginBottom: 12 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: 12,
+                  }}
+                >
+                  <div className="sec" style={{ margin: 0 }}>
+                    Position {r.id}
+                  </div>
+                  <span
+                    style={{
+                      fontSize: 10,
+                      letterSpacing: ".6px",
+                      textTransform: "uppercase",
+                      color: r.closed ? C.txt3 : C.green,
+                      border: "1px solid " + (r.closed ? C.line : "rgba(70,208,138,.35)"),
+                      borderRadius: 99,
+                      padding: "3px 9px",
+                    }}
+                  >
+                    {r.closed ? "closed" : r.capped ? "cap reached" : "distributing"}
+                  </span>
+                </div>
+
+                {/* ---- cap meter ---- */}
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    fontSize: 10,
+                    color: C.txt3,
+                    fontFamily: "'JetBrains Mono'",
+                    marginBottom: 7,
+                  }}
+                >
+                  <span>0</span>
+                  <span>{fmt(r.cap, 0)} OSG total</span>
+                </div>
+                <div className="capmeter">
+                  <div
+                    className={"capfill" + (past ? " past" : "")}
+                    style={{ width: pct + "%" }}
+                  />
+                  <div className="capnotch" />
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    fontSize: 10.5,
+                    color: C.txt3,
+                    fontFamily: "'JetBrains Mono'",
+                    marginTop: 7,
+                  }}
+                >
+                  <span>received {fmt(got, 2)}</span>
+                  <span>left {fmt(Math.max(0, r.cap - got), 2)}</span>
+                </div>
+
+                <div className="mini-grid" style={{ marginTop: 12 }}>
+                  <div className="mini">
+                    <div className="k">Staked</div>
+                    <div className="vv">{fmt(r.amount, 2)}</div>
+                  </div>
+                  <div className="mini">
+                    <div className="k">Ready to claim</div>
+                    <div className="vv" style={{ color: C.green }}>
+                      {fmt(r.pend, 4)}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                  <button
+                    className="btn-gold"
+                    disabled={r.pend <= 0 || busy["c" + r.id]}
+                    onClick={() => runTerm("claim", r.id, "c" + r.id, "Claiming")}
+                  >
+                    {busy["c" + r.id] ? "…" : "Claim"}
+                  </button>
+                  <button
+                    className="btn-ghost"
+                    disabled={!r.capped || r.closed || busy["w" + r.id]}
+                    onClick={() => runTerm("withdraw", r.id, "w" + r.id, "Withdrawing")}
+                  >
+                    {busy["w" + r.id] ? "…" : "Withdraw"}
+                  </button>
+                </div>
+
+                {!r.closed && (
+                  <button
+                    className="btn-danger"
+                    style={{ marginTop: 8, fontSize: 12.5 }}
+                    disabled={busy["f" + r.id]}
+                    onClick={() => {
+                      if (
+                        !window.confirm(
+                          "Principal returns in full. Anything accrued but not yet taken is given up. Continue?",
+                        )
+                      )
+                        return;
+                      runTerm("forfeitAndWithdraw", r.id, "f" + r.id, "Withdrawing");
+                    }}
+                  >
+                    Forfeit and withdraw
+                  </button>
+                )}
+              </div>
+            );
+          })}
+
+          <div className="card">
+            <div className="sec">New stake</div>
+            <div className="field">
+              <div className="row">
+                <label>Amount</label>
+                <span className="bal">Balance {fmt(osgBal, 2)} OSG</span>
+              </div>
+              <input
+                className="inp"
+                placeholder="0.00"
+                inputMode="decimal"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+              />
+            </div>
+            <div
+              style={{
+                fontSize: 11.5,
+                color: C.txt3,
+                marginTop: 9,
+                marginBottom: 4,
+              }}
+            >
+              Minimum {fmt(pool.minDeposit, 0)} OSG. Maximum 5 positions per
+              wallet.
+            </div>
+            <button
+              className="btn-gold"
+              style={{ marginTop: 8 }}
+              disabled={busy.dep || pool.paused}
+              onClick={doDeposit}
+            >
+              {pool.paused ? "Staking paused" : busy.dep ? "Working…" : "Stake OSG"}
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* =================== TEAM =================== */}
+      {tab === "team" && (
+        <>
+          <div className="card" style={{ marginBottom: 12 }}>
+            <div className="sec">Your line</div>
+            <div className="mini-grid">
+              <div className="mini">
+                <div className="k">Direct referrals</div>
+                <div className="vv">{team.directs}</div>
+              </div>
+              <div className="mini">
+                <div className="k">Levels open</div>
+                <div className="vv">{team.levels} of 15</div>
+              </div>
+              <div className="mini">
+                <div className="k">Your share</div>
+                <div className="vv">{(team.bps / 100).toFixed(1)} %</div>
+              </div>
+              <div className="mini">
+                <div className="k">Volume introduced</div>
+                <div className="vv">{fmt(team.volume, 0)}</div>
+              </div>
+            </div>
+            {nextLv <= 15 && (
+              <div className="note" style={{ marginTop: 12 }}>
+                <span>🔓</span>
+                <span>
+                  {needMore > 0
+                    ? "+" +
+                      needMore +
+                      " more direct" +
+                      (needMore > 1 ? "s" : "") +
+                      " opens level " +
+                      nextLv
+                    : "Level " + nextLv + " is ready to open"}
+                </span>
+              </div>
+            )}
+          </div>
+
+          <div className="card" style={{ marginBottom: 12 }}>
+            <div className="sec">Commission</div>
+            <div className="mini-grid">
+              <div className="mini">
+                <div className="k">Waiting</div>
+                <div className="vv" style={{ color: C.green }}>
+                  {fmt(team.owed, 4)}
+                </div>
+              </div>
+              <div className="mini">
+                <div className="k">Already taken</div>
+                <div className="vv">{fmt(team.paid, 4)}</div>
+              </div>
+            </div>
+            <button
+              className="btn-gold"
+              style={{ marginTop: 12 }}
+              disabled={Number(team.owed) <= 0 || busy.ref}
+              onClick={claimReferral}
+            >
+              {busy.ref ? "Working…" : "Claim commission"}
+            </button>
+            <div style={{ fontSize: 11.5, color: C.txt3, marginTop: 10, lineHeight: 1.6 }}>
+              Commission comes from the referral budget, not from what your
+              downline earns. Their amount is untouched.
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="sec">15 levels</div>
+            {team.lvBps.map((b, i) => {
+              const lv = i + 1;
+              const open = lv <= team.levels;
+              return (
+                <div className="lvl" key={lv} style={{ opacity: open ? 1 : 0.42 }}>
+                  <div
+                    className="n"
+                    style={{
+                      borderColor: open ? "rgba(233,185,73,.45)" : C.line,
+                      color: open ? C.gold1 : C.txt3,
+                    }}
+                  >
+                    {lv}
+                  </div>
+                  <div className="ad" style={{ fontSize: 12 }}>
+                    {open ? "open" : "needs " + team.lvCond[i] + " directs"}
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: "'JetBrains Mono'",
+                      fontSize: 12.5,
+                      color: open ? C.gold1 : C.txt3,
+                    }}
+                  >
+                    {(b / 100).toFixed(0)}%
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {/* =================== FACTS =================== */}
+      {tab === "facts" && (
+        <>
+          <div className="card" style={{ marginBottom: 12 }}>
+            <div className="sec">Where the OSG comes from</div>
+            <div className="mini-grid">
+              <div className="mini">
+                <div className="k">Daily emission</div>
+                <div className="vv">5,881</div>
+              </div>
+              <div className="mini">
+                <div className="k">To this contract</div>
+                <div className="vv">{fmt(pool.dailyBudget, 2)}</div>
+              </div>
+              <div className="mini">
+                <div className="k">Referral budget</div>
+                <div className="vv">{fmt(team.refBudget, 2)}</div>
+              </div>
+              <div className="mini">
+                <div className="k">Max supply</div>
+                <div className="vv">23,000,000</div>
+              </div>
+            </div>
+            <div style={{ fontSize: 11.5, color: C.txt3, marginTop: 12, lineHeight: 1.6 }}>
+              Capped at 23,000,000 OSG for ever. Nothing is minted outside this
+              schedule.
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="sec">Leaving early</div>
+            <div style={{ fontSize: 12.5, color: C.txt2, lineHeight: 1.7 }}>
+              <b style={{ color: C.txt }}>Withdraw</b> — available once the 2×
+              total is reached. Principal returns in full.
+              <br />
+              <br />
+              <b style={{ color: C.txt }}>Forfeit and withdraw</b> — available
+              any time, including while paused. Principal returns in full;
+              anything accrued but not yet taken is given up.
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 
 function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
   const TIER = 0; // T1
