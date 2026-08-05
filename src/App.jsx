@@ -4354,18 +4354,24 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
   const [blockPulse, setBlockPulse] = useState(0);
   const [blockCount, setBlockCount] = useState(0);
 
+  const miningProviderRef = useRef(null);
+  if (!miningProviderRef.current) {
+    miningProviderRef.current = new FallbackProvider(
+      RPC_URLS.map((u, i) => ({
+        provider: new JsonRpcProvider(u, 137),
+        priority: i + 1,
+        weight: 1,
+        stallTimeout: 900,
+      })),
+      137,
+      { quorum: 1 },
+    );
+  }
+  
+
   const loadRead = useCallback(async () => {
     try {
-      const p = new FallbackProvider(
-  RPC_URLS.map((u, i) => ({
-    provider: new JsonRpcProvider(u, 137),
-    priority: i + 1,
-    weight: 1,
-    stallTimeout: 900,
-  })),
-  137,
-  { quorum: 1 },
-);
+      const p = miningProviderRef.current;
       const mining = new Contract(ADDRESSES.lpMining, LP_MINING_ABI, p);
       const referral = new Contract(ADDRESSES.lpReferral, LP_REFERRAL_ABI, p);
       const lpToken = new Contract(ADDRESSES.lpPair, LP_TOKEN_ABI, p);
