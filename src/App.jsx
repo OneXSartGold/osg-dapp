@@ -3718,21 +3718,24 @@ function Earn({ wallet, ensureReady, showToast }) {
   const [busy, setBusy] = useState({});
 
   const setB = (k, v) => setBusy((b) => ({ ...b, [k]: v }));
-
+  const earnProviderRef = useRef(null);
+  if (!earnProviderRef.current) {
+    earnProviderRef.current = new FallbackProvider(
+      RPC_URLS.map((u, i) => ({
+        provider: new JsonRpcProvider(u, 137),
+        priority: i + 1,
+        weight: 1,
+        stallTimeout: 900,
+      })),
+      137,
+      { quorum: 1 },
+    );
+  }
   /* ---------------- read ---------------- */
   const loadRead = useCallback(async () => {
     try {
-      const p = new FallbackProvider(
-        RPC_URLS.map((u, i) => ({
-          provider: new JsonRpcProvider(u, 137),
-          priority: i + 1,
-          weight: 1,
-          stallTimeout: 900,
-        })),
-        137,
-        { quorum: 1 },
-      );
-
+      const p = earnProviderRef.current;
+     
       const term = new Contract(ADDRESSES.termStaking, TERM_STAKING_ABI, p);
       const ref = new Contract(ADDRESSES.referralV3, REFERRAL_V3_ABI, p);
 
