@@ -8378,10 +8378,7 @@ export default function App() {
     const p = getReadProvider();
     const token = new Contract(ADDRESSES.token, TOKEN_ABI, p);
     const stk = new Contract(ADDRESSES.staking, STAKING_ABI, p);
-    var _lpP = new JsonRpcProvider(
-      "https://polygon-bor-rpc.publicnode.com",
-      137,
-    );
+    
 
     // Read each value INDEPENDENTLY so one failing call
     // (e.g. a staking read reverting for a fresh user) never
@@ -8401,7 +8398,7 @@ export default function App() {
       new Contract(
         "0xA15214B09a9b3E1c821B94fB97d6d3BcA8201Cd2",
         ["function getReserves() view returns (uint112,uint112,uint32)"],
-        _lpP,
+        p,
       )
         .getReserves()
         .catch(function (e) {
@@ -8414,7 +8411,7 @@ export default function App() {
       new Contract(
         "0xA15214B09a9b3E1c821B94fB97d6d3BcA8201Cd2",
         ["function token0() view returns (address)"],
-        _lpP,
+        p,
       )
         .token0()
         .catch(function (e) {
