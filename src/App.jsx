@@ -4335,6 +4335,7 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
     levelOwed: "0",
   });
   const [lpBalance, setLpBalance] = useState("0");
+  const [positions, setPositions] = useState([]);
   const [rankBps, setRankBps] = useState([0, 0, 0, 0, 0]);
   const [osgIn, setOsgIn] = useState("");
   const [osgBal, setOsgBal] = useState(0);
@@ -4410,80 +4411,77 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
         }
       } catch (e) {}
 
-      try {
-        const rb = await Promise.all([
-          referral.rankThresholdBps(1),
-          referral.rankThresholdBps(2),
-          referral.rankThresholdBps(3),
-          referral.rankThresholdBps(4),
-          referral.rankThresholdBps(5),
+      // ---- pool-level reads (v7) ----
+      const [capLp, totLp, capLeft, rateBps, budget, wired, minDep, lifted] =
+        await Promise.all([
+          mining.capacityLp(),
+          mining.totalLp(),
+          mining.capacityLeft(),
+          mining.effectiveRateBps(),
+          mining.getLpMiningDailyBudget(),
+          mining.isWiredForMining(),
+          mining.minDeposit(),
+          mining.termLifted(),
         ]);
-        setRankBps(rb.map((x) => Number(x)));
-      } catch (e) {}
 
-      const [tierData, budget, wired] = await Promise.all([
-        mining.tiers(TIER),
-        mining.getLpMiningDailyBudget(),
-        mining.isWiredForMining(),
-      ]);
-
-      let userLp = "0",
-        pending = "0",
-        fdt = 0,
-        lpBal = "0";
-      let rank = 0,
-        teamLp = "0",
-        recBps = 0,
-        msOwed = "0",
-        lvlOwed = "0";
+      // ---- per-wallet reads (v7 position model) ----
+      let lpBal = "0";
+      let list = [];
+      let totalStakedLp = 0;
+      let totalPending = 0;
 
       if (wallet) {
-        const [ut, pend, fd, bal] = await Promise.all([
-          mining.userTier(wallet, TIER),
-          mining.pendingMiningReward(wallet, TIER),
-          mining.firstDepositTime(wallet),
+        const [bal, count] = await Promise.all([
           lpToken.balanceOf(wallet),
+          mining.positionCount(wallet),
         ]);
-        userLp = f18(ut.lpAmount);
-        pending = f18(pend);
-        fdt = Number(fd);
         lpBal = f18(bal);
 
-        const [rk, tlp, rbps, mso, lvo, msp, lvp] = await Promise.all([
-          referral.getCurrentRank(wallet),
-          referral.teamLiquidityLp(wallet),
-          referral.getRecurringBonusBps(wallet),
-          referral.milestoneBonusOwed(wallet),
-          referral.levelCommissionOwed(wallet),
-          referral.milestoneBonusPaid(wallet),
-          referral.levelCommissionPaid(wallet),
-        ]);
-        rank = Number(rk);
-        teamLp = f18(tlp);
-        recBps = Number(rbps);
-        msOwed = f18(mso > msp ? mso - msp : 0n);
-        lvlOwed = f18(lvo > lvp ? lvo - lvp : 0n);
+        const n = Number(count);
+        for (let i = 0; i < n; i++) {
+          const [pos, pend, lockLeft] = await Promise.all([
+            mining.positions(wallet, i),
+            mining.pendingReward(wallet, i),
+            mining.lockRemaining(wallet, i),
+          ]);
+          if (pos.closed) continue;
+
+          const lpAmt = f18(pos.lpAmount);
+          const pendAmt = f18(pend);
+          const secsLeft = Number(lockLeft);
+          const started = Number(pos.startTime);
+
+          totalStakedLp += Number(lpAmt);
+          totalPending += Number(pendAmt);
+
+          list.push({
+            id: i,
+            lp: lpAmt,
+            osgValue: f18(pos.osgValue),
+            pending: pendAmt,
+            paid: f18(pos.rewardPaid),
+            startTime: started,
+            secsLeft,
+            daysLeft: Math.ceil(secsLeft / 86400),
+            unlocked: secsLeft === 0 || lifted,
+          });
+        }
       }
 
+      setPositions(list);
       setInfo({
-        capacity: f18(tierData.capacityLp),
+        capacity: f18(capLp),
+        filled: f18(totLp),
+        capacityLeft: f18(capLeft),
+        rateBps: Number(rateBps),
         dailyBudget: f18(budget),
-        filled: f18(tierData.totalDepositedLp),
-        active: tierData.active,
-        userLp,
-        pendingReward: pending,
-        firstDepositTime: fdt,
+        minDeposit: f18(minDep),
+        termLifted: lifted,
         isWired: wired,
-      });
-      setRefInfo({
-        rank,
-        teamLiquidity: teamLp,
-        recurringBps: recBps,
-        milestoneOwed: msOwed,
-        levelOwed: lvlOwed,
+        stakedLp: String(totalStakedLp),
+        pendingTotal: String(totalPending),
       });
       setLpBalance(lpBal);
-    } catch (e) {
       console.error("mining load failed", e);
     }
   }, [wallet]);
