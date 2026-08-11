@@ -4407,6 +4407,9 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
             polPerLp: polRes / supply,
             polPerOsg: polRes / osgRes,
             lpUsd: (polRes * pUsd + osgRes * osgUsd) / supply,
+            osgRes,
+            polRes,
+            lpSupply: supply,
           });
         }
       } catch (e) {}
@@ -4735,19 +4738,19 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: C.txt2, padding: "5px 0" }}>
                   <span>You receive</span>
                   <b style={{ color: C.txt, fontFamily: "'JetBrains Mono',monospace" }}>
-                    {(Number(osgIn) / pool.osgPerLp).toFixed(2)} LP
+                    {((Number(osgIn) / pool.osgRes) * pool.lpSupply).toFixed(2)} LP
                   </b>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: C.txt2, padding: "5px 0" }}>
                   <span>Counted as</span>
                   <b style={{ color: C.txt, fontFamily: "'JetBrains Mono',monospace" }}>
-                    {((Number(osgIn) / pool.osgPerLp) * lpW).toFixed(0)} OSG
+                    {((Number(osgIn) / pool.osgRes) * pool.lpSupply * lpW).toFixed(0)} OSG
                   </b>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: C.txt2, padding: "5px 0" }}>
                   <span>Earns daily</span>
                   <b style={{ color: C.green, fontFamily: "'JetBrains Mono',monospace" }}>
-                    {dailyFor(Number(osgIn) / pool.osgPerLp).toFixed(2)} OSG
+                    {dailyFor((Number(osgIn) / pool.osgRes) * pool.lpSupply).toFixed(2)} OSG
                   </b>
                 </div>
               </>
