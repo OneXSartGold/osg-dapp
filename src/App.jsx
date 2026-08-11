@@ -4572,7 +4572,7 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
       }
       const mining = new Contract(ADDRESSES.lpMining, LP_MINING_ABI, signer);
       showToast("2/2 — Depositing…");
-      const tx = await mining.deposit(0, amt);
+      const tx = await mining.deposit(amt);
       await tx.wait();
       showToast("✅ Deposited!");
       setAmount("");
@@ -4599,7 +4599,7 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
     try {
       const amt = parseUnits(String(amount), 18);
       const mining = new Contract(ADDRESSES.lpMining, LP_MINING_ABI, signer);
-      const tx = await mining.withdraw(0, amt);
+      const tx = await mining.withdraw(posId);
       await tx.wait();
       showToast("✅ Withdrawn!");
       setAmount("");
@@ -4617,7 +4617,7 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
     setBusy((b) => ({ ...b, cl: true }));
     try {
       const mining = new Contract(ADDRESSES.lpMining, LP_MINING_ABI, signer);
-      const tx = await mining.claim(0);
+      const tx = await mining.claimAll();
       await tx.wait();
       showToast("💰 Reward claimed!");
       await loadRead();
