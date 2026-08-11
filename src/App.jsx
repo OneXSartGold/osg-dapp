@@ -21,12 +21,12 @@ import {
   QUICKSWAP_URL,
   P2P_ABI,
   LP_MINING_ABI,
-  LP_REFERRAL_ABI,
+  
   LP_TOKEN_ABI,
 PAIR_ABI,
   ROUTER_ABI,
   TERM_STAKING_ABI,
-  REFERRAL_V3_ABI,
+  REFERRAL_V4_ABI,
 } from "./contracts.js";
 import {
   calculateRequiredPOL,
@@ -3743,7 +3743,7 @@ function Earn({ wallet, ensureReady, showToast }) {
       const p = earnProviderRef.current;
      
       const term = new Contract(ADDRESSES.termStaking, TERM_STAKING_ABI, p);
-      const ref = new Contract(ADDRESSES.referralV3, REFERRAL_V3_ABI, p);
+      const ref = new Contract(ADDRESSES.referralV4, REFERRAL_V4_ABI, p);
 
       const [rate, rateMax, tot, bud, minD, isPaused, health, refBud, lvT] =
         await Promise.all([
@@ -3787,7 +3787,7 @@ function Earn({ wallet, ensureReady, showToast }) {
         ref.activeBps(wallet),
         ref.owed(wallet),
         ref.paid(wallet),
-        ref.totalVolume(wallet),
+        ref.volume(wallet),
       ]);
       setOsgBal(f18(bal));
 
@@ -3886,7 +3886,7 @@ function Earn({ wallet, ensureReady, showToast }) {
     setB("ref", true);
     try {
       showToast("Claiming commission…");
-      const ref = new Contract(ADDRESSES.referralV3, REFERRAL_V3_ABI, signer);
+      const ref = new Contract(ADDRESSES.referralV4, REFERRAL_V4_ABI, signer);
       await (await ref.claimMyReferral()).wait();
       showToast("✅ Commission claimed");
       await loadRead();
@@ -4373,7 +4373,7 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
     try {
       const p = miningProviderRef.current;
       const mining = new Contract(ADDRESSES.lpMining, LP_MINING_ABI, p);
-      const referral = new Contract(ADDRESSES.lpReferral, LP_REFERRAL_ABI, p);
+      const referral = null; /* LPReferral v1 retired - Mining rewrite pending */
       const lpToken = new Contract(ADDRESSES.lpPair, LP_TOKEN_ABI, p);
       const pairC = new Contract(ADDRESSES.lpPair, PAIR_ABI, p);
 
