@@ -4412,7 +4412,7 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
       } catch (e) {}
 
       // ---- pool-level reads (v7) ----
-      const [capLp, totLp, capLeft, rateBps, budget, wired, minDep, lifted] =
+      const [capLp, totLp, capLeft, rateBps, budget, wired, minDep, lifted, lpW] =
         await Promise.all([
           mining.capacityLp(),
           mining.totalLp(),
@@ -4421,7 +4421,8 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
           mining.getLpMiningDailyBudget(),
           mining.isWiredForMining(),
           mining.minDeposit(),
-          mining.termLifted(),
+         mining.termLifted(),
+          mining.lpWeight(),
         ]);
 
       // ---- per-wallet reads (v7 position model) ----
@@ -4477,6 +4478,7 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
         dailyBudget: f18(budget),
         minDeposit: f18(minDep),
         termLifted: lifted,
+        lpWeight: f18(lpW),
         isWired: wired,
         stakedLp: String(totalStakedLp),
         pendingTotal: String(totalPending),
