@@ -4584,13 +4584,13 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
     }
   }
 
-  async function doWithdraw() {
+  async function doWithdraw(posId) {
     if (!amount || Number(amount) <= 0) {
       showToast("⚠️ Enter an amount");
       return;
     }
     if (locked) {
-      showToast("⏳ 24h lock active on first deposit");
+      showToast("⏳ This position is still inside its 365-day term");
       return;
     }
     const signer = await ensureReady();
@@ -4628,11 +4628,30 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
     }
   }
 
-  const RANK_LABELS = ["—", "A1", "A2", "A3", "A4", "A5"];
-  const fillPct =
-    Number(info.capacity) > 0
-      ? Math.min(100, (Number(info.filled) / Number(info.capacity)) * 100)
-      : 0;
+  const rateBps = Number(info.rateBps) || 0;
+  const lpW = Number(info.lpWeight) || 0;
+  const capNum = Number(info.capacity) || 0;
+  const fillNum = Number(info.filled) || 0;
+  const fillPct = capNum > 0 ? Math.min(100, (fillNum / capNum) * 100) : 0;
+  const myLp = Number(info.stakedLp) || 0;
+  const myPending = Number(info.pendingTotal) || 0;
+  const minDep = Number(info.minDeposit) || 0;
+  const lpBalNum = Number(lpBalance) || 0;
+
+  // v7 pays lpAmount * lpWeight * rateBps / 10000 per day, capped by the
+  // shared daily budget. Show the rate-based figure and flag the cap.
+  const dailyFor = (lp) => (lp * lpW * rateBps) / 10000;
+  const previewLp = myLp > 0 ? myLp : 100;
+  const previewDaily = dailyFor(previewLp);
+  const poolDemand = dailyFor(fillNum);
+  const budgetNum = Number(info.dailyBudget) || 0;
+  const overBudget = poolDemand > budgetNum && budgetNum > 0;
+
+  const pUsd = typeof polUsd === "number" && polUsd > 0 ? polUsd : 0.077;
+  const osgUsd = pool.polPerOsg > 0 ? pool.polPerOsg * pUsd : 0;
+
+  const fmtDate = (t) =>
+    t ? new Date(t * 1000).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "—";
 
   return (
     <div className="page stag">
@@ -4649,429 +4668,248 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
         <h1 style={{ margin: 0 }}>Mining</h1>
       </div>
 
-      <div className="card" style={{ textAlign: "center" }}>
-        <style>{`
-          @keyframes mnBreathe{0%,100%{opacity:.45}50%{opacity:1}}
-@keyframes mnFlash{
-  0%,80%{box-shadow:0 0 0 0 rgba(64,170,255,0)}
-  90%{box-shadow:0 0 40px 8px rgba(64,170,255,.65),0 0 80px 16px rgba(56,120,255,.25)}
-  100%{box-shadow:0 0 0 0 rgba(64,170,255,0)}
-}
-@keyframes mnSpin3d{
-  0%{transform:rotateY(0deg)}
-  100%{transform:rotateY(360deg)}
-}
-@keyframes mnFall{
-  0%{transform:translateY(-100%)}
-  100%{transform:translateY(100%)}
-}
-.mn-stage{position:relative;width:100%;height:170px;margin:6px auto 4px;border-radius:14px;overflow:hidden;background:#07070c;border:1px solid rgba(255,255,255,.06)}
-.mn-rain{position:absolute;inset:0;opacity:.55;pointer-events:none}
-.mn-col{position:absolute;top:0;width:16px;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:14px;text-align:center;white-space:pre;animation-name:mnFall;animation-timing-function:linear;animation-iteration-count:infinite}
-.mn-vignette{position:absolute;inset:0;background:radial-gradient(50% 55% at 50% 45%,rgba(7,7,12,.9) 0%,rgba(7,7,12,.5) 55%,transparent 78%);pointer-events:none}
-.mn-glow{position:absolute;inset:0;background:radial-gradient(55% 60% at 50% 46%,rgba(56,163,255,.20) 0%,rgba(56,163,255,.05) 45%,transparent 72%);animation:mnBreathe 4.2s ease-in-out infinite;pointer-events:none}
-.mn-blockwrap{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:120px;height:88px;z-index:1}
-.mn-ring{position:absolute;inset:0;border-radius:13px;border:1px solid rgba(90,170,255,.35)}
-.mn-flash{position:absolute;inset:-3px;border-radius:15px;animation:mnFlash 3.6s ease-in-out infinite;pointer-events:none}
-.mn-face{position:absolute;inset:1px;border-radius:12px;background:radial-gradient(70% 70% at 50% 25%,rgba(90,170,255,.15),transparent 60%),linear-gradient(160deg,rgba(255,255,255,.03),rgba(15,15,22,.96));display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;overflow:hidden}
-.mn-coinwrap{width:38px;height:38px;perspective:400px}
-.mn-coin{width:100%;height:100%;position:relative;transform-style:preserve-3d;animation:mnSpin3d 9s linear infinite}
-.mn-coin span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:22px;color:#8FC7FF;filter:drop-shadow(0 0 8px rgba(140,200,255,.6));backface-visibility:hidden}
-.mn-coinname{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;color:#9A9AA8}
-.mn-coinname b{color:#8FC7FF;text-shadow:0 0 8px rgba(140,190,255,.5)}
-        `}</style>
-        <div className="sec">LP Mining — Tier T1</div>
-        <div style={{ fontSize: 11, color: C.txt3, marginBottom: 10 }}>
-          {info.isWired ? "🟢 Live & wired" : "🟡 Not yet wired to RewardPool"}
+      {/* ---------- rate ---------- */}
+      <div className="card">
+        <div className="sec">Paying now</div>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 8, margin: "12px 0 2px" }}>
+          <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 40, fontWeight: 700, letterSpacing: "-.03em", color: C.gold1, lineHeight: 1 }}>
+            {(rateBps / 100).toFixed(2)}
+          </span>
+          <span style={{ fontSize: 14, color: C.txt2 }}>% a day</span>
+        </div>
+        <div style={{ fontSize: 12.5, color: C.txt3, marginTop: 8 }}>
+          {fmt(info.filled, 2)} of {fmt(info.capacity, 0)} LP staked across the pool
+        </div>
+        <div style={{ height: 4, background: "#191921", borderRadius: 3, marginTop: 10, overflow: "hidden" }}>
+          <div style={{ height: "100%", width: fillPct + "%", background: "linear-gradient(90deg,#F7D27A,#e0bd6d)" }} />
+        </div>
+        {overBudget && (
+          <div style={{ fontSize: 11.5, color: C.txt3, lineHeight: 1.55, marginTop: 10 }}>
+            The pool is drawing more than the daily budget, so payouts are being
+            shared down proportionally.
+          </div>
+        )}
+        {!info.isWired && (
+          <div style={{ fontSize: 11.5, color: "#ffb4b4", marginTop: 10 }}>
+            Not wired to the reward pool — rewards are not accruing.
+          </div>
+        )}
+      </div>
+
+      {/* ---------- create LP ---------- */}
+      <div className="card">
+        <div className="sec">Add liquidity</div>
+        <div style={{ fontSize: 12.5, color: C.txt2, lineHeight: 1.6, marginTop: 8 }}>
+          Add OSG and POL together. The LP token lands in your wallet — you never
+          leave the app.
         </div>
 
-        <div className="mn-stage">
-          <div className="mn-rain">
-            {Array.from({ length: 14 }).map((_, i) => (
-              <div
-                key={i}
-                className="mn-col"
-                style={{
-                   left: (i * (100 / 14)) + "%",
-                  animationDuration: 4 + (i % 5) + "s",
-                  animationDelay: -(i * 0.7) + "s",
-                  color: ["#5AA8FF", "#46D08A", "#F7D27A", "#F2675C", "#D07AF2"][i % 5],
-                }}
-              >
-                {Array.from({ length: 22 }).map(() =>
-                  "01OSG$"[Math.floor(Math.random() * 6)]
-                ).join("\n")}
-              </div>
-            ))}
+        <div style={{ background: C.bg2 || "#0c0c12", border: "1px solid " + C.line, borderRadius: 14, padding: 14, marginTop: 14 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: C.txt3 }}>
+            <span>OSG to add</span>
+            <span>Balance {osgBal.toFixed(2)}</span>
           </div>
-          <div className="mn-vignette" />
-          <div className="mn-glow" />
-          <div className="mn-blockwrap" key={blockPulse}>
-            <div className="mn-ring" />
-            <div className="mn-flash" />
-            <div className="mn-face">
-              <div className="mn-coinwrap">
-                <div className="mn-coin">
-                  <span>◆</span>
-                </div>
-              </div>
-              <div className="mn-coinname">◆ <b>OSG</b> COIN</div>
-            </div>
-          </div>
-        </div>
-
-        <div
-          style={{
-            height: 8,
-            borderRadius: 99,
-            background: "#0e0e16",
-            border: "1px solid " + C.line,
-            overflow: "hidden",
-          }}
-        >
-          <div
+          <input
+            value={osgIn}
+            onChange={(e) => setOsgIn(e.target.value.replace(/[^0-9.]/g, ""))}
+            placeholder="0.0"
+            inputMode="decimal"
             style={{
-              height: "100%",
-              width: fillPct + "%",
-              background: "linear-gradient(90deg,#38A3FF,#7ad6ff)",
+              width: "100%", background: "transparent", border: 0, outline: 0,
+              color: C.txt, fontFamily: "'JetBrains Mono',monospace",
+              fontSize: 24, fontWeight: 700, marginTop: 8, letterSpacing: "-.02em",
             }}
           />
         </div>
-        <div style={{ fontSize: 11, color: C.txt3, marginTop: 8 }}>
-          {fmt(info.filled, 2)} / {fmt(info.capacity, 2)} LP filled (
-          {fillPct.toFixed(1)}%)
+
+        {Number(osgIn) > 0 && pool.polPerOsg > 0 && (
+          <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid " + C.line }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: C.txt2, padding: "5px 0" }}>
+              <span>POL needed</span>
+              <b style={{ color: C.txt, fontFamily: "'JetBrains Mono',monospace" }}>
+                {(Number(osgIn) * pool.polPerOsg).toFixed(2)}
+              </b>
+            </div>
+            {pool.osgPerLp > 0 && (
+              <>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: C.txt2, padding: "5px 0" }}>
+                  <span>You receive</span>
+                  <b style={{ color: C.txt, fontFamily: "'JetBrains Mono',monospace" }}>
+                    {((Number(osgIn) * 2) / pool.osgPerLp).toFixed(2)} LP
+                  </b>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: C.txt2, padding: "5px 0" }}>
+                  <span>Counted as</span>
+                  <b style={{ color: C.txt, fontFamily: "'JetBrains Mono',monospace" }}>
+                    {(((Number(osgIn) * 2) / pool.osgPerLp) * lpW).toFixed(0)} OSG
+                  </b>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: C.txt2, padding: "5px 0" }}>
+                  <span>Earns daily</span>
+                  <b style={{ color: C.green, fontFamily: "'JetBrains Mono',monospace" }}>
+                    {dailyFor((Number(osgIn) * 2) / pool.osgPerLp).toFixed(2)} OSG
+                  </b>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        <label style={{ display: "flex", gap: 9, alignItems: "flex-start", marginTop: 14, fontSize: 12, color: C.txt2, lineHeight: 1.5, cursor: "pointer" }}>
+          <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} style={{ marginTop: 2 }} />
+          <span>I understand the value of my LP can go down as well as up.</span>
+        </label>
+
+        <button
+          className="btn-gold"
+          style={{ marginTop: 14 }}
+          disabled={busyLiq || !wallet || !agree || !(Number(osgIn) > 0)}
+          onClick={doAddLiq}
+        >
+          {busyLiq ? <span className="spin" /> : "Add liquidity"}
+        </button>
+        <div style={{ fontSize: 11.5, color: C.txt3, marginTop: 9, lineHeight: 1.55 }}>
+          Keep about 2 POL spare for gas. Slippage 1.5%; unused POL is refunded.
         </div>
       </div>
-      {Number(info.dailyBudget) > 0 && (() => {
-        const dB = Number(info.dailyBudget) || 0;
-        const fl = Number(info.filled) || 0;
-        const cap = Number(info.capacity) || 0;
-        const myLp = Number(info.userLp) || 0;
-        const shownLp = myLp > 0 ? myLp : 100;
-        const denom = myLp > 0 ? fl : fl + 100;
-        const perDay = denom > 0 ? dB * (shownLp / denom) : dB;
-        const atFull = cap > 0 ? dB * (shownLp / cap) : 0;
-        const pUsd = typeof polUsd === "number" && polUsd > 0 ? polUsd : 0.077;
-        const osgUsd = pool.polPerOsg > 0 ? pool.polPerOsg * pUsd : 0;
-        return (
-          <div
-            className="card"
-            style={{
-              marginTop: 14,
-              border: "1px solid rgba(56,189,248,.22)",
-              background: "linear-gradient(160deg,#101725,#0f0f18)",
-            }}
-          >
-            <div style={{ fontSize: 10.5, letterSpacing: ".14em", textTransform: "uppercase", color: C.txt3, fontWeight: 600, marginBottom: 12 }}>
-              Reward rate
-            </div>
 
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "9px 0", borderBottom: "1px solid " + C.line }}>
-              <span style={{ fontSize: 13, color: C.txt2 }}>Shared out each day</span>
-              <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 15, fontWeight: 700, color: C.gold1 }}>
-                {fmt(info.dailyBudget, 3)} OSG
-              </span>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "9px 0" }}>
-              <span style={{ fontSize: 13, color: C.txt2 }}>Tier filled</span>
-              <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 15, fontWeight: 700 }}>
-                {fillPct.toFixed(1)}%
-              </span>
-            </div>
-
-            <div style={{ background: "#0b0f18", border: "1px solid rgba(56,189,248,.25)", borderRadius: 12, padding: 14, marginTop: 10 }}>
-              <div style={{ fontSize: 10.5, letterSpacing: ".1em", textTransform: "uppercase", color: C.txt3, marginBottom: 6 }}>
-                {myLp > 0
-                  ? "Your " + fmt(info.userLp, 2) + " LP earns today"
-                  : "100 LP would earn today"}
-              </div>
-              <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 23, fontWeight: 700, color: C.blue, lineHeight: 1.15 }}>
-                {perDay.toFixed(3)} OSG / day
-              </div>
-              <div style={{ fontSize: 12, color: C.txt3, marginTop: 5 }}>
-                about {(perDay * 30).toFixed(0)} OSG a month
-                {osgUsd > 0 ? " (≈ $" + (perDay * 30 * osgUsd).toFixed(0) + ")" : ""}
-              </div>
-            </div>
-
-            <div style={{ fontSize: 11.5, color: C.txt3, lineHeight: 1.55, marginTop: 11 }}>
-              Not a fixed rate — the daily amount is split across everyone who has
-              deposited, so it falls as more LP comes in. At full capacity
-              {" " + shownLp.toFixed(0)} LP earns about {atFull.toFixed(2)} OSG a day.
-            </div>
-          </div>
-        );
-      })()}
-
-      <div className="stat-grid" style={{ marginTop: 14 }}>
-        <Stat
-          label="Your LP Staked"
-          value={wallet ? fmt(info.userLp, 4) : "—"}
-          sub="LP tokens"
-          accent={C.blue}
-        />
-        <Stat
-          label="Pending Reward"
-          value={wallet ? fmt(info.pendingReward, 4) : "—"}
-          sub="OSG"
-          accent={C.green}
-        />
-        <Stat
-          label="Your LP Balance"
-          value={wallet ? fmt(lpBalance, 4) : "—"}
-          sub="wallet"
-          accent={C.gold2}
-        />
-        <Stat
-          label="Team Rank"
-          value={RANK_LABELS[refInfo.rank] || "—"}
-          sub={"+" + (refInfo.recurringBps / 100).toFixed(2) + "% recurring"}
-          accent={C.purple}
-        />
+      {/* ---------- term notice ---------- */}
+      <div
+        style={{
+          background: "rgba(247,210,122,.05)",
+          border: "1px solid rgba(247,210,122,.2)",
+          borderRadius: 14,
+          padding: "14px 16px",
+          margin: "14px 0",
+          fontSize: 12.5,
+          color: C.txt2,
+          lineHeight: 1.6,
+        }}
+      >
+        <b style={{ color: C.gold1, fontWeight: 600 }}>Locked for 365 days.</b>{" "}
+        Each deposit runs its own year from the day you make it. Reward can be
+        claimed at any time along the way.
       </div>
 
-      <div className="card" style={{ marginTop: 14 }}>
-        <div className="tabs2">
-          {["deposit", "withdraw", "claim"].map((k) => (
-            <button
-              key={k}
-              className={"tab2 " + (tab === k ? "on" : "")}
-              onClick={() => setInnerTab(k)}
+      {/* ---------- stake LP ---------- */}
+      <div className="card">
+        <div className="sec">Stake LP</div>
+        <div style={{ background: C.bg2 || "#0c0c12", border: "1px solid " + C.line, borderRadius: 14, padding: 14, marginTop: 12 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: C.txt3 }}>
+            <span>Amount</span>
+            <span
+              onClick={() => setAmount(String(lpBalNum))}
+              style={{ cursor: "pointer", color: C.gold1 }}
             >
-              {k[0].toUpperCase() + k.slice(1)}
-            </button>
-          ))}
+              Balance {lpBalNum.toFixed(4)} LP
+            </span>
+          </div>
+          <input
+            value={amount}
+            onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
+            placeholder="0.0"
+            inputMode="decimal"
+            style={{
+              width: "100%", background: "transparent", border: 0, outline: 0,
+              color: C.txt, fontFamily: "'JetBrains Mono',monospace",
+              fontSize: 24, fontWeight: 700, marginTop: 8, letterSpacing: "-.02em",
+            }}
+          />
         </div>
 
-        {(tab === "deposit" || tab === "withdraw") && (
-          <div className="field">
-            <div className="row">
-              <label>
-                {tab === "deposit" ? "Amount to Deposit" : "Amount to Withdraw"}
-              </label>
-              <span className="bal">
-                Balance:{" "}
-                {fmt(tab === "deposit" ? lpBalance : info.userLp, 4)} LP
-              </span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <input
-                className="inp"
-                placeholder="0.0"
-                value={amount}
-                inputMode="decimal"
-                onChange={(e) =>
-                  setAmount(e.target.value.replace(/[^0-9.]/g, ""))
-                }
-              />
-              <button
-                className="maxb"
-                onClick={() =>
-                  setAmount(
-                    String(tab === "deposit" ? lpBalance : info.userLp).replace(
-                      /,/g,
-                      "",
-                    ),
-                  )
-                }
-              >
-                MAX
-              </button>
-            </div>
+        {Number(amount) > 0 && lpW > 0 && (
+          <div style={{ fontSize: 12.5, color: C.txt2, marginTop: 12 }}>
+            Counted as{" "}
+            <b style={{ color: C.txt, fontFamily: "'JetBrains Mono',monospace" }}>
+              {(Number(amount) * lpW).toFixed(0)} OSG
+            </b>{" "}
+            — about{" "}
+            <b style={{ color: C.green, fontFamily: "'JetBrains Mono',monospace" }}>
+              {dailyFor(Number(amount)).toFixed(2)} OSG
+            </b>{" "}
+            a day.
           </div>
         )}
 
-        {tab === "deposit" && lpBalance !== null && (
-          <div
-            style={{
-              background: "linear-gradient(160deg,#171426,#12121a)",
-              border: "1px solid rgba(140,90,255,.25)",
-              borderRadius: 16,
-              padding: 16,
-              margin: "0 0 16px",
-            }}
-          >
-            <div style={{ fontSize: 11, letterSpacing: ".14em", textTransform: "uppercase", color: C.txt3, fontWeight: 600, marginBottom: 10 }}>
-              Step 1 · Create LP
-            </div>
-            <div style={{ fontSize: 13.5, lineHeight: 1.55, color: C.txt2, marginBottom: 12 }}>
-              No LP yet? Add OSG and POL together and the LP token lands straight
-              in your wallet — you never leave the app.
-            </div>
-
-            <div style={{ background: "#0d0d14", border: "1px solid rgba(255,255,255,.07)", borderRadius: 12, padding: "13px 14px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: C.txt3, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 7 }}>
-                <span>OSG to add</span>
-                <span>Balance: {osgBal.toFixed(1)} OSG</span>
-              </div>
-              <input
-                value={osgIn}
-                onChange={(e) => setOsgIn(e.target.value)}
-                placeholder="0.0"
-                inputMode="decimal"
-                style={{ width: "100%", background: "transparent", border: 0, outline: 0, color: C.txt, fontFamily: "'JetBrains Mono',monospace", fontSize: 24, fontWeight: 700, padding: 0 }}
-              />
-            </div>
-
-            <div style={{ display: "flex", gap: 7, marginTop: 11 }}>
-              <button
-                className="chip"
-                onClick={() => setOsgIn((100 * pool.osgPerLp).toFixed(2))}
-                style={{ flex: 1, background: "#1b1b26", border: "1px solid rgba(255,255,255,.07)", color: C.txt2, padding: "8px 4px", borderRadius: 9, fontSize: 11.5 }}
-              >
-                For 100 LP
-              </button>
-              <button
-                className="chip"
-                onClick={() => setOsgIn((250 * pool.osgPerLp).toFixed(2))}
-                style={{ flex: 1, background: "#1b1b26", border: "1px solid rgba(255,255,255,.07)", color: C.txt2, padding: "8px 4px", borderRadius: 9, fontSize: 11.5 }}
-              >
-                250 LP · A1
-              </button>
-              <button
-                className="chip"
-                onClick={() => {
-                  const byPol = pool.polPerOsg > 0 ? Math.max(polBal - 2, 0) / pool.polPerOsg : 0;
-                  setOsgIn(Math.min(osgBal, byPol).toFixed(2));
-                }}
-                style={{ flex: 1, background: "#1b1b26", border: "1px solid rgba(255,255,255,.07)", color: C.txt2, padding: "8px 4px", borderRadius: 9, fontSize: 11.5 }}
-              >
-                Max
-              </button>
-            </div>
-
-            {Number(osgIn) > 0 && pool.polPerOsg > 0 && (
-              <div style={{ background: "#0d0d14", border: "1px solid rgba(255,255,255,.07)", borderRadius: 12, padding: "13px 14px", marginTop: 10 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 0" }}>
-                  <span style={{ fontSize: 13, color: C.txt2 }}>POL required</span>
-                  <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 15, fontWeight: 700 }}>
-                    {(Number(osgIn) * pool.polPerOsg).toFixed(2)} POL
-                  </span>
-                </div>
-                <div style={{ height: 1, background: "rgba(255,255,255,.07)", margin: "8px 0" }} />
-                <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 0" }}>
-                  <span style={{ fontSize: 13, color: C.txt2 }}>You receive</span>
-                  <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 19, fontWeight: 700, color: "#8C5AFF" }}>
-                    ≈ {(Number(osgIn) / (pool.osgPerLp || 1)).toFixed(1)} LP
-                  </span>
-                </div>
-              </div>
-            )}
-
-            <div className="note" style={{ margin: "10px 0 0", fontSize: 12.5 }}>
-              Keep about 2 POL spare for gas. Prices move, so the value of your LP
-              moves with them (impermanent loss). Slippage 1.5%; unused POL is refunded.
-            </div>
-
-            <label style={{ display: "flex", gap: 10, alignItems: "flex-start", marginTop: 13, cursor: "pointer" }}>
-              <input
-                type="checkbox"
-                checked={agree}
-                onChange={(e) => setAgree(e.target.checked)}
-                style={{ width: 19, height: 19, margin: "1px 0 0", accentColor: "#8C5AFF", flex: "none" }}
-              />
-              <span style={{ fontSize: 12.5, lineHeight: 1.5, color: C.txt2 }}>
-                I understand the value of my LP can go down as well as up.
-              </span>
-            </label>
-
-            <button
-              className="btn-gold"
-              disabled={busyLiq || !wallet || !agree || !(Number(osgIn) > 0)}
-              onClick={doAddLiq}
-              style={{ marginTop: 13 }}
-            >
-              {busyLiq ? (
-                <span className="spin" />
-              ) : liqStep === 1 ? (
-                "Approve OSG"
-              ) : liqStep === 2 ? (
-                "Add liquidity"
-              ) : (
-                "Add more liquidity"
-              )}
-            </button>
-          </div>
-        )}
-
-        {tab === "deposit" && (
-          <>
-            <div className="note" style={{ margin: "14px 0" }}>
-              ⓘ Minimum deposit 100 LP{pool.lpUsd > 0 ? " (≈ $" + (100 * pool.lpUsd).toFixed(0) + ")" : ""}. First deposit locks withdrawals for
-              24h — after that, deposits and withdrawals are instant.
-            </div>
-            <button
-              className="btn-gold"
-              disabled={busy.dep || !wallet}
-              onClick={doDeposit}
-            >
-              {busy.dep ? <span className="spin" /> : `Deposit ${amount || "0"} LP`}
-            </button>
-          </>
-        )}
-
-        {tab === "withdraw" && (
-          <>
-            {locked && (
-              <div
-                className="note"
-                style={{
-                  margin: "14px 0",
-                  color: C.red,
-                  borderColor: "rgba(242,103,92,.3)",
-                  background: "rgba(242,103,92,.08)",
-                }}
-              >
-                ⏳ 24h lock active — unlocks{" "}
-                {new Date(lockUntil * 1000).toLocaleString()}
-              </div>
-            )}
-            <button
-              className="btn-danger"
-              disabled={busy.wd || !wallet || locked}
-              onClick={doWithdraw}
-              style={{ marginTop: 14 }}
-            >
-              {busy.wd ? (
-                <span className="spin" />
-              ) : (
-                `Withdraw ${amount || "0"} LP`
-              )}
-            </button>
-          </>
-        )}
-
-        {tab === "claim" && (
-          <div style={{ textAlign: "center", padding: "10px 0" }}>
-            <div className="sec">Claimable Mining Reward</div>
-            <div
-              className="mono"
-              style={{
-                fontSize: 34,
-                fontWeight: 600,
-                color: C.green,
-                margin: "8px 0",
-              }}
-            >
-              {fmt(info.pendingReward, 4)}
-            </div>
-            <div style={{ fontSize: 12, color: C.txt3, marginBottom: 14 }}>
-              OSG
-            </div>
-            <button
-              className="btn-gold"
-              disabled={busy.cl || !wallet || Number(info.pendingReward) <= 0}
-              onClick={doClaim}
-            >
-              {busy.cl ? <span className="spin" /> : "Claim Reward"}
-            </button>
-          </div>
-        )}
+        <button
+          className="btn-gold"
+          style={{ marginTop: 14 }}
+          disabled={busy.dep || !wallet || !(Number(amount) > 0) || positions.length >= 5}
+          onClick={doDeposit}
+        >
+          {busy.dep ? <span className="spin" /> : "Stake LP"}
+        </button>
+        <div style={{ fontSize: 11.5, color: C.txt3, marginTop: 9, lineHeight: 1.55 }}>
+          {positions.length >= 5
+            ? "You have 5 open positions — the maximum. Withdraw one before staking again."
+            : "Minimum " + minDep.toFixed(2) + " LP. Up to 5 open positions per wallet."}
+        </div>
       </div>
 
-      
+      {/* ---------- positions ---------- */}
+      <div className="card">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div>
+            <div className="sec">Ready to claim</div>
+            <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 24, fontWeight: 700, marginTop: 7, color: C.green, letterSpacing: "-.02em" }}>
+              {myPending.toFixed(4)}
+            </div>
+          </div>
+          <button
+            className="btn-gold"
+            style={{ width: "auto", padding: "11px 20px", margin: 0, fontSize: 13.5 }}
+            disabled={busy.cl || !wallet || myPending <= 0}
+            onClick={doClaim}
+          >
+            {busy.cl ? <span className="spin" /> : "Claim"}
+          </button>
+        </div>
 
-      
+        <div className="sec" style={{ marginTop: 22 }}>
+          Positions · {positions.length} of 5
+        </div>
+
+        {positions.length === 0 && (
+          <div style={{ textAlign: "center", color: C.txt3, fontSize: 12.5, padding: "22px 10px", lineHeight: 1.7 }}>
+            No LP staked yet.
+            <br />
+            Add liquidity above to open your first position.
+          </div>
+        )}
+
+        {positions.map((p) => {
+          const pct = Math.min(100, ((365 - p.daysLeft) / 365) * 100);
+          return (
+            <div key={p.id} style={{ padding: "15px 0", borderTop: "1px solid " + C.line }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 17, fontWeight: 700, letterSpacing: "-.02em" }}>
+                  {Number(p.lp).toFixed(2)} LP
+                </span>
+                <span style={{ fontSize: 11.5, color: p.unlocked ? C.green : C.txt3 }}>
+                  {p.unlocked ? "Year complete" : p.daysLeft + " days left"}
+                </span>
+              </div>
+              <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 12.5, color: C.txt2, marginTop: 5 }}>
+                {Number(p.pending).toFixed(4)} OSG earned
+              </div>
+              <div style={{ height: 3, background: "#191921", borderRadius: 2, marginTop: 11, overflow: "hidden" }}>
+                <div style={{ height: "100%", width: (p.unlocked ? 100 : pct) + "%", background: C.green, opacity: 0.75 }} />
+              </div>
+              <div style={{ fontSize: 11, color: C.txt3, marginTop: 8 }}>
+                Opened {fmtDate(p.startTime)}
+              </div>
+              <button
+                className="btn-ghost"
+                style={{ marginTop: 12, opacity: p.unlocked ? 1 : 0.35 }}
+                disabled={!p.unlocked || busy.wd || !wallet}
+                onClick={() => doWithdraw(p.id)}
+              >
+                {busy.wd ? <span className="spin" /> : "Withdraw LP"}
+              </button>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
