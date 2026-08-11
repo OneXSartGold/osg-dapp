@@ -4300,7 +4300,7 @@ function Earn({ wallet, ensureReady, showToast }) {
             <div className="sec">Leaving early</div>
             <div style={{ fontSize: 12.5, color: C.txt2, lineHeight: 1.7 }}>
               <b style={{ color: C.txt }}>Withdraw</b> — available once the 2×
-              total is reached. Principal returns in full.
+              total is reached and the position has been open 180 days. Principal returns in full. Once emission ends, both conditions lift and the position opens on its own.
               <br />
               <br />
               <b style={{ color: C.txt }}>Forfeit and withdraw</b> — available
