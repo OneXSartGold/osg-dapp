@@ -4,134 +4,106 @@ pragma solidity 0.8.34;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /*
  * ======================================================================
- *  OSGReferral v3
- *  Category-3 distributor. 15 fixed levels, plus two self-funded
- *  treasury programmes.
- *
- *  Replaces the v2 draft, which was never deployed. v2 split two fixed
- *  POOLS between everyone who qualified, so a level's value depended on
- *  how many others held it and no percentage could honestly be quoted.
- *  This one pays a FIXED percentage of each distribution, so the number
- *  on the screen is the number that arrives.
+ *  OSGReferral v4.1
+ *  Category-3 (Referral) distributor.
  * ======================================================================
  *
- *  WHY A FIXED PERCENTAGE IS SAFE HERE
- *    A percentage of a DEPOSIT would be unbounded -- one 50,000 OSG
- *    deposit at 20% would swallow eight days of the whole Referral
- *    bucket. A percentage of a DISTRIBUTION cannot be, because
- *    distribution is already capped upstream:
+ *  CHANGES FROM v4 (review of 10 Aug 2026)
+ *  ---------------------------------------
+ *  1. refreshRank() is now restricted to the wallet itself or the owner.
+ *     In v4 anyone could call it for anyone, and an empty directs list is
+ *     a valid list, so a stranger could set any wallet's rank to zero for
+ *     the cost of gas. That reset rankSince as well, so the 24-hour hold
+ *     could be restarted indefinitely and the bonus blocked forever.
+ *     Letting a stranger LOWER a rank bought nothing anyway --
+ *     claimTeamBonus() re-proves the rank live before it pays.
  *
- *        Mining bucket (60% split)      3,528.60 OSG/day maximum
- *        x 25% across all fifteen levels  882.15 OSG/day maximum
- *        + Staking's own built-in referral 270.53
- *        ------------------------------------------------
- *                                       1,152.68 of 1,176.20 available
+ *  2. claimTeamBonus() now reverts when the treasury pays nothing. In v4
+ *     the period was marked spent before the transfer and never unwound,
+ *     so a wallet that arrived after the treasury's rolling 30-day
+ *     ceiling was exhausted burned a whole month for zero OSG. Reverting
+ *     is safe here precisely because nothing moved: a revert cannot undo
+ *     a payment that never happened, so the repeated-call drain the
+ *     original ordering guarded against is not reachable. A PARTIAL
+ *     payment still consumes the month -- that part is deliberate.
  *
- *    The ceiling is structural: sources can only ever hand this contract
- *    a share of a number the RewardPool already limits. That is the whole
- *    reason commissions hook onto claims and never onto deposits.
+ *  3. onRewardClaimed() no longer carries whenNotPaused. Sources call it
+ *     inside try/catch, so under v4 a pause did not defer commission, it
+ *     destroyed it silently while downline claims carried on. Pausing is
+ *     meant to stop money leaving, not to erase what people are owed.
+ *     claimMyReferral() still respects the pause, which is where it
+ *     belongs.
  *
- *    MAX_TOTAL_LEVEL_BPS is set at 3,000 rather than the 2,500 in use, so
- *    the levels can be tuned without a redeploy, and levelsSolvent()
- *    reports whether the current table still fits beside everything else
- *    drawing on the bucket.
+ *  4. stakeOf() reads TermStaking and LPMining defensively. A wrong
+ *     address or a renamed function in setWiring() would otherwise
+ *     revert every read path -- refreshRank, claimTeamBonus and
+ *     previewRank all funnel through here -- and brick the whole bonus
+ *     programme. A failed read now contributes zero, which understates a
+ *     rank and never inflates one, matching how a short directs list
+ *     already behaves. stakeWiringHealthy() exists so the mistake is
+ *     visible rather than silent.
  *
- *  NOTHING IS EVER TAKEN FROM A DEPOSITOR
- *    A downline member's own reward is untouched. Commission is minted
- *    separately out of the Referral bucket. Somebody distributed 100 OSG
- *    still receives 100 OSG; their level-4 upline receives 2 OSG as well.
+ *  TWO SEPARATE PROGRAMMES, TWO SEPARATE PURSES
+ *  --------------------------------------------
  *
- *  DEPTH REQUIRES WIDTH
- *    Level N pays only once the user holds N direct referrals, read live
- *    from OSGStaking.users().totalReferrals. Fifteen wallets in a chain
- *    unlock nothing. Combined with Staking's own rules -- a referrer must
- *    hold 100 OSG staked, a direct must have staked at least 10 -- a
- *    fifteen-deep sybil has to fund every referrer in the spine, which is
- *    where the cost actually lands.
+ *  1. LEVEL COMMISSION -- 45% across fifteen levels, paid out of the
+ *     Referral share of emission. Accrues whenever someone downline
+ *     claims a staking or mining reward.
  *
- *  TWO TREASURY PROGRAMMES, BOTH SELF-LIMITING
- *    1. INSTANT   a one-off percentage to the direct referrer when their
- *                 introduction first deposits.
- *    2. GIFT      an achievement bonus once a direct's cumulative deposit
- *                 crosses a threshold, granted in whole steps.
+ *  2. ACHIEVEMENT BONUS -- A1/A2/A3, a flat monthly figure paid out of
+ *     OSGTreasury. Not emission. It has an end date and the treasury has
+ *     a monthly ceiling of its own, so this programme cannot eat into
+ *     what the level commission needs.
  *
- *    Each has its own pool, each can be topped up by anyone at any time,
- *    and each simply STOPS when its pool empties -- the hook skips it and
- *    returns. A deposit is never blocked by an empty treasury, and no
- *    announcement is needed to end a programme that ends itself.
+ *  Keeping the purses apart is the point. A bonus scheme funded from the
+ *  same bucket as the commissions would quietly reduce everybody's
+ *  commission every time someone new qualified.
  *
- *    A shortfall is never a forfeit. Entitlement and payment are tracked
- *    separately, so a bonus cut short by an empty pool stays owed, and
- *    settleInstant()/settleGift() -- both permissionless -- pay it out
- *    once the pool is refilled.
+ *  WHY 45% NEEDED A NEW CONTRACT
+ *  -----------------------------
+ *  v3 has `uint256 public constant MAX_TOTAL_LEVEL_BPS = 3_000`. A
+ *  constant cannot be changed after deployment, and setLevelBps() checks
+ *  against it, so 45% was unreachable there. Everything else here is v3's
+ *  logic with the table widened and the bonus added.
  *
- *    Both pools hold real OSG transferred in, not emission. They cost the
- *    Referral bucket nothing.
+ *  THE TREE IS NOT STORED HERE
+ *  ---------------------------
+ *  Who referred whom lives in OSGStaking and is read live. Nobody
+ *  re-registers, and a team built two years ago counts today exactly as
+ *  it did then. v3 works the same way, and it has been confirmed on
+ *  mainnet: a wallet with five old directs showed five levels open here
+ *  the day the contract went live.
  *
- *    STATE THIS PLAINLY IN ANY MARKETING. These two programmes are NOT
- *    permanent and NOT guaranteed. They last exactly as long as their
- *    pools do, the owner may set either rate to zero, and
- *    withdrawTreasury() can pull unspent OSG back out. That is
- *    appropriate for a promotion funded from the founder's own holdings
- *    rather than from emission -- but describing it as a permanent
- *    benefit would be false, and the on-chain balance is public, so the
- *    day it runs dry is visible to everyone whether or not it is
- *    announced. The level commissions are the durable part; these are
- *    not.
+ *  HOW A RANK IS PROVEN
+ *  --------------------
+ *  A1/A2/A3 need the total staked by a wallet's DIRECT referrals. That
+ *  list can be any length, and walking an unbounded list on-chain is how
+ *  a contract becomes unusable for exactly the people it was meant to
+ *  reward -- the ones with the biggest teams.
  *
- *    Level commission is NEVER held here -- it is minted by RewardPool on
- *    claim -- so nothing the owner does to the treasury can touch it.
+ *  So the caller supplies the list and the contract checks it:
  *
- *    WEIGHTED VOLUME, DELIBERATELY -- AND CAPPED
- *    Both treasury programmes size their bonus from NORMALISED volume,
- *    the same figure the level commissions use, so a source worth 5x an
- *    LP unit pays 5x. That is the correct answer if the weights are
- *    right: 100 LP and 100 OSG are not the same amount of value, and
- *    paying them identically would quietly punish whichever source is
- *    denominated in the larger unit.
+ *    - each address must actually name the caller as its referrer, read
+ *      live from OSGStaking, so the list cannot be padded with strangers
+ *    - the list must be in strictly ascending order, which makes a
+ *      duplicate impossible to slip in and costs one comparison per
+ *      entry rather than a nested loop
  *
- *    The risk is not the design, it is a mis-set weight -- a future
- *    Activity source registered at 50,000 bps would otherwise empty the
- *    instant pool in a handful of deposits. maxInstantPerIntro bounds
- *    exactly that, to a number chosen in advance, so the worst a wrong
- *    weight can do is pay the maximum instead of draining the pot.
+ *  The caller pays the gas for the length of their own list, and a short
+ *  list only ever understates a rank -- never inflates it.
  *
- *    Switching to raw deposit amounts would be the alternative. It is
- *    rejected because it would put two different notions of "volume" in
- *    one contract, and the cap already removes the hazard that motivated
- *    it.
- *
- *  ADMIN-LESS MONEY PATH
- *    Hooks fire automatically, and each user pulls their own balance with
- *    claimMyReferral(). RewardPool's one-distribute-per-block cooldown
- *    resolves itself because separate claimers land in separate blocks.
- *    The owner cannot withhold, redirect or delay a single OSG.
- *
- *    Configuration stays owner-gated on purpose: an open setSource()
- *    would let anyone register a fake contract and mint unlimited
- *    commission. The honest way to decentralise that is to hand ownership
- *    to the TimelockDAO, not to leave it open.
+ *  STAKE MEANS ALL THREE PLACES
+ *  ----------------------------
+ *  A direct's stake is the sum of what they hold in Active Staking, in
+ *  TermStaking and in LP Mining. LP is counted at the OSG valuation that
+ *  LPMining itself froze in at deposit -- deliberately not a live price,
+ *  because a shallow pool makes any live price something an attacker can
+ *  move for the length of one transaction.
  * ======================================================================
  */
-
-interface IOSGRewardPool {
-    function distribute(address user, uint256 amount, uint8 category) external;
-    function distributorType(address) external view returns (uint8);
-    function distributorActive(address) external view returns (bool);
-    function paused() external view returns (bool);
-    function emissionStopped() external view returns (bool);
-    function referralPercent() external view returns (uint256);
-    function getTodayStats() external view returns (
-        uint256 stakingUsedAmt, uint256 miningUsedAmt, uint256 referralUsedAmt,
-        uint256 stakingAvail, uint256 miningAvail, uint256 referralAvail,
-        uint256 dailyBase
-    );
-}
 
 interface IOSGStaking {
     function getReferralChain(address user) external view returns (
@@ -153,499 +125,422 @@ interface IOSGStaking {
     );
 }
 
+interface IOSGRewardPool {
+    function distribute(address user, uint256 amount, uint8 category) external;
+    function distributorType(address) external view returns (uint8);
+    function distributorActive(address) external view returns (bool);
+    function paused() external view returns (bool);
+    function emissionStopped() external view returns (bool);
+    function getTodayStats() external view returns (
+        uint256 stakingUsedAmt, uint256 miningUsedAmt, uint256 referralUsedAmt,
+        uint256 stakingAvail, uint256 miningAvail, uint256 referralAvail,
+        uint256 dailyBase
+    );
+}
+
+interface IOSGTreasury {
+    /// Returns what was actually sent -- may be less than asked, may be
+    /// zero, and never reverts on a shortfall.
+    function spendTeamBonus(address to, uint256 amount) external returns (uint256 paid);
+    function teamBonusAvailable() external view returns (uint256);
+    function endsAt() external view returns (uint256);
+}
+
+interface ITermStaking {
+    function stakedOf(address user) external view returns (uint256);
+}
+
+interface ILPMining {
+    function stakedValueOf(address user) external view returns (uint256);
+}
+
 contract OSGReferral is Ownable, Pausable, ReentrancyGuard {
-    using SafeERC20 for IERC20;
 
     // ====================== CONSTANTS ======================
+
     uint8   public constant CAT_REFERRAL = 3;
     uint256 public constant BPS_DENOM    = 10_000;
-    uint256 public constant LEVEL_COUNT  = 15;
+    uint256 public constant LEVELS       = 15;
 
-    /// Mirrors RewardPool.MAX_SINGLE_ALLOC.
+    /// Ceiling on the sum of the level table. 45% is the intended figure;
+    /// the headroom above it is there so the split can be tuned without
+    /// another deployment, which is the mistake v3 made by setting this
+    /// to exactly what it needed at the time.
+    uint256 public constant MAX_TOTAL_LEVEL_BPS = 6_000;
+
+    /// Mirrors RewardPool.MAX_SINGLE_ALLOC. Confirm against the deployed
+    /// pool before wiring -- a lower figure there makes distribute()
+    /// revert on any claim this contract sizes to its own constant.
     uint256 public constant MAX_SINGLE_ALLOC = 10_000 * 1e18;
 
-    /// Headroom above the 2,500 bps actually in use, so the table can be
-    /// retuned without a redeploy. See levelsSolvent() before raising.
-    uint256 public constant MAX_TOTAL_LEVEL_BPS = 3_000;
+    /// How long a rank must be held before it starts paying, and how long
+    /// between payments.
+    uint256 public constant RANK_HOLD    = 24 hours;
+    uint256 public constant BONUS_PERIOD = 30 days;
 
-    /// A source may be worth at most 5x an LP unit.
-    uint256 public constant MAX_SOURCE_WEIGHT_BPS = 50_000;
+    uint256 public constant MAX_DIRECTS_PER_CALL = 200;
 
-    /// Delay before a RAISE to a live source's weight takes effect.
-    uint256 public constant SOURCE_WEIGHT_DELAY = 72 hours;
+    // ====================== WIRING ======================
 
-    uint256 public constant MAX_INSTANT_BPS = 1_000;   // 10%
-    uint256 public constant MAX_GIFT_BPS    = 2_000;   // 20%
-
-    // ====================== IMMUTABLES ======================
-    IERC20         public immutable osg;
-    IOSGRewardPool public immutable pool;
     IOSGStaking    public immutable staking;
+    IOSGRewardPool public immutable pool;
 
-    // ====================== LEVELS ======================
-    /// Percentage of a downline member's distribution, in bps.
-    /// 5/4/3/2/1 then 1 for the rest = 2,500 bps = 25%.
-    uint256[15] public levelBps = [
-        500, 400, 300, 200, 100,
-        100, 100, 100, 100, 100,
-        100, 100, 100, 100, 100
-    ];
+    IOSGTreasury public treasury;
+    ITermStaking public termStaking;
+    ILPMining    public lpMining;
 
-    /// Direct referrals required before a level pays anything.
-    uint256[15] public levelConditions = [
-        uint256(1), 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
-    ];
+    /// Contracts allowed to report a reward claim. Everything that pays
+    /// OSG out of emission should be here; nothing else should.
+    mapping(address => bool) public isSource;
 
-    // ====================== SOURCES ======================
-    /// Any registered mining/staking contract may drive the hooks.
-    /// Units differ between sources -- LP tokens, OSG, activity points --
-    /// so each carries a weight and volume is recorded normalised.
-    ///
-    /// The weight is an owner-set, publicly readable ratio, NOT a price
-    /// feed. An on-chain OSG price would have to come from the OSG/WPOL
-    /// pair, and that pair is shallow enough to move inside a single
-    /// transaction. A published constant cannot be manipulated by a flash
-    /// loan; it can only be wrong, and wrong is visible and fixable.
-    mapping(address => uint256) public sourceWeightBps;
-    address[] public sources;
-    mapping(address => bool) private _known;
+    // ====================== LEVEL TABLE ======================
 
-    struct PendingWeight { uint256 weightBps; uint256 eta; }
-    mapping(address => PendingWeight) public pendingWeight;
+    /// Commission per level, in bps of the reward being claimed.
+    /// L1 15% · L2 10% · L3 5% · L4 3% · L5 2% · L6-L15 1% each = 45%.
+    uint256[LEVELS] public levelBps;
 
-    // ====================== TREASURY ======================
-    /// Real OSG held here, never emission. Separate pools so an empty
-    /// instant programme cannot starve the gift programme or the reverse.
-    uint256 public instantPool;
-    uint256 public giftPool;
+    /// Direct referrals needed to open each level: one per level.
+    uint256[LEVELS] public levelConditions;
 
-    uint256 public instantBps    = 500;              // 5% to the direct referrer
-    uint256 public giftBps       = 1_000;            // 10% of each completed step
-    uint256 public giftStep      = 1_000 * 1e18;     // granted per 1,000 OSG
-    uint256 public giftMaxPerUser = 100_000 * 1e18;  // lifetime ceiling per referrer
+    uint256 public totalLevelBps;
 
-    /// Absolute ceiling on a single instant bonus, whatever the source or
-    /// its weight. Weights normalise units so that a 5x source genuinely
-    /// pays 5x, which is correct for a level commission funded by
-    /// emission -- but the treasury is a fixed pot of real OSG, and a
-    /// mis-set weight on a future Activity source could otherwise drain
-    /// it in a handful of deposits. This bounds that mistake to a number
-    /// the owner chose in advance.
-    uint256 public maxInstantPerIntro = 500 * 1e18;
+    // ====================== COMMISSION LEDGER ======================
 
-    /// Cumulative deposit volume introduced by each direct, and how much
-    /// of that volume has already been REWARDED.
-    ///
-    /// Volume, not step count. A step count would be re-measured whenever
-    /// giftStep changed: with 1,000 volume rewarded at a step of 1,000,
-    /// dropping the step to 100 would turn one paid step into ten earned
-    /// ones and pay nine more bonuses for volume that had already been
-    /// rewarded once. Volume paid is an absolute quantity and cannot be
-    /// revalued, so a config change reaches only genuinely unpaid
-    /// progress -- which is the intended behaviour.
-    mapping(address => mapping(address => uint256)) public directVolume;
-    mapping(address => mapping(address => uint256)) public giftVolumePaid;
-    mapping(address => uint256) public giftEarned;
-
-    /// Instant bonus is fixed at a wallet's first deposit, then drawn
-    /// down as the pool allows, so a shortfall is never forfeited.
-    mapping(address => uint256) public instantEntitled;
-    mapping(address => uint256) public instantPaid;
-    mapping(address => address) public instantReferrer;
-
-    // ====================== ACCOUNTING ======================
     mapping(address => uint256) public owed;
     mapping(address => uint256) public paid;
-    mapping(address => uint256) public totalVolume;   // lifetime, per user
+
+    /// Reward volume introduced by this wallet's downline. Note that the
+    /// full reward is added at EVERY level that credits, so across a deep
+    /// chain the same OSG is counted more than once. It is a commission
+    /// base, not a team-volume figure -- do not surface it as one.
+    mapping(address => uint256) public volume;
+
+    // ====================== ACHIEVEMENT BONUS ======================
+
+    struct Tier {
+        uint256 directsNeeded;
+        uint256 stakeNeeded;   // OSG, summed over directs
+        uint256 monthlyPayout; // OSG
+    }
+    /// Index 1..3. Index 0 is unused so a rank of 0 can mean "none".
+    Tier[4] public tiers;
+
+    /// When the wallet's current rank was first reached. Reset whenever
+    /// the rank changes, so dropping and re-qualifying restarts the wait.
+    mapping(address => uint256) public rankSince;
+    mapping(address => uint8)   public rankOf;
+    mapping(address => uint256) public lastBonusAt;
+    mapping(address => uint256) public bonusPaidTotal;
 
     // ====================== EVENTS ======================
-    event SourceUpdated(address indexed source, uint256 weightBps);
-    /// Full detail for explorers and analytics: what was distributed, at
-    /// what rate, and what that produced.
-    event ReferralAccrued(
-        address indexed referrer,
-        address indexed from,
-        uint8   level,
-        uint256 rewardAmount,
-        uint256 bps,
-        uint256 commission,
-        uint256 newOwed
-    );
-    event InstantEntitled(address indexed earner, address indexed from, uint256 amount);
-    event InstantPaid(address indexed earner, address indexed from, uint256 amount);
-    event InstantPending(address indexed earner, address indexed from, uint256 shortfall);
-    event GiftPaid(address indexed earner, address indexed from, uint256 steps, uint256 amount);
-    event ReferralPaid(address indexed user, uint256 amount, uint256 remainingOwed);
-    event PayoutDeferred(address indexed user, uint256 owedAmount, string reason);
-    event PayoutCapped(address indexed user, uint256 paidNow, uint256 remaining);
-    event TreasuryFunded(address indexed from, bool isInstant, uint256 amount, uint256 newBalance);
-    event TreasuryExhausted(bool isInstant);
-    event TreasuryTransferFailed(address indexed earner, address indexed from, bool isInstant, bytes reason);
-    event SourceWeightQueued(address indexed source, uint256 oldWeightBps, uint256 newWeightBps, uint256 eta);
-    event SourceWeightCancelled(address indexed source);
-    event SourceWeightExecuted(address indexed source, uint256 oldWeightBps, uint256 newWeightBps);
-    event LevelBpsUpdated(uint256 level, uint256 newBps);
-    event LevelConditionUpdated(uint256 level, uint256 newCondition);
-    event InstantConfigUpdated(uint256 bps, uint256 maxPerIntro);
-    event GiftConfigUpdated(uint256 bps, uint256 step, uint256 maxPerUser);
 
-    error InvalidLevel();
-    error NoOwed();
+    event CommissionAccrued(address indexed earner, address indexed from, uint8 level, uint256 amount);
+    event CommissionPaid(address indexed earner, uint256 amount, uint256 remainingOwed);
+    event PayoutCapped(address indexed earner, uint256 paidNow, uint256 remaining);
 
-    modifier onlySource() {
-        require(sourceWeightBps[msg.sender] > 0, "caller is not a source");
-        _;
-    }
+    event RankUpdated(address indexed user, uint8 oldRank, uint8 newRank, uint256 directVolume);
+    event BonusPaid(address indexed user, uint8 rank, uint256 requested, uint256 received);
+    event BonusShort(address indexed user, uint256 requested, uint256 received);
 
-    constructor(address _osg, address _pool, address _staking, address _owner)
-        Ownable(_owner)
-    {
-        require(_osg.code.length     > 0, "osg not contract");
-        require(_pool.code.length    > 0, "pool not contract");
+    event SourceUpdated(address indexed source, bool allowed);
+    event LevelTableUpdated(uint256 totalBps);
+    event TierUpdated(uint8 rank, uint256 directsNeeded, uint256 stakeNeeded, uint256 monthlyPayout);
+    event WiringUpdated(address treasury, address termStaking, address lpMining);
+
+    // ====================== CONSTRUCTION ======================
+
+    constructor(address _staking, address _pool, address _owner) Ownable(_owner) {
         require(_staking.code.length > 0, "staking not contract");
-        osg     = IERC20(_osg);
-        pool    = IOSGRewardPool(_pool);
+        require(_pool.code.length    > 0, "pool not contract");
+
         staking = IOSGStaking(_staking);
+        pool    = IOSGRewardPool(_pool);
+
+        levelBps = [
+            uint256(1_500), 1_000, 500, 300, 200,
+            100, 100, 100, 100, 100,
+            100, 100, 100, 100, 100
+        ];
+        for (uint256 i = 0; i < LEVELS; i++) {
+            levelConditions[i] = i + 1;
+            totalLevelBps += levelBps[i];
+        }
+        require(totalLevelBps <= MAX_TOTAL_LEVEL_BPS, "level table too rich");
+
+        // A1 / A2 / A3. The payout is a flat 2.5% of the stake each tier
+        // asks for -- 100/4,000, 250/10,000 and 1,250/50,000 all come to
+        // the same rate. What actually discourages splitting one large
+        // team into several small ones is the DIRECTS requirement, not
+        // the rate: reaching A2 five times over costs 75 directs to earn
+        // exactly what one A3 earns on 15. If these figures are ever
+        // retuned via setTier(), keep the rate flat or falling as the
+        // tiers rise -- a lower tier paying a better rate would make
+        // splitting the profitable move.
+        tiers[1] = Tier({ directsNeeded: 10, stakeNeeded:  4_000 * 1e18, monthlyPayout:   100 * 1e18 });
+        tiers[2] = Tier({ directsNeeded: 15, stakeNeeded: 10_000 * 1e18, monthlyPayout:   250 * 1e18 });
+        tiers[3] = Tier({ directsNeeded: 15, stakeNeeded: 50_000 * 1e18, monthlyPayout: 1_250 * 1e18 });
     }
 
-    // ====================== HOOKS ======================
+    // ====================== LEVEL COMMISSION ======================
 
-    /// Called by a source on deposit and withdrawal. Deposits drive the
-    /// two treasury programmes; withdrawals only unwind the bookkeeping.
+    /// Called by a source contract when it pays a reward. Walks up to
+    /// fifteen levels and credits each unlocked one.
     ///
-    /// Deliberately NOT whenNotPaused: if this contract were paused while
-    /// deposits continued, volume would silently drift out of sync with
-    /// the source and could never be reconciled. Pausing stops payouts,
-    /// not bookkeeping.
-    function onLiquidityChange(address depositor, uint256 delta, bool isAdd)
-        external onlySource
-    {
-        if (delta == 0) return;
-
-        uint256 volume = (delta * sourceWeightBps[msg.sender]) / BPS_DENOM;
-        if (volume == 0) return;
-
-        if (!isAdd) {
-            uint256 tv = totalVolume[depositor];
-            totalVolume[depositor] = tv > volume ? tv - volume : 0;
-            return;
-        }
-
-        totalVolume[depositor] += volume;
-
-        (address l1, , , , ) = staking.getReferralChain(depositor);
-        if (l1 == address(0)) return;
-
-        // ---- BOOKKEEPING: main frame, must never be rolled back ----
-        //
-        // These two writes are the record that a deposit happened. If they
-        // shared a frame with the transfers below, a token-side failure
-        // would erase them along with the payment, and that deposit's
-        // volume would be gone for good -- the gift steps it earned could
-        // never be recovered, and an instant entitlement would vanish
-        // before it was ever paid.
-        _recordInstant(l1, depositor, volume);
-        if (giftBps > 0 && giftStep > 0) {
-            directVolume[l1][depositor] += volume;
-        }
-
-        // ---- PAYMENT: outer frame, allowed to fail ----
-        //
-        // safeTransfer() cannot be wrapped in try/catch directly, so a
-        // paused or misbehaving token would otherwise revert somebody's
-        // deposit over a promotional bonus. With the records already
-        // committed above, a failure here costs nothing permanent:
-        // settleInstant()/settleGift() retry it later.
-        try this.payInstantFor(depositor) {
-        } catch (bytes memory reason) {
-            emit TreasuryTransferFailed(l1, depositor, true, reason);
-        }
-        try this.payGiftFor(l1, depositor) {
-        } catch (bytes memory reason) {
-            emit TreasuryTransferFailed(l1, depositor, false, reason);
-        }
-    }
-
-    /// THE MONEY HOOK. Fires after a source has actually delivered a
-    /// reward, with the amount that genuinely landed -- already capped by
-    /// the source against MAX_SINGLE_ALLOC and the live daily budget. A
-    /// commission is therefore never computed on a figure larger than
-    /// what was really paid.
+    /// This only ever writes to `owed`. It never transfers, never touches
+    /// RewardPool, and cannot revert on a payment problem -- because it
+    /// runs inside the downline user's own claim, and a referral-side
+    /// failure must never cost that user their reward. Sources call it
+    /// inside try/catch as well; this is the second layer.
+    ///
+    /// Deliberately NOT whenNotPaused: a pause must stop payouts, not
+    /// erase entitlements. Sources swallow reverts, so a paused accrual
+    /// would vanish without a trace while the downline claim succeeded.
     function onRewardClaimed(address user, uint256 rewardAmount)
-        external onlySource
+        external
     {
-        if (rewardAmount == 0) return;
+        require(isSource[msg.sender], "not a source");
+        if (rewardAmount == 0 || user == address(0)) return;
 
         (address l1, address l2, address l3, address l4, address l5) =
             staking.getReferralChain(user);
-        address[5] memory refs = [l1, l2, l3, l4, l5];
+        address[5] memory head = [l1, l2, l3, l4, l5];
 
         address current = user;
-        for (uint256 i = 0; i < LEVEL_COUNT; i++) {
+        for (uint256 i = 0; i < LEVELS; i++) {
             address ref;
             if (i < 5) {
-                ref = refs[i];
+                ref = head[i];
             } else {
+                // Beyond the fifth, climb one link at a time. Staking
+                // stores every wallet's own referrer, so the chain was
+                // always fifteen deep -- v3 was simply the first to read
+                // past five.
                 (, , , , , , ref, , , , ) = staking.users(current);
             }
             if (ref == address(0)) break;
-
-            uint256 bps = levelBps[i];
-            if (bps > 0 && _levelUnlocked(ref, i)) {
-                uint256 amount = (rewardAmount * bps) / BPS_DENOM;
-                if (amount > 0) {
-                    owed[ref] += amount;
-                    emit ReferralAccrued(
-                        ref, user, uint8(i + 1), rewardAmount, bps, amount, owed[ref]
-                    );
-                }
-            }
-
             current = ref;
+
+            if (!_levelUnlocked(ref, i + 1)) continue;
+
+            uint256 cut = (rewardAmount * levelBps[i]) / BPS_DENOM;
+            if (cut == 0) continue;
+
+            owed[ref]   += cut;
+            volume[ref] += rewardAmount;
+            emit CommissionAccrued(ref, user, uint8(i + 1), cut);
         }
     }
 
-    function _levelUnlocked(address user, uint256 levelIndex) internal view returns (bool) {
-        (, , , , , , , uint256 directRefs, , , ) = staking.users(user);
-        return directRefs >= levelConditions[levelIndex];
-    }
-
-    // ====================== TREASURY PROGRAMMES ======================
-
-    /// BOOKKEEPING ONLY -- no transfer, so this can never revert on a
-    /// token-side failure. The entitlement is fixed the first time a
-    /// wallet deposits and is never recomputed afterwards.
-    function _recordInstant(address referrer, address depositor, uint256 volume) internal {
-        if (instantEntitled[depositor] != 0) return;
-        if (instantBps == 0) return;
-
-        uint256 ent = (volume * instantBps) / BPS_DENOM;
-        if (ent > maxInstantPerIntro) ent = maxInstantPerIntro;
-        if (ent == 0) return;
-
-        instantEntitled[depositor] = ent;
-        instantReferrer[depositor] = referrer;
-        emit InstantEntitled(referrer, depositor, ent);
-    }
-
-    /// PAYMENT ONLY. Draws the entitlement down as the pool allows, so a
-    /// shortfall stays owed rather than being forfeited.
-    function _settleInstant(address depositor) internal {
-        uint256 ent = instantEntitled[depositor];
-        uint256 pd  = instantPaid[depositor];
-        if (ent <= pd) return;
-
-        address referrer = instantReferrer[depositor];
-        if (referrer == address(0)) return;
-
-        uint256 remaining = ent - pd;
-        if (instantPool == 0) {
-            emit TreasuryExhausted(true);
-            return;
-        }
-
-        uint256 amount = remaining > instantPool ? instantPool : remaining;
-        instantPaid[depositor] = pd + amount;
-        instantPool -= amount;
-
-        osg.safeTransfer(referrer, amount);
-        emit InstantPaid(referrer, depositor, amount);
-
-        if (amount < remaining) {
-            emit InstantPending(referrer, depositor, remaining - amount);
-        }
-        if (instantPool == 0) emit TreasuryExhausted(true);
-    }
-
-    function payInstantFor(address depositor) external {
-        require(msg.sender == address(this), "internal only");
-        _settleInstant(depositor);
-    }
-
-    function payGiftFor(address referrer, address depositor) external {
-        require(msg.sender == address(this), "internal only");
-        _settleGift(referrer, depositor);
-    }
-
-    /// Permissionless. Anyone may finish paying a bonus that was cut
-    /// short, and the destination is fixed, so there is nothing to steal
-    /// by calling it.
-    function settleInstant(address depositor) external nonReentrant {
-        _settleInstant(depositor);
-    }
-
-    /// PAYMENT ONLY -- directVolume is recorded in onLiquidityChange's
-    /// own frame, so nothing here can undo it.
-    ///
-    /// Granted in whole steps of giftStep, and only steps that were
-    /// ACTUALLY PAID are recorded. If the pool or the lifetime ceiling
-    /// covers three of five earned steps, only those three are recorded
-    /// as paid volume -- the other two stay owed and are picked up by the
-    /// next deposit or by settleGift().
-    function _settleGift(address referrer, address depositor) internal {
-        if (giftBps == 0 || giftStep == 0) return;
-
-        uint256 perStep = (giftStep * giftBps) / BPS_DENOM;
-        if (perStep == 0) return;
-
-        uint256 total = directVolume[referrer][depositor];
-        uint256 done  = giftVolumePaid[referrer][depositor];
-        if (total <= done) return;
-
-        uint256 steps = (total - done) / giftStep;
-        if (steps == 0) return;
-
-        // Trim by the referrer's lifetime ceiling...
-        uint256 room = giftMaxPerUser > giftEarned[referrer]
-            ? giftMaxPerUser - giftEarned[referrer]
-            : 0;
-        uint256 byRoom = room / perStep;
-        if (byRoom < steps) steps = byRoom;
-
-        // ...then by what the pool can actually cover.
-        uint256 byPool = giftPool / perStep;
-        if (byPool < steps) steps = byPool;
-
-        if (steps == 0) {
-            if (giftPool < perStep) emit TreasuryExhausted(false);
-            return;
-        }
-
-        uint256 amount = steps * perStep;
-
-        giftVolumePaid[referrer][depositor] = done + (steps * giftStep);
-        giftEarned[referrer] += amount;
-        giftPool -= amount;
-
-        osg.safeTransfer(referrer, amount);
-        emit GiftPaid(referrer, depositor, steps, amount);
-
-        if (giftPool < perStep) emit TreasuryExhausted(false);
-    }
-
-    /// Permissionless, for the same reason as settleInstant().
-    function settleGift(address referrer, address depositor) external nonReentrant {
-        _settleGift(referrer, depositor);
-    }
-
-    /// Open to anyone, so a programme can be revived without the owner.
-    function fundInstant(uint256 amount) external nonReentrant {
-        require(amount > 0, "zero amount");
-        osg.safeTransferFrom(msg.sender, address(this), amount);
-        instantPool += amount;
-        emit TreasuryFunded(msg.sender, true, amount, instantPool);
-    }
-
-    function fundGift(uint256 amount) external nonReentrant {
-        require(amount > 0, "zero amount");
-        osg.safeTransferFrom(msg.sender, address(this), amount);
-        giftPool += amount;
-        emit TreasuryFunded(msg.sender, false, amount, giftPool);
-    }
-
-    // ====================== PAYOUT ======================
-
-    function _pay(address user, uint256 want) internal returns (uint256) {
-        uint256 available = owed[user];
-        if (available == 0) return 0;
-
-        uint256 amount = (want == 0 || want > available) ? available : want;
-        if (amount > MAX_SINGLE_ALLOC) amount = MAX_SINGLE_ALLOC;
-
-        ( , , , , , uint256 referralAvail, ) = pool.getTodayStats();
-        if (amount > referralAvail) amount = referralAvail;
-        if (amount == 0) {
-            emit PayoutDeferred(user, available, "no referral budget today");
-            return 0;
-        }
-
-        owed[user] -= amount;
-        paid[user] += amount;
-
-        try pool.distribute(user, amount, CAT_REFERRAL) {
-            emit ReferralPaid(user, amount, owed[user]);
-            if (owed[user] > 0) emit PayoutCapped(user, amount, owed[user]);
-            return amount;
-        } catch Error(string memory reason) {
-            owed[user] += amount;
-            paid[user] -= amount;
-            emit PayoutDeferred(user, owed[user], reason);
-            return 0;
-        } catch {
-            owed[user] += amount;
-            paid[user] -= amount;
-            emit PayoutDeferred(user, owed[user], "low-level revert");
-            return 0;
-        }
-    }
-
-    /// The normal path. Anyone pulls their own balance whenever they like,
-    /// paying their own gas. Unclaimed `owed` is never lost; it waits.
+    /// Take whatever commission has accrued, in chunks if it is large.
     function claimMyReferral() external nonReentrant whenNotPaused {
-        if (owed[msg.sender] == 0) revert NoOwed();
-        _pay(msg.sender, 0);
+        uint256 due = owed[msg.sender];
+        require(due > 0, "nothing owed");
+
+        uint256 payout = due > MAX_SINGLE_ALLOC ? MAX_SINGLE_ALLOC : due;
+        ( , , , , , uint256 referralAvail, ) = pool.getTodayStats();
+        if (payout > referralAvail) payout = referralAvail;
+        require(payout > 0, "no referral budget available today");
+
+        owed[msg.sender] -= payout;
+        paid[msg.sender] += payout;
+
+        pool.distribute(msg.sender, payout, CAT_REFERRAL);
+        emit CommissionPaid(msg.sender, payout, owed[msg.sender]);
+
+        if (owed[msg.sender] > 0) {
+            emit PayoutCapped(msg.sender, payout, owed[msg.sender]);
+        }
     }
 
-    /// Push a payout to someone else. Open rather than owner-gated: funds
-    /// can only ever reach `user`, so a stranger calling this is doing
-    /// that user a favour at their own gas cost.
-    function payReferral(address user) external nonReentrant {
-        if (owed[user] == 0) revert NoOwed();
-        _pay(user, 0);
+    // ====================== ACHIEVEMENT BONUS ======================
+
+    /// Total OSG a wallet holds staked across all three programmes.
+    ///
+    /// Both optional reads are guarded. If either contract is unset, is
+    /// not a contract, or does not answer with a uint256, its share
+    /// counts as zero rather than reverting the whole call. Every rank
+    /// path runs through here, so a single bad setWiring() argument would
+    /// otherwise take the entire bonus programme offline. Understating a
+    /// rank is recoverable; a dead contract is not.
+    function stakeOf(address user) public view returns (uint256 total) {
+        (uint256 activeStake, , , , , , , , , , ) = staking.users(user);
+        total = activeStake;
+
+        if (address(termStaking).code.length > 0) {
+            try termStaking.stakedOf(user) returns (uint256 t) {
+                total += t;
+            } catch {}
+        }
+        if (address(lpMining).code.length > 0) {
+            try lpMining.stakedValueOf(user) returns (uint256 l) {
+                total += l;
+            } catch {}
+        }
     }
 
-    /// Partial payout, for balances above MAX_SINGLE_ALLOC.
-    function payReferralAmount(address user, uint256 amount) external nonReentrant {
-        if (owed[user] == 0) revert NoOwed();
-        _pay(user, amount);
+    /// Sum the stake of a supplied list of directs, after checking every
+    /// entry is genuinely a direct of `user` and that the list holds no
+    /// duplicates.
+    ///
+    /// Ascending order is what rules duplicates out: each address must be
+    /// strictly greater than the one before, so the same wallet cannot
+    /// appear twice and the check costs one comparison per entry instead
+    /// of a nested scan.
+    function _verifiedDirectVolume(address user, address[] calldata directs)
+        internal
+        view
+        returns (uint256 count, uint256 stakeTotal)
+    {
+        require(directs.length <= MAX_DIRECTS_PER_CALL, "too many at once");
+
+        address previous;
+        for (uint256 i = 0; i < directs.length; i++) {
+            address d = directs[i];
+            require(d > previous, "list must ascend, no duplicates");
+            previous = d;
+
+            (, , , , , , address ref, , , , ) = staking.users(d);
+            require(ref == user, "not your direct");
+
+            stakeTotal += stakeOf(d);
+        }
+        count = directs.length;
+    }
+
+    function _rankFor(uint256 directCount, uint256 stakeTotal)
+        internal
+        view
+        returns (uint8 rank)
+    {
+        // Counts down from the top so the highest tier a wallet meets is
+        // the one returned. Written as `r = 3; r > 0; r--` rather than
+        // `r >= 1` because r is unsigned: at r == 0 the decrement would
+        // wrap to 255 and the loop would never end.
+        for (uint8 r = 3; r > 0; r--) {
+            Tier storage t = tiers[r];
+            if (t.monthlyPayout == 0) continue;
+            if (directCount >= t.directsNeeded && stakeTotal >= t.stakeNeeded) {
+                return r;
+            }
+        }
+        return 0;
+    }
+
+    /// Prove -- or re-prove -- a rank.
+    ///
+    /// Restricted to the wallet itself or the owner. It records only what
+    /// the chain already says, so on the face of it anyone could call it
+    /// for anyone; but an empty directs list is a valid list that proves
+    /// a rank of zero, and recording a change resets the 24-hour clock.
+    /// Left open, a stranger could drop any wallet to rank zero the
+    /// moment it refreshed and repeat that indefinitely, blocking the
+    /// bonus for the price of gas. Nothing is lost by closing it:
+    /// claimTeamBonus() re-proves the rank live before paying, so a stale
+    /// high rank in storage cannot be cashed in.
+    ///
+    /// A rank starts its 24-hour clock the moment it is first recorded.
+    /// Changing rank in either direction restarts that clock, so the
+    /// bonus cannot be captured by qualifying for a moment on the day a
+    /// payment is due. Note the corollary: refreshing UPWARD also
+    /// restarts it, so a wallet that is about to collect at its current
+    /// rank should collect first and refresh afterwards.
+    function refreshRank(address user, address[] calldata directs)
+        external
+        whenNotPaused
+    {
+        require(msg.sender == user || msg.sender == owner(), "self or owner only");
+
+        (uint256 count, uint256 stakeTotal) = _verifiedDirectVolume(user, directs);
+        uint8 newRank = _rankFor(count, stakeTotal);
+        uint8 oldRank = rankOf[user];
+
+        if (newRank != oldRank) {
+            rankOf[user] = newRank;
+            rankSince[user] = newRank == 0 ? 0 : block.timestamp;
+            emit RankUpdated(user, oldRank, newRank, stakeTotal);
+        }
+    }
+
+    /// Collect a month's achievement bonus.
+    ///
+    /// The rank is re-proved live inside this call rather than trusted
+    /// from storage -- storage says what was true when refreshRank() last
+    /// ran, which may have been before the team unwound. The recorded
+    /// rank still matters, because it carries the 24-hour clock; this
+    /// call simply refuses to pay a rank that has since stopped being
+    /// true.
+    function claimTeamBonus(address[] calldata directs)
+        external
+        nonReentrant
+        whenNotPaused
+    {
+        require(address(treasury) != address(0), "treasury not set");
+
+        uint8 storedRank = rankOf[msg.sender];
+        require(storedRank > 0, "no rank -- call refreshRank first");
+        require(
+            block.timestamp >= rankSince[msg.sender] + RANK_HOLD,
+            "hold the rank for 24h first"
+        );
+        require(
+            block.timestamp >= lastBonusAt[msg.sender] + BONUS_PERIOD,
+            "already paid this period"
+        );
+
+        (uint256 count, uint256 stakeTotal) = _verifiedDirectVolume(msg.sender, directs);
+        uint8 liveRank = _rankFor(count, stakeTotal);
+        require(liveRank > 0, "rank no longer met");
+
+        // Pay the lower of the two. Someone who has climbed since their
+        // last refresh gets the old figure until they refresh again --
+        // the 24-hour hold belongs to the higher rank too.
+        uint8 payRank = liveRank < storedRank ? liveRank : storedRank;
+        uint256 amount = tiers[payRank].monthlyPayout;
+        require(amount > 0, "tier pays nothing");
+
+        // The period is marked spent BEFORE asking for the money, so a
+        // partial month still counts as a month and a near-empty treasury
+        // cannot be drained by repeated calls inside one period.
+        lastBonusAt[msg.sender] = block.timestamp;
+
+        uint256 received = treasury.spendTeamBonus(msg.sender, amount);
+
+        // Nothing at all is a different case from not enough. The
+        // treasury's rolling 30-day ceiling means late claimants in a
+        // busy period get zero, and under the original ordering they also
+        // forfeited the month. Reverting here is safe precisely because
+        // no OSG moved: there is no payment for the revert to undo, so
+        // the drain this ordering guards against stays out of reach.
+        require(received > 0, "treasury empty this period, try again later");
+
+        bonusPaidTotal[msg.sender] += received;
+
+        emit BonusPaid(msg.sender, payRank, amount, received);
+        if (received < amount) {
+            emit BonusShort(msg.sender, amount, received);
+        }
     }
 
     // ====================== VIEWS ======================
 
-    function referralDailyBudget() public view returns (uint256) {
-        ( , , , , , , uint256 dailyBase) = pool.getTodayStats();
-        return (dailyBase * pool.referralPercent()) / 100;
-    }
-
-    function totalLevelBps() public view returns (uint256 total) {
-        for (uint256 i = 0; i < LEVEL_COUNT; i++) total += levelBps[i];
-    }
-
-    /// Worst case the level table can draw, given the largest daily
-    /// distribution the sources could ever produce. Front-ends and the
-    /// owner should check this BEFORE raising any level.
-    function maxDailyLevelCost(uint256 maxSourceDistribution)
-        external view returns (uint256)
-    {
-        return (maxSourceDistribution * totalLevelBps()) / BPS_DENOM;
-    }
-
-    /// Whether today's budget still covers the table at that volume.
-    /// otherDailyDraw is what else takes from the Referral bucket -- most
-    /// importantly Staking's own built-in referral, ~270.53 OSG/day.
-    function levelsSolvent(uint256 maxSourceDistribution, uint256 otherDailyDraw)
-        external view returns (bool ok, uint256 needed, uint256 budget)
-    {
-        needed = ((maxSourceDistribution * totalLevelBps()) / BPS_DENOM) + otherDailyDraw;
-        budget = referralDailyBudget();
-        ok = needed <= budget;
-    }
-
-    /// How many levels this user currently unlocks. Front-ends should show
-    /// this beside the level table so the condition is never a surprise.
-    function unlockedLevels(address user) external view returns (uint256 n) {
+    function _levelUnlocked(address user, uint256 level) internal view returns (bool) {
+        if (level == 0 || level > LEVELS) return false;
         (, , , , , , , uint256 directRefs, , , ) = staking.users(user);
-        for (uint256 i = 0; i < LEVEL_COUNT; i++) {
+        return directRefs >= levelConditions[level - 1];
+    }
+
+    /// How many levels this wallet currently earns on.
+    function unlockedLevels(address user) public view returns (uint256 n) {
+        (, , , , , , , uint256 directRefs, , , ) = staking.users(user);
+        for (uint256 i = 0; i < LEVELS; i++) {
             if (directRefs >= levelConditions[i]) n = i + 1;
         }
     }
 
-    /// Combined bps this user currently earns across unlocked levels.
+    /// Combined bps this wallet earns across its open levels.
     function activeBps(address user) external view returns (uint256 total) {
-        (, , , , , , , uint256 directRefs, , , ) = staking.users(user);
-        for (uint256 i = 0; i < LEVEL_COUNT; i++) {
-            if (directRefs >= levelConditions[i]) total += levelBps[i];
-        }
+        uint256 n = unlockedLevels(user);
+        for (uint256 i = 0; i < n; i++) total += levelBps[i];
     }
 
     function directReferrals(address user) external view returns (uint256) {
@@ -653,76 +548,58 @@ contract OSGReferral is Ownable, Pausable, ReentrancyGuard {
         return directRefs;
     }
 
-    function getLevelTable()
-        external view returns (uint256[15] memory bps, uint256[15] memory conditions)
-    {
+    function getLevelTable() external view returns (
+        uint256[LEVELS] memory bps,
+        uint256[LEVELS] memory conditions
+    ) {
         return (levelBps, levelConditions);
     }
 
-    /// What a cut-short bonus still owes. Front-ends should surface this
-    /// so a referrer can see the shortfall rather than assume it vanished.
-    function instantPending(address depositor) external view returns (uint256) {
-        uint256 ent = instantEntitled[depositor];
-        uint256 pd  = instantPaid[depositor];
-        return ent > pd ? ent - pd : 0;
-    }
-
-    /// What the pool could actually pay right now, as opposed to what
-    /// has been earned. Front-ends should show BOTH -- "earned" from
-    /// giftPending() and "available" from this -- so a referrer can see
-    /// that a shortfall is waiting on a refill, not lost.
-    function giftPayable(address referrer, address depositor)
-        external view returns (uint256 steps, uint256 amount)
+    /// What a supplied list of directs is worth, without writing anything.
+    /// A front-end calls this to show a rank before asking for a signature.
+    function previewRank(address user, address[] calldata directs)
+        external
+        view
+        returns (uint8 rank, uint256 count, uint256 stakeTotal)
     {
-        if (giftBps == 0 || giftStep == 0) return (0, 0);
-        uint256 perStep = (giftStep * giftBps) / BPS_DENOM;
-        if (perStep == 0) return (0, 0);
-
-        uint256 total = directVolume[referrer][depositor];
-        uint256 done  = giftVolumePaid[referrer][depositor];
-        if (total <= done) return (0, 0);
-        steps = (total - done) / giftStep;
-        if (steps == 0) return (0, 0);
-
-        uint256 room = giftMaxPerUser > giftEarned[referrer]
-            ? giftMaxPerUser - giftEarned[referrer]
-            : 0;
-        uint256 byRoom = room / perStep;
-        if (byRoom < steps) steps = byRoom;
-
-        uint256 byPool = giftPool / perStep;
-        if (byPool < steps) steps = byPool;
-
-        amount = steps * perStep;
+        (count, stakeTotal) = _verifiedDirectVolume(user, directs);
+        rank = _rankFor(count, stakeTotal);
     }
 
-    /// EARNED, ignoring what the pool can currently cover.
-    function giftPending(address referrer, address depositor)
-        external view returns (uint256 steps, uint256 amount)
-    {
-        if (giftBps == 0 || giftStep == 0) return (0, 0);
-        uint256 perStep = (giftStep * giftBps) / BPS_DENOM;
-        if (perStep == 0) return (0, 0);
-        uint256 total = directVolume[referrer][depositor];
-        uint256 done  = giftVolumePaid[referrer][depositor];
-        if (total <= done) return (0, 0);
-        steps  = (total - done) / giftStep;
-        amount = steps * perStep;
+    /// Whether the two optional stake sources actually answer. stakeOf()
+    /// swallows a failure and counts zero, which is the right behaviour
+    /// at runtime and the wrong thing to discover in production -- call
+    /// this once after setWiring() and confirm both come back true.
+    function stakeWiringHealthy() external view returns (bool termOk, bool lpOk) {
+        if (address(termStaking).code.length > 0) {
+            try termStaking.stakedOf(address(this)) returns (uint256) {
+                termOk = true;
+            } catch {}
+        }
+        if (address(lpMining).code.length > 0) {
+            try lpMining.stakedValueOf(address(this)) returns (uint256) {
+                lpOk = true;
+            } catch {}
+        }
     }
 
-    function instantActive() external view returns (bool) {
-        return instantBps > 0 && instantPool > 0;
+    /// Seconds until the recorded rank has been held long enough to pay.
+    function rankHoldRemaining(address user) external view returns (uint256) {
+        if (rankOf[user] == 0) return 0;
+        uint256 readyAt = rankSince[user] + RANK_HOLD;
+        return block.timestamp >= readyAt ? 0 : readyAt - block.timestamp;
     }
 
-    function giftActive() external view returns (bool) {
-        return giftBps > 0 && giftPool > 0;
+    /// Seconds until this wallet's next bonus is due.
+    function bonusCooldownRemaining(address user) external view returns (uint256) {
+        uint256 nextAt = lastBonusAt[user] + BONUS_PERIOD;
+        return block.timestamp >= nextAt ? 0 : nextAt - block.timestamp;
     }
 
-    /// Length of the registry, including sources whose weight is now zero
-    /// -- de-registering leaves the address in place so the array never
-    /// has to be compacted. Read sourceWeightBps() for what is live.
-    function sourceCount() external view returns (uint256) {
-        return sources.length;
+    /// The Referral bucket's budget for today, before anything is spent.
+    function referralDailyBudget() external view returns (uint256) {
+        ( , , , , , uint256 referralAvail, ) = pool.getTodayStats();
+        return referralAvail;
     }
 
     function isWiredForReferral() public view returns (bool) {
@@ -730,154 +607,83 @@ contract OSGReferral is Ownable, Pausable, ReentrancyGuard {
             && pool.distributorActive(address(this));
     }
 
+    /// One call telling the UI why a commission payout would fail now.
     function payoutHealth() external view returns (bool canPayNow, string memory reason) {
-        if (!isWiredForReferral()) return (false, "not registered as category-3 distributor");
+        if (!isWiredForReferral())  return (false, "not registered as category-3 distributor");
         if (paused())               return (false, "referral contract paused");
         if (pool.paused())          return (false, "RewardPool paused");
         if (pool.emissionStopped()) return (false, "emission stopped");
-        if (sources.length == 0)    return (false, "no source registered");
         ( , , , , , uint256 referralAvail, ) = pool.getTodayStats();
         if (referralAvail == 0)     return (false, "daily referral budget exhausted");
         return (true, "ready");
     }
 
-    /// OSG here beyond both treasury pools arrived by mistake.
-    function excessBalance() public view returns (uint256) {
-        uint256 bal      = osg.balanceOf(address(this));
-        uint256 reserved = instantPool + giftPool;
-        return bal > reserved ? bal - reserved : 0;
+    /// And why a bonus payout would fail now.
+    function bonusHealth() external view returns (bool canPayNow, string memory reason) {
+        if (address(treasury) == address(0)) return (false, "treasury not set");
+        if (paused())                        return (false, "referral contract paused");
+        if (block.timestamp >= treasury.endsAt()) return (false, "bonus season ended");
+        if (treasury.teamBonusAvailable() == 0)   return (false, "treasury empty for this period");
+        return (true, "ready");
     }
 
-    // ====================== ADMIN -- SOURCES ======================
+    function version() external pure returns (string memory) {
+        return "OSGReferral v4.1";
+    }
 
-    /// 10000 = 1:1 with an LP unit. Set weightBps to 0 to de-register.
-    ///
-    /// Asymmetric on purpose. Registering a NEW source and switching one
-    /// OFF both take effect immediately -- wiring has to be possible, and
-    /// an emergency stop that waits two days is not an emergency stop.
-    /// CHANGING a live source's weight is the only direction that can
-    /// inflate commission, so it queues for 72 hours and is
-    /// visible on-chain the whole time. Handing ownership to the
-    /// TimelockDAO layers a second delay on top of this one.
-    ///
-    /// Existing volume is NOT rescaled when a weight changes -- rewriting
-    /// history for every user is unbounded work. Set a weight once,
-    /// before a source goes live.
-    function setSource(address src, uint256 weightBps) external onlyOwner {
-        require(src.code.length > 0, "source not contract");
-        require(weightBps <= MAX_SOURCE_WEIGHT_BPS, "weight too high");
+    // ====================== ADMIN ======================
 
-        uint256 current = sourceWeightBps[src];
-        if (current == 0 || weightBps == 0) {
-            _applyWeight(src, weightBps);
-            return;
+    function setSource(address source, bool allowed) external onlyOwner {
+        require(source != address(0), "zero address");
+        isSource[source] = allowed;
+        emit SourceUpdated(source, allowed);
+    }
+
+    function setWiring(address _treasury, address _term, address _lp) external onlyOwner {
+        treasury    = IOSGTreasury(_treasury);
+        termStaking = ITermStaking(_term);
+        lpMining    = ILPMining(_lp);
+        emit WiringUpdated(_treasury, _term, _lp);
+    }
+
+    /// Retune the level table. The sum is checked against a ceiling that
+    /// leaves room above 45%, so a split can be adjusted without another
+    /// deployment.
+    function setLevelBps(uint256[LEVELS] calldata newBps) external onlyOwner {
+        uint256 sum;
+        for (uint256 i = 0; i < LEVELS; i++) sum += newBps[i];
+        require(sum <= MAX_TOTAL_LEVEL_BPS, "level table too rich");
+
+        levelBps = newBps;
+        totalLevelBps = sum;
+        emit LevelTableUpdated(sum);
+    }
+
+    /// Conditions must not fall as the levels rise, and level 1 must ask
+    /// for at least one direct -- a zero there would open the first level
+    /// to every wallet on the chain, including ones that have never
+    /// referred anybody.
+    function setLevelConditions(uint256[LEVELS] calldata newConditions) external onlyOwner {
+        require(newConditions[0] >= 1, "level 1 needs a direct");
+        for (uint256 i = 1; i < LEVELS; i++) {
+            require(newConditions[i] >= newConditions[i - 1], "conditions must not fall");
         }
-
-        uint256 eta = block.timestamp + SOURCE_WEIGHT_DELAY;
-        pendingWeight[src] = PendingWeight(weightBps, eta);
-        emit SourceWeightQueued(src, current, weightBps, eta);
+        levelConditions = newConditions;
     }
 
-    /// Permissionless: the change was announced when it was queued, and
-    /// only the queued value can be applied.
-    function executeSourceWeight(address src) external {
-        PendingWeight memory q = pendingWeight[src];
-        require(q.eta != 0, "nothing queued");
-        require(block.timestamp >= q.eta, "delay not elapsed");
-        uint256 oldWeight = sourceWeightBps[src];
-        delete pendingWeight[src];
-        _applyWeight(src, q.weightBps);
-        emit SourceWeightExecuted(src, oldWeight, q.weightBps);
-    }
-
-    function cancelSourceWeight(address src) external onlyOwner {
-        require(pendingWeight[src].eta != 0, "nothing queued");
-        delete pendingWeight[src];
-        emit SourceWeightCancelled(src);
-    }
-
-    function _applyWeight(address src, uint256 weightBps) internal {
-        if (weightBps > 0 && !_known[src]) {
-            _known[src] = true;
-            sources.push(src);
-        }
-        sourceWeightBps[src] = weightBps;
-        emit SourceUpdated(src, weightBps);
-    }
-
-    // ====================== ADMIN -- LEVELS ======================
-
-    function setLevelBps(uint256 level, uint256 bps) external onlyOwner {
-        if (level >= LEVEL_COUNT) revert InvalidLevel();
-        uint256 newTotal = totalLevelBps() - levelBps[level] + bps;
-        require(newTotal <= MAX_TOTAL_LEVEL_BPS, "exceeds max total level bps");
-        levelBps[level] = bps;
-        emit LevelBpsUpdated(level, bps);
-    }
-
-    function setLevelCondition(uint256 level, uint256 condition) external onlyOwner {
-        if (level >= LEVEL_COUNT) revert InvalidLevel();
-        levelConditions[level] = condition;
-        emit LevelConditionUpdated(level, condition);
-    }
-
-    // ====================== ADMIN -- TREASURY ======================
-
-    /// Applies to FUTURE introductions only. An entitlement is fixed the
-    /// first time a wallet deposits and is never recomputed, so nobody
-    /// already owed a bonus sees it move.
-    function setInstantConfig(uint256 bps, uint256 maxPerIntro) external onlyOwner {
-        require(bps <= MAX_INSTANT_BPS, "exceeds max");
-        instantBps        = bps;
-        maxInstantPerIntro = maxPerIntro;
-        emit InstantConfigUpdated(bps, maxPerIntro);
-    }
-
-    /// Applies to all UNPAID progress, and only to that. Volume already
-    /// rewarded is recorded as volume, not as a step count, so changing
-    /// the step size re-measures what has not been paid for and cannot
-    /// resurrect what has.
-    function setGiftConfig(uint256 bps, uint256 step, uint256 maxPerUser)
-        external onlyOwner
-    {
-        require(bps <= MAX_GIFT_BPS, "exceeds max");
-        require(step > 0, "zero step");
-        giftBps        = bps;
-        giftStep       = step;
-        giftMaxPerUser = maxPerUser;
-        emit GiftConfigUpdated(bps, step, maxPerUser);
-    }
-
-    /// Pull unspent treasury back out. Bounded by the pool balances, so
-    /// this can never reach OSG that is owed to somebody: level
-    /// commission is minted by RewardPool and never held here.
-    function withdrawTreasury(bool isInstant, address to, uint256 amount)
-        external onlyOwner
-    {
-        require(to != address(0) && amount > 0, "bad args");
-        if (isInstant) {
-            require(amount <= instantPool, "exceeds instant pool");
-            instantPool -= amount;
-        } else {
-            require(amount <= giftPool, "exceeds gift pool");
-            giftPool -= amount;
-        }
-        osg.safeTransfer(to, amount);
+    /// Adjust a tier. Existing ranks are re-evaluated on the next
+    /// refreshRank() or claimTeamBonus(), both of which read live.
+    function setTier(
+        uint8 rank,
+        uint256 directsNeeded,
+        uint256 stakeNeeded,
+        uint256 monthlyPayout
+    ) external onlyOwner {
+        require(rank >= 1 && rank <= 3, "rank out of range");
+        tiers[rank] = Tier(directsNeeded, stakeNeeded, monthlyPayout);
+        emit TierUpdated(rank, directsNeeded, stakeNeeded, monthlyPayout);
     }
 
     function pause()   external onlyOwner { _pause(); }
     function unpause() external onlyOwner { _unpause(); }
-
-    /// Anything here beyond the two pools arrived by accident.
-    function rescueToken(address token, address to, uint256 amount) external onlyOwner {
-        require(to != address(0) && amount > 0, "bad args");
-        if (token == address(osg)) {
-            require(amount <= excessBalance(), "would touch treasury");
-        }
-        IERC20(token).safeTransfer(to, amount);
-    }
-
-    function version() external pure returns (string memory) {
-        return "OSGReferral v3";
-    }
 }
