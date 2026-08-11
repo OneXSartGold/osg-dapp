@@ -9,8 +9,18 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /*
  * ======================================================================
- *  OSGTermStaking v1
+ *  OSGTermStaking v2
  *  Category-2 (Mining) distributor. Stake OSG, receive OSG.
+ *
+ *  WHAT CHANGED FROM v1
+ *    Three additions, nothing removed:
+ *      capacity     -- a ceiling on how much principal the contract will
+ *                      take in at all, so the 2x liability it signs up
+ *                      for stays inside what the budget can actually pay.
+ *      LOCK_PERIOD  -- withdraw() also waits out a term, not just the cap.
+ *      stakedOf()   -- one number per wallet, for the referral contract.
+ *    The accumulator, the cap, the settlement path and every exit route
+ *    are byte-for-byte what v1 ran on mainnet.
  * ======================================================================
  *
  *  THE PROMISE, PRECISELY
@@ -155,16 +165,42 @@ contract OSGTermStaking is Ownable, Pausable, ReentrancyGuard {
     uint256 public constant MIN_RATE_BPS = 10;    // 0.1%/day
     uint256 public constant MAX_RATE_BPS = 200;   // 2.0%/day
 
+    /// How long a position must be held before withdraw() will return the
+    /// principal, counted from that position's own deposit.
+    ///
+    /// This is a term, not a trap. forfeitAndWithdraw() stays open the
+    /// whole time and always returns the principal in full -- what the
+    /// lock actually costs someone leaving early is the reward accrued
+    /// and not yet taken, nothing else. Framed the other way round: the
+    /// term is enforced economically, not by holding anyone's money.
+    uint256 public constant LOCK_PERIOD = 180 days;
+
     // ====================== IMMUTABLES ======================
     IERC20         public immutable osg;
     IOSGRewardPool public immutable pool;
 
     // ====================== CONFIG ======================
-    uint256 public maxRateBps     = 50;          // 0.5%/day ceiling
+    uint256 public maxRateBps     = 23;          // ~7%/month ceiling
     uint256 public miningShareBps = 2_000;       // 20% of the Mining bucket
     uint256 public maxShareBps    = 5_000;       // owner ceiling on the above
     uint256 public constant ABSOLUTE_MAX_SHARE_BPS = 9_000;
     uint256 public minDeposit     = 100 * 1e18;
+
+    /// Ceiling on principal held. Reaching it closes NEW deposits only --
+    /// every open position keeps earning and exits normally.
+    ///
+    /// Why it has to exist. Each deposit signs the contract up for 2x its
+    /// own size, payable out of a fixed daily budget. Let principal grow
+    /// without limit and the promised rate cannot hold: the same budget
+    /// spread over more stake simply takes longer, until a newcomer's
+    /// share is too thin to be worth anything and the earliest depositors
+    /// are queueing for years. The ceiling is where that queue is allowed
+    /// to stop.
+    ///
+    /// It only moves up. Lowering it would let an owner freeze out new
+    /// deposits at will, which is a different power from the one this is
+    /// meant to be.
+    uint256 public capacity = 850_000 * 1e18;
 
     /// Separate floor for depositFor(). A community distribution pays in
     /// tiers -- 25 for a stake, 300 for LP -- and the smallest of those
@@ -233,6 +269,7 @@ contract OSGTermStaking is Ownable, Pausable, ReentrancyGuard {
     event ReferralHookFailed(address indexed user, string what, bytes reason);
     event RateUpdated(uint256 newRateBps);
     event MiningShareUpdated(uint256 newShareBps);
+    event CapacityUpdated(uint256 oldCapacity, uint256 newCapacity);
     event MinDepositUpdated(uint256 newMin);
     event MinDepositForUpdated(uint256 newMin);
     event DepositDeadlineUpdated(uint256 newDeadline);
@@ -275,7 +312,24 @@ contract OSGTermStaking is Ownable, Pausable, ReentrancyGuard {
             return;
         }
 
-        uint256 elapsed = block.timestamp - lastRewardTime;
+        // Stop the clock at the end of emission.
+        //
+        // Without this, a settlement run after emission ends would credit
+        // the whole gap since the last one, including time in which there
+        // was nothing to credit from. Nobody could actually be paid it --
+        // RewardPool refuses to distribute once emission is over -- so it
+        // would surface as pending reward that can never be claimed, and
+        // as caps recorded as filled by rewards that were never delivered.
+        // Cheaper to not create the number than to explain it afterwards.
+        uint256 endsAtTs = pool.emissionEndTime();
+        uint256 until = block.timestamp;
+        if (endsAtTs != 0 && until > endsAtTs) until = endsAtTs;
+        if (until <= lastRewardTime) {
+            lastRewardTime = block.timestamp;
+            return;
+        }
+
+        uint256 elapsed = until - lastRewardTime;
         uint256 ideal   = (totalStaked * maxRateBps) / BPS_DENOM;
         uint256 budget  = getTermStakingDailyBudget();
         uint256 daily   = ideal < budget ? ideal : budget;
@@ -392,6 +446,7 @@ contract OSGTermStaking is Ownable, Pausable, ReentrancyGuard {
             "deposits closed"
         );
         require(_openPositions(beneficiary) < MAX_POSITIONS, "position limit reached");
+        require(totalPrincipal + amount <= capacity, "capacity full");
 
         // Settle BEFORE totalStaked moves, or the new principal would be
         // credited with time it was never staked for.
@@ -483,6 +538,72 @@ contract OSGTermStaking is Ownable, Pausable, ReentrancyGuard {
         _notifyRewardClaimed(msg.sender, payout);
     }
 
+    /// Same as withdrawAll(), over a slice of the array.
+    ///
+    /// MAX_POSITIONS caps how many positions a wallet can hold OPEN, not
+    /// how many it has ever held -- closed ones stay in the array as
+    /// history. Someone who has been through a hundred terms would make
+    /// withdrawAll() walk a hundred slots to find the few that matter,
+    /// and eventually that walk costs more than it is worth. This lets
+    /// them work through it in pieces instead. Ordinary users will never
+    /// need it; nobody is ever forced to use it.
+    function withdrawRange(uint256 start, uint256 end) external nonReentrant {
+        uint256 n = positions[msg.sender].length;
+        require(start < end && end <= n, "bad range");
+
+        _trySettle();
+
+        uint256 done;
+        for (uint256 i = start; i < end; i++) {
+            if (_withdrawOne(msg.sender, i)) done++;
+        }
+        require(done > 0, "nothing withdrawable");
+    }
+
+    /// Same as claimAll(), over a slice of the array. See withdrawRange()
+    /// for why a slice is offered at all.
+    function claimRange(uint256 start, uint256 end)
+        external
+        nonReentrant
+        whenNotPaused
+    {
+        uint256 n = positions[msg.sender].length;
+        require(start < end && end <= n, "bad range");
+
+        _settle();
+
+        uint256 owedTotal;
+        for (uint256 i = start; i < end; i++) {
+            _accrue(msg.sender, i);
+            owedTotal += positions[msg.sender][i].unpaid;
+        }
+        require(owedTotal > 0, "nothing to claim");
+
+        uint256 payout = owedTotal > MAX_SINGLE_ALLOC ? MAX_SINGLE_ALLOC : owedTotal;
+        ( , , , , uint256 miningAvail, , ) = pool.getTodayStats();
+        if (payout > miningAvail) payout = miningAvail;
+        require(payout > 0, "no mining budget available today");
+
+        uint256 left = payout;
+        for (uint256 i = start; i < end && left > 0; i++) {
+            Position storage p = positions[msg.sender][i];
+            if (p.unpaid == 0) continue;
+            uint256 take = p.unpaid < left ? p.unpaid : left;
+            p.unpaid     -= take;
+            p.rewardPaid += take;
+            left         -= take;
+            emit Claimed(msg.sender, i, take);
+        }
+
+        pool.distribute(msg.sender, payout, CAT_MINING);
+
+        if (owedTotal > payout) {
+            emit PayoutCapped(msg.sender, type(uint256).max, payout, owedTotal - payout);
+        }
+
+        _notifyRewardClaimed(msg.sender, payout);
+    }
+
     /// L3 + L4: cap by both limits, keep the remainder, never revert on a
     /// pool-side refusal.
     function _payout(address user, uint256 posId) internal {
@@ -542,14 +663,17 @@ contract OSGTermStaking is Ownable, Pausable, ReentrancyGuard {
         if (p.closed) return false;
 
         // Two doors, and the second one opens by itself. Once emission is
-        // over the cap can never be reached -- the budget that would fill
-        // it no longer exists -- so holding principal against that
-        // condition would trap it forever. Every position still open at
-        // that point simply becomes withdrawable, and each owner comes
-        // for theirs whenever they like; the principal sits here
-        // untouched until they do.
-        bool capReached = p.rewardPaid + p.unpaid >= p.cap;
-        if (!capReached && !isEmissionOver()) return false;
+        // over, the cap can never be reached -- the budget that would
+        // fill it no longer exists -- so holding principal against that
+        // condition, or against the term, would trap it forever. Every
+        // position still open at that point simply becomes withdrawable,
+        // and each owner comes for theirs whenever they like; the
+        // principal sits here untouched until they do.
+        if (!isEmissionOver()) {
+            bool capReached = p.rewardPaid + p.unpaid >= p.cap;
+            if (!capReached) return false;
+            if (block.timestamp < p.startTime + LOCK_PERIOD) return false;
+        }
 
         if (p.unpaid > 0) {
             try this._payoutExternal(user, posId) {
@@ -661,8 +785,14 @@ contract OSGTermStaking is Ownable, Pausable, ReentrancyGuard {
         if (p.closed || p.capped) return p.unpaid;
 
         uint256 acc = accRewardPerShare;
-        if (block.timestamp > lastRewardTime && totalStaked > 0) {
-            uint256 elapsed = block.timestamp - lastRewardTime;
+        // Same clock-stop as _settle(), so the view and the settlement
+        // never disagree about what is owed.
+        uint256 endsAtTs = pool.emissionEndTime();
+        uint256 until = block.timestamp;
+        if (endsAtTs != 0 && until > endsAtTs) until = endsAtTs;
+
+        if (until > lastRewardTime && totalStaked > 0) {
+            uint256 elapsed = until - lastRewardTime;
             uint256 ideal   = (totalStaked * maxRateBps) / BPS_DENOM;
             uint256 budget  = getTermStakingDailyBudget();
             uint256 daily   = ideal < budget ? ideal : budget;
@@ -759,6 +889,13 @@ contract OSGTermStaking is Ownable, Pausable, ReentrancyGuard {
         maxShareBps = newMax;
     }
 
+    /// Raise the ceiling on principal. Up only -- see `capacity`.
+    function setCapacity(uint256 newCapacity) external onlyOwner {
+        require(newCapacity > capacity, "capacity can only rise");
+        emit CapacityUpdated(capacity, newCapacity);
+        capacity = newCapacity;
+    }
+
     function setMinDeposit(uint256 newMin) external onlyOwner {
         require(newMin > 0, "zero minimum");
         minDeposit = newMin;
@@ -808,7 +945,42 @@ contract OSGTermStaking is Ownable, Pausable, ReentrancyGuard {
         IERC20(token).safeTransfer(to, amount);
     }
 
+    /// Total principal this wallet is holding here, capped positions
+    /// included. The referral contract reads this to work out a
+    /// referrer's direct volume, so it has to count principal that is
+    /// still deposited but no longer earning -- someone whose position
+    /// filled its cap yesterday has not stopped being staked.
+    function stakedOf(address user) external view returns (uint256 total) {
+        Position[] storage list = positions[user];
+        uint256 n = list.length;
+        for (uint256 i = 0; i < n; i++) {
+            if (!list[i].closed) total += list[i].amount;
+        }
+    }
+
+    /// How many positions this wallet has ever held, open and closed.
+    /// A front-end pages through withdrawRange/claimRange with this.
+    function positionsLength(address user) external view returns (uint256) {
+        return positions[user].length;
+    }
+
+    /// Principal the contract will still accept before deposits close.
+    function capacityLeft() external view returns (uint256) {
+        return capacity > totalPrincipal ? capacity - totalPrincipal : 0;
+    }
+
+    /// Seconds until this position's term is up; zero once it has passed.
+    function lockRemaining(address user, uint256 posId)
+        external
+        view
+        returns (uint256)
+    {
+        require(posId < positions[user].length, "bad posId");
+        uint256 unlockAt = positions[user][posId].startTime + LOCK_PERIOD;
+        return block.timestamp >= unlockAt ? 0 : unlockAt - block.timestamp;
+    }
+
     function version() external pure returns (string memory) {
-        return "OSGTermStaking v1";
+        return "OSGTermStaking v2";
     }
 }
