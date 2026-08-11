@@ -352,3 +352,64 @@ export const LP_MINING_ABI = [
 // QuickSwap swap link
 export const QUICKSWAP_URL =
   "https://quickswap.exchange/#/swap?outputCurrency=" + ADDRESSES.token;
+/* ======================================================================
+   REFERRAL_V4_ABI  --  OSGReferral v4.1
+   0x82cfA8CB35176BAC5d9d2Ec791Aa22B33AbAA381  (deployed 11 Aug 2026)
+
+   Human-readable subset. Only what the DApp actually calls.
+   Full 15-level structure; getLevelTable returns two fixed uint256[15]
+   arrays (bps, conditions).
+
+   Renamed from v3: totalVolume(address) is now volume(address).
+   New in v4.1: rank / team-bonus views, previewRank, claimTeamBonus,
+   refreshRank, stakeWiringHealthy.
+   ====================================================================== */
+export const REFERRAL_V4_ABI = [
+  /* ---- budget & health ---- */
+  "function referralDailyBudget() view returns (uint256)",
+  "function payoutHealth() view returns (bool canPayNow, string reason)",
+  "function bonusHealth() view returns (bool canPayNow, string reason)",
+  "function isWiredForReferral() view returns (bool)",
+  "function stakeWiringHealthy() view returns (bool termOk, bool lpOk)",
+  "function paused() view returns (bool)",
+  "function version() pure returns (string)",
+
+  /* ---- level structure ---- */
+  "function getLevelTable() view returns (uint256[15] bps, uint256[15] conditions)",
+  "function totalLevelBps() view returns (uint256)",
+  "function LEVELS() view returns (uint256)",
+
+  /* ---- per-user level commission ---- */
+  "function directReferrals(address user) view returns (uint256)",
+  "function unlockedLevels(address user) view returns (uint256 n)",
+  "function activeBps(address user) view returns (uint256 total)",
+  "function owed(address) view returns (uint256)",
+  "function paid(address) view returns (uint256)",
+  "function volume(address) view returns (uint256)",
+  "function stakeOf(address user) view returns (uint256 total)",
+
+  /* ---- rank & team bonus ---- */
+  "function rankOf(address) view returns (uint8)",
+  "function rankSince(address) view returns (uint256)",
+  "function rankHoldRemaining(address user) view returns (uint256)",
+  "function bonusPaidTotal(address) view returns (uint256)",
+  "function lastBonusAt(address) view returns (uint256)",
+  "function bonusCooldownRemaining(address user) view returns (uint256)",
+  "function tiers(uint256) view returns (uint256 directsNeeded, uint256 stakeNeeded, uint256 monthlyPayout)",
+  "function previewRank(address user, address[] directs) view returns (uint8 rank, uint256 count, uint256 stakeTotal)",
+  "function BONUS_PERIOD() view returns (uint256)",
+  "function RANK_HOLD() view returns (uint256)",
+
+  /* ---- writes ---- */
+  "function claimMyReferral()",
+  "function claimTeamBonus(address[] directs)",
+  "function refreshRank(address user, address[] directs)",
+
+  /* ---- events ---- */
+  "event CommissionAccrued(address indexed earner, address indexed from, uint8 level, uint256 amount)",
+  "event CommissionPaid(address indexed earner, uint256 amount, uint256 remainingOwed)",
+  "event PayoutCapped(address indexed earner, uint256 paidNow, uint256 remaining)",
+  "event RankUpdated(address indexed user, uint8 oldRank, uint8 newRank, uint256 directVolume)",
+  "event BonusPaid(address indexed user, uint8 rank, uint256 requested, uint256 received)",
+  "event BonusShort(address indexed user, uint256 requested, uint256 received)",
+];
