@@ -4482,6 +4482,7 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
         pendingTotal: String(totalPending),
       });
       setLpBalance(lpBal);
+    } catch (e) {
       console.error("mining load failed", e);
     }
   }, [wallet]);
