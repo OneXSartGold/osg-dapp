@@ -4506,16 +4506,17 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
       mining = new Contract(ADDRESSES.lpMining, LP_MINING_ABI, p);
       const onEvt = () => { setBlockPulse(Date.now()); setBlockCount((c) => c + 1); };
       mining.on("Deposited", onEvt);
-      mining.on("MiningClaimed", onEvt);
+      mining.on("Claimed", onEvt);
       return () => {
         mining.off("Deposited", onEvt);
-        mining.off("MiningClaimed", onEvt);
+        mining.off("Claimed", onEvt);
       };
     } catch (e) {}
   }, []);
 
   const nowSec = Math.floor(Date.now() / 1000);
-  const lockUntil = info.firstDepositTime
+  const lockUntil = 0; // v7: lock is per-position, checked on each position
+  const unusedLockBase = info.firstDepositTime
     ? info.firstDepositTime + 24 * 3600
     : 0;
   const locked = lockUntil > nowSec;
