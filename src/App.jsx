@@ -8123,7 +8123,7 @@ export default function App() {
       showToast("⚠️ " + t.tInstall);
       return null;
     }
-    if (!providerRef.current)
+    // always fresh: a cached provider goes stale in in-app browsers
       providerRef.current = new BrowserProvider(window.ethereum);
     return providerRef.current;
   };
