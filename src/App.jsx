@@ -2328,14 +2328,15 @@ function Referral({ wallet, data, showToast, getProvider, t }) {
           return a && a !== ZERO;
         });
         const levels = [];
-        for (let lvl = 0; lvl < 5; lvl++) {
+        const ref = new Contract(ADDRESSES.referralV4, REFERRAL_V4_ABI, p);
+for (let lvl = 0; lvl < 15; lvl++) {
           if (currentLevel.length === 0) {
             levels.push({ count: 0, staked: 0n, active: 0 });
             continue;
           }
           const infos = await Promise.all(
             currentLevel.map(function (addr) {
-              return stk.getUserStakingInfo(addr).catch(function () {
+              return ref.stakeOf(addr).catch(function () {
                 return null;
               });
             }),
@@ -2344,8 +2345,8 @@ function Referral({ wallet, data, showToast, getProvider, t }) {
             active = 0;
           infos.forEach(function (info) {
             if (info) {
-              staked += info.staked;
-              if (info.staked > 0n) active++;
+              staked += info;
+              if (info > 0n) active++;
             }
           });
           levels.push({
@@ -2376,8 +2377,8 @@ function Referral({ wallet, data, showToast, getProvider, t }) {
   }, [wallet, getProvider, data.directReferrals]);
   const r = data.referralInfo,
     chain = data.referralChain;
-  const labels = ["L1", "L2", "L3", "L4", "L5"],
-    colors = [C.gold1, "#C0C0C0", "#CD7F32", C.green, C.blue];
+  const labels = ["L1","L2","L3","L4","L5","L6","L7","L8","L9","L10","L11","L12","L13","L14","L15"],
+    colors = [C.gold1,"#C0C0C0","#CD7F32",C.green,C.blue,C.gold1,"#C0C0C0","#CD7F32",C.green,C.blue,C.gold1,"#C0C0C0","#CD7F32",C.green,C.blue];
   return (
     <div className="page stag">
       <div className="page-head">
@@ -2469,7 +2470,7 @@ function Referral({ wallet, data, showToast, getProvider, t }) {
                     return s + l.count;
                   }, 0),
                 )}
-                sub={t.allLevels || "5 Levels"}
+                sub={t.allLevels || "15 Levels"}
                 accent={C.green}
               />
               <Stat
