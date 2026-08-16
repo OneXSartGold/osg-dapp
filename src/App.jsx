@@ -8499,7 +8499,7 @@ export default function App() {
         } else if (m.toLowerCase().indexOf("no reward") !== -1) {
           showToast("ℹ️ " + (t.tNoReward || "No claimable reward right now."));
         } else {
-          showToast("❌ " + (JSON.stringify(e?.info || e?.error || { m: m }).slice(0, 160) || t.tClaimFail));
+          showToast(m.indexOf("reverted") !== -1 || m.indexOf("cap exceeded") !== -1 ? "⏳ Daily staking budget is used up. Your reward is safe — try again tomorrow." : "❌ " + (m || t.tClaimFail));
         }
         await loadData(wallet);
       } finally {
