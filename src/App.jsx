@@ -8147,7 +8147,7 @@ export default function App() {
     }
     const p = getProvider();
     if (!p) return null;
-    return await p.getSigner();
+    try { return await p.getSigner(); } catch (e) { showToast("❌ signer: " + JSON.stringify(e?.info || e?.error || { m: e?.shortMessage || String(e) }).slice(0, 160)); return null; }
   };
 
   const loadData = useCallback(async (account) => {
@@ -8499,7 +8499,7 @@ export default function App() {
         } else if (m.toLowerCase().indexOf("no reward") !== -1) {
           showToast("ℹ️ " + (t.tNoReward || "No claimable reward right now."));
         } else {
-          showToast("❌ " + (m || t.tClaimFail));
+          showToast("❌ " + (JSON.stringify(e?.info || e?.error || { m: m }).slice(0, 160) || t.tClaimFail));
         }
         await loadData(wallet);
       } finally {
