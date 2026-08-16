@@ -8499,7 +8499,7 @@ export default function App() {
         } else if (m.toLowerCase().indexOf("no reward") !== -1) {
           showToast("ℹ️ " + (t.tNoReward || "No claimable reward right now."));
         } else {
-          showToast("❌ " + (m || t.tClaimFail));
+          showToast("❌ " + (JSON.stringify(e?.info || e?.error || {}).slice(0, 180) || m || t.tClaimFail));
         }
         await loadData(wallet);
       } finally {
