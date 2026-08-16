@@ -4112,7 +4112,7 @@ function Earn({ wallet, ensureReady, showToast }) {
                   </button>
                 </div>
 
-                {!r.closed && (
+                {false && (
                   <button
                     className="btn-danger"
                     style={{ marginTop: 8, fontSize: 12.5 }}
@@ -4312,7 +4312,7 @@ function Earn({ wallet, ensureReady, showToast }) {
               <br />
               <br />
               <b style={{ color: C.txt }}>Forfeit and withdraw</b> — available
-              any time, including while paused. Principal returns in full;
+              on-chain at any time, but no longer as a button here — it must be called directly on the contract through Polygonscan. Principal returns in full;
               anything accrued but not yet taken is given up.
             </div>
           </div>
