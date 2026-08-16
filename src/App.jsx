@@ -3795,9 +3795,11 @@ function Earn({ wallet, ensureReady, showToast }) {
       const cnt = Number(n);
       const list = [];
       for (let i = 0; i < cnt; i++) {
-        const [pos, pend] = await Promise.all([
+        const [pos, pend, lockLeft, emiOver] = await Promise.all([
           term.positions(wallet, i),
           term.pendingReward(wallet, i),
+          term.lockRemaining(wallet, i).catch(function () { return 0n; }),
+          term.isEmissionOver().catch(function () { return false; }),
         ]);
         const amt = Number(f18(pos.amount));
         const pd = Number(f18(pend));
@@ -3809,6 +3811,8 @@ function Earn({ wallet, ensureReady, showToast }) {
           paid: Number(f18(pos.rewardPaid)),
           pend: pd,
           capped: pos.capped,
+          lockLeft: Number(lockLeft),
+          emiOver: emiOver,
           closed: pos.closed,
         });
       }
@@ -4074,6 +4078,9 @@ function Earn({ wallet, ensureReady, showToast }) {
                   <span>received {fmt(got, 2)}</span>
                   <span>left {fmt(Math.max(0, r.cap - got), 2)}</span>
                 </div>
+                <div style={{ fontSize: 10.5, color: r.lockLeft > 0 ? C.gold1 : C.green, fontFamily: "'JetBrains Mono'", marginTop: 6 }}>
+                  {r.emiOver ? "Emission over - withdraw is open" : r.lockLeft > 0 ? Math.ceil(r.lockLeft / 86400) + " days of the 180-day term left" : "180-day term complete"}
+                </div>
 
                 <div className="mini-grid" style={{ marginTop: 12 }}>
                   <div className="mini">
@@ -4098,7 +4105,7 @@ function Earn({ wallet, ensureReady, showToast }) {
                   </button>
                   <button
                     className="btn-ghost"
-                    disabled={!r.capped || r.closed || busy["w" + r.id]}
+                    disabled={r.closed || busy["w" + r.id] || !(r.emiOver || ((r.capped || r.paid + r.pend >= r.cap) && r.lockLeft === 0))}
                     onClick={() => runTerm("withdraw", r.id, "w" + r.id, "Withdrawing")}
                   >
                     {busy["w" + r.id] ? "…" : "Withdraw"}
