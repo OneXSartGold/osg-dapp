@@ -8464,7 +8464,7 @@ export default function App() {
         showToast("1/2 — " + (t.tClaimStep1 || "Moving reward to pool..."));
         const stk = new Contract(ADDRESSES.staking, STAKING_ABI, signer);
         try {
-          const tx1 = await stk.claimReward();
+          const tx1 = await stk.claimReward({ gasLimit: 500000 });
           await tx1.wait();
         } catch (e1) {
           // "No rewards" here is OK if storage already holds a balance — keep going.
@@ -8478,7 +8478,7 @@ export default function App() {
         // ── STEP 2: RewardPool.claim() — mints up to 500 OSG from storage to wallet ──
         showToast("2/2 — " + (t.tClaimStep2 || "Minting OSG to wallet..."));
         const pool = new Contract(ADDRESSES.pool, POOL_ABI, signer);
-        const tx2 = await pool.claim();
+        const tx2 = await pool.claim({ gasLimit: 600000 });
         await tx2.wait();
 
         showToast("💰 " + t.tClaimed);
