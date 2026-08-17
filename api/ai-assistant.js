@@ -273,7 +273,12 @@ export default async function handler(req, res) {
     ];
 
     const groqRes = await callGroq({
-      model: "llama-3.3-70b-versatile",
+      // Groq retired llama-3.3-70b-versatile (announced 17 Jun 2026). Every
+      // request began failing with model_decommissioned, which the UI shows
+      // as "Sorry, I couldn't get a response right now" for any message at
+      // all -- even "hi" -- because the model is rejected before the prompt
+      // is ever read. gpt-oss-120b is Groq's own recommended replacement.
+      model: "openai/gpt-oss-120b",
       messages,
       temperature: 0.2, // factual assistant — keep low to reduce hallucination
       max_tokens: 800, // headroom for LP Mining/Whitepaper/Marathi answers
