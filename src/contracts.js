@@ -45,6 +45,14 @@ export const ADDRESSES = {
   lpMining: "0x4bFad548efD22e2fE75bBC77B6114380f8EF1bA3",
   referralV4: "0x82cfA8CB35176BAC5d9d2Ec791Aa22B33AbAA381",
 
+  // -- Referral v4.2 set (deployed 17 Aug 2026) --
+  // The ledger holds the money and the rules; the two lenses hold the
+  // views and can be redeployed without touching a single balance.
+  // referralV4 above stays live until Term and LP are pointed here.
+  referralV42:    "0xeaB8a38660EB1556d5F7e52f48E407589B11437c",
+  referralLens:   "0x96DFFE76805A79A84776C17369ff4F447689ED37",
+  referralHealth: "0x909987447758C300C537d5a5CB25b1Ec2b7146cb",
+
   // -- Retired. Empty, unwired, kept only so old links resolve. --
   // termStakingV1: "0x9432B8C2B67C4c86c26EdB98893611013FAdF562",
   // lpMiningV6:    "0xb0510d6f707dF47fE7427732D5507290D847b736",
@@ -412,4 +420,121 @@ export const REFERRAL_V4_ABI = [
   "event RankUpdated(address indexed user, uint8 oldRank, uint8 newRank, uint256 directVolume)",
   "event BonusPaid(address indexed user, uint8 rank, uint256 requested, uint256 received)",
   "event BonusShort(address indexed user, uint256 requested, uint256 received)",
+];
+
+/* =====================================================================
+ *  REFERRAL v4.2 — three contracts
+ * =====================================================================
+ *  Do NOT point REFERRAL_V4_ABI at referralV42. Seven of its entries no
+ *  longer exist on the ledger: stakeWiringHealthy, getLevelTable,
+ *  unlockedLevels, activeBps, payoutHealth, bonusHealth, previewRank and
+ *  referralDailyBudget all moved to the lens contracts, several with
+ *  different arguments. Calling them on the ledger reverts.
+ *
+ *  Which contract to ask:
+ *    ledger  -> writes, balances, the tree
+ *    lens    -> team screens: upline, downline, per-level detail
+ *    health  -> why a button would fail, rank previews, wiring
+ * ===================================================================== */
+
+export const REFERRAL_V42_ABI = [
+  /* ---- the tree ---- */
+  "function referrerOf(address user) view returns (address)",
+  "function nativeReferrer(address) view returns (address)",
+  "function registeredAt(address) view returns (uint256)",
+  "function directReferrals(address user) view returns (uint256)",
+  "function registeredDirects(address) view returns (uint256)",
+  "function nativeDirects(address) view returns (uint256)",
+  "function directCounted(address) view returns (bool)",
+  "function childrenOf(address user) view returns (address[])",
+  "function childrenCount(address user) view returns (uint256)",
+  "function childrenSlice(address user, uint256 offset, uint256 limit) view returns (address[] page, uint256 total)",
+
+  /* ---- stake ---- */
+  "function stakeOf(address user) view returns (uint256 total)",
+  "function qualifyingStakeOf(address user) view returns (uint256 total)",
+  "function minDirectStake() view returns (uint256)",
+  "function minReferrerStake() view returns (uint256)",
+
+  /* ---- level commission ---- */
+  "function owed(address) view returns (uint256)",
+  "function paid(address) view returns (uint256)",
+  "function volume(address) view returns (uint256)",
+  "function levelBps(uint256) view returns (uint256)",
+  "function levelConditions(uint256) view returns (uint256)",
+  "function totalLevelBps() view returns (uint256)",
+  "function LEVELS() view returns (uint256)",
+
+  /* ---- rank & bonus ---- */
+  "function rankOf(address) view returns (uint8)",
+  "function rankSince(address) view returns (uint256)",
+  "function lastBonusAt(address) view returns (uint256)",
+  "function bonusPaidTotal(address) view returns (uint256)",
+  "function tiers(uint256) view returns (uint256 directsNeeded, uint256 stakeNeeded, uint256 monthlyPayout)",
+  "function RANK_HOLD() view returns (uint256)",
+  "function BONUS_PERIOD() view returns (uint256)",
+
+  /* ---- wiring ---- */
+  "function isWiredForReferral() view returns (bool)",
+  "function stakeSourceCount() view returns (uint256)",
+  "function paused() view returns (bool)",
+  "function version() pure returns (string)",
+
+  /* ---- writes ---- */
+  "function register(address referrer)",
+  "function claimMyReferral()",
+  "function claimTeamBonus(address[] directs)",
+  "function refreshRank(address user, address[] directs)",
+  "function syncDirect(address user)",
+
+  /* ---- events ---- */
+  "event Registered(address indexed user, address indexed referrer)",
+  "event DirectQualified(address indexed user, address indexed referrer, uint256 referrerDirects)",
+  "event DirectDropped(address indexed user, address indexed referrer, uint256 referrerDirects)",
+  "event CommissionAccrued(address indexed earner, address indexed from, uint8 level, uint256 amount)",
+  "event CommissionPaid(address indexed earner, uint256 amount, uint256 remainingOwed)",
+  "event PayoutCapped(address indexed earner, uint256 paidNow, uint256 remaining)",
+  "event CommissionTruncated(address indexed from, uint256 levelsCompleted)",
+  "event RankUpdated(address indexed user, uint8 oldRank, uint8 newRank, uint256 directVolume)",
+  "event BonusPaid(address indexed user, uint8 rank, uint256 requested, uint256 received)",
+  "event BonusShort(address indexed user, uint256 requested, uint256 received)",
+];
+
+/* Team screens. Every call is a view; none of them costs gas.
+ *
+ * The downline calls take a maxNodes cap and return `truncated` when a
+ * team outgrows it. A view has no gas limit of its own but the RPC node
+ * answering it does, so an unbounded walk would time out and return
+ * nothing at all. Start around 300 and page with downlineAtLevel rather
+ * than raising the cap until the call dies.
+ *
+ * Downline covers wallets registered in v4.2 only -- OSGStaking stores no
+ * child list, so older teams have to come from its events. Upline reads
+ * correctly for everyone. */
+export const REFERRAL_LENS_ABI = [
+  "function uplineOf(address user) view returns (address referrer, bool isLegacy, bool exists)",
+  "function uplineView(address user) view returns (tuple(uint8 level, address wallet, uint256 stake, uint256 levelBps, bool levelOpen, bool stakeOk, bool earning)[] chain)",
+  "function directsView(address user) view returns (tuple(uint8 level, address wallet, uint256 stake, uint256 qualifyingStake, bool qualified, address referrer, uint256 joinedAt)[] list)",
+  "function levelSummary(address user, uint256 maxNodes) view returns (tuple(uint8 level, uint256 members, uint256 qualified, uint256 totalStake, uint256 levelBps, uint256 directsNeeded, bool open)[] rows, uint256 totalMembers, bool truncated)",
+  "function downlineAtLevel(address user, uint8 level, uint256 offset, uint256 limit, uint256 maxNodes) view returns (tuple(uint8 level, address wallet, uint256 stake, uint256 qualifyingStake, bool qualified, address referrer, uint256 joinedAt)[] page, uint256 totalAtLevel, bool truncated)",
+  "function walletCard(address user) view returns (tuple(address referrer, bool hasUpline, bool uplineIsLegacy, uint256 legacyDirects, uint256 registeredDirects, uint256 qualifiedDirects, uint256 directsForLevels, uint256 levelsOpen, uint256 activeBps, uint256 stake, uint256 qualifyingStake, bool countsAsDirect, uint256 owed, uint256 paid, uint256 volume, uint8 rank, uint256 rankHoldRemaining, uint256 bonusCooldownRemaining, uint256 bonusPaidTotal) card)",
+  "function previewCommission(address from, uint256 rewardAmount) view returns (address[] earners, uint8[] levels, uint256[] amounts)",
+  "function version() pure returns (string)",
+];
+
+/* Diagnostics. Each *Health call returns a plain reason string meant to
+ * be shown to the user as-is, so a disabled button can always say why.
+ * Note these take a user argument -- the v4.1 versions did not. */
+export const REFERRAL_HEALTH_ABI = [
+  "function registerHealth(address user, address referrer) view returns (bool ok, string reason)",
+  "function earningHealth(address user) view returns (bool ok, string reason)",
+  "function payoutHealth(address user) view returns (bool ok, string reason)",
+  "function bonusHealth(address user) view returns (bool ok, string reason)",
+  "function qualificationStatus(address user) view returns (bool counted, uint256 qualifyingStake, uint256 required, uint256 shortfall, address referrer)",
+  "function previewRank(address user, address[] directs) view returns (uint8 rank, uint256 count, uint256 stakeTotal, string problem)",
+  "function rankProgress(address user, address[] directs) view returns (uint256[3] directsNeeded, uint256[3] stakeNeeded, uint256[3] monthlyPayout, uint256 haveDirects, uint256 haveStake)",
+  "function stakeSourceHealth() view returns (address[] addrs, bytes4[] selectors, bool[] ok, bool[] isCommissionSource)",
+  "function programmeStats() view returns (uint256 totalLevelBps, uint256 referralBudgetToday, uint256 minDirectStake, uint256 minReferrerStake, uint256 sourceCount, bool wired, bool paused, bool seedOpen)",
+  "function selectorFor(string signature) pure returns (bytes4)",
+  "function version() pure returns (string)",
 ];
