@@ -89,7 +89,7 @@ const I18N = {
     yourEarned: "Your Total Earned",
     yourShare: "Your Share",
     halving: "Halving #",
-    rewardDist: "Reward Distributed",
+    rewardDist: "Distributed · old pool",
     verified: "Verified Contracts",
     amtStake: "Amount to Stake",
     balance: "Balance",
@@ -189,7 +189,7 @@ const I18N = {
     yourEarned: "आपकी कुल कमाई",
     yourShare: "आपका हिस्सा",
     halving: "हाविंग #",
-    rewardDist: "इनाम वितरित",
+    rewardDist: "इनाम वितरित · पुराना पूल",
     verified: "सत्यापित कॉन्ट्रैक्ट",
     amtStake: "स्टेक राशि",
     balance: "बैलेंस",
@@ -289,7 +289,7 @@ const I18N = {
     yourEarned: "累计收益",
     yourShare: "我的占比",
     halving: "减半 #",
-    rewardDist: "已分配奖励",
+    rewardDist: "已分配奖励 · 旧池",
     verified: "已验证合约",
     amtStake: "质押金额",
     balance: "余额",
@@ -385,7 +385,7 @@ const I18N = {
     yourEarned: "तुमची एकूण कमाई",
     yourShare: "तुमचा हिस्सा",
     halving: "हाविंग #",
-    rewardDist: "बक्षीस वितरित",
+    rewardDist: "बक्षीस वितरित · जुना पूल",
     verified: "सत्यापित कॉन्ट्रॅक्ट",
     amtStake: "स्टेक रक्कम",
     balance: "बॅलन्स",
@@ -485,7 +485,7 @@ const I18N = {
     yourEarned: "Total ganado",
     yourShare: "Tu parte",
     halving: "Halving #",
-    rewardDist: "Recompensa distribuida",
+    rewardDist: "Distribuida · pool antiguo",
     verified: "Contratos verificados",
     amtStake: "Cantidad a stakear",
     balance: "Saldo",
@@ -608,6 +608,8 @@ const STYLES = `
 .emit-big{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:36px;line-height:1;
   letter-spacing:-.02em;color:#CDEBFF;
   text-shadow:0 0 14px rgba(56,189,248,.5),0 0 42px rgba(56,189,248,.24)}
+.emit-big.hit{text-shadow:0 0 22px rgba(125,211,252,.95),0 0 58px rgba(56,189,248,.5)}
+.emit-big{transition:text-shadow .4s}
 .emit-dec{font-size:20px;color:rgba(125,211,252,.58)}
 .emit-unit{font-family:inherit;font-size:12.5px;font-weight:700;color:rgba(154,154,168,.9);
   margin-left:7px;text-shadow:none}
@@ -1017,6 +1019,10 @@ function EmissionHero({ getProvider }) {
     halving: 0,
   });
   const [blk, setBlk] = useState(0);
+  // The big figure only moves when somebody claims, so it can sit still for
+  // hours. Rather than fake a ticker, flash it at the moment it does change.
+  const [hit, setHit] = useState(false);
+  const prevRef = useRef(0);
 
   const wrapRef = useRef(null);
   const canvasRef = useRef(null);
@@ -1042,9 +1048,15 @@ function EmissionHero({ getProvider }) {
           p.getBlockNumber(),
         ]);
         if (dead) return;
+        const rewarded = Number(st.rewarded) / 1e18;
+        if (prevRef.current > 0 && rewarded > prevRef.current) {
+          setHit(true);
+          setTimeout(() => setHit(false), 900);
+        }
+        prevRef.current = rewarded;
         setS({
           ready: true,
-          rewarded: Number(st.rewarded) / 1e18,
+          rewarded: rewarded,
           claimed: Number(st.claimed) / 1e18,
           pending: Number(st.pendingTotal) / 1e18,
           dailyBase: Number(base) / 1e18,
@@ -1056,7 +1068,7 @@ function EmissionHero({ getProvider }) {
       }
     }
     load();
-    const t = setInterval(load, 60000);
+    const t = setInterval(load, 30000);
     return () => {
       dead = true;
       clearInterval(t);
@@ -1180,7 +1192,7 @@ function EmissionHero({ getProvider }) {
       <div className="emit-veil" />
       <div className="emit-mid">
         <div className="emit-eyebrow">Earned by the community</div>
-        <div className="emit-big">
+        <div className={"emit-big" + (hit ? " hit" : "")}>
           {s.ready ? (
             <>
               {Math.floor(s.rewarded).toLocaleString("en-US")}
@@ -1197,9 +1209,9 @@ function EmissionHero({ getProvider }) {
         {s.ready && (
           <>
             <div className="emit-sub">
-              {Math.round(s.claimed).toLocaleString("en-US")} claimed ·{" "}
-              <b>{Math.round(s.pending).toLocaleString("en-US")} waiting</b> to
-              be claimed
+              {Math.round(s.claimed).toLocaleString("en-US")} already in
+              wallets · <b>{Math.round(s.pending).toLocaleString("en-US")} still
+              unclaimed</b> across every wallet
             </div>
             <div className="emit-today">
               {Math.round(s.dailyBase).toLocaleString("en-US")} OSG released a
