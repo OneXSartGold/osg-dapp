@@ -27,6 +27,9 @@ PAIR_ABI,
   ROUTER_ABI,
   TERM_STAKING_ABI,
   REFERRAL_V4_ABI,
+  REFERRAL_V42_ABI,
+  REFERRAL_LENS_ABI,
+  REFERRAL_HEALTH_ABI,
 } from "./contracts.js";
 import {
   calculateRequiredPOL,
@@ -3719,6 +3722,13 @@ function Earn({ wallet, ensureReady, showToast }) {
     refBudget: "0",
     lvBps: [],
     lvCond: [],
+    // From walletCard, which returns all of this in the same read.
+    legacyDirects: 0,
+    registeredDirects: 0,
+    rank: 0,
+    rankHold: 0,
+    bonusCooldown: 0,
+    bonusPaid: "0",
   });
   const [osgBal, setOsgBal] = useState("0");
   const [amount, setAmount] = useState("");
@@ -3744,9 +3754,18 @@ function Earn({ wallet, ensureReady, showToast }) {
       const p = earnProviderRef.current;
      
       const term = new Contract(ADDRESSES.termStaking, TERM_STAKING_ABI, p);
-      const ref = new Contract(ADDRESSES.referralV4, REFERRAL_V4_ABI, p);
+      // Referral figures come from the v4.2 set now. The ledger holds the
+      // money; the lens holds the views. Neither getLevelTable() nor
+      // referralDailyBudget() exists on v4.2 -- levelSummary carries the
+      // table and programmeStats carries the budget.
+      const lens = new Contract(ADDRESSES.referralLens, REFERRAL_LENS_ABI, p);
+      const diag = new Contract(
+        ADDRESSES.referralHealth,
+        REFERRAL_HEALTH_ABI,
+        p,
+      );
 
-      const [rate, rateMax, tot, bud, minD, isPaused, health, refBud, lvT] =
+      const [rate, rateMax, tot, bud, minD, isPaused, health, stats, lvSum] =
         await Promise.all([
           term.effectiveRateBps(),
           term.maxRateBps(),
@@ -3755,9 +3774,14 @@ function Earn({ wallet, ensureReady, showToast }) {
           term.minDeposit(),
           term.paused(),
           term.payoutHealth(),
-          ref.referralDailyBudget(),
-          ref.getLevelTable(),
+          diag.programmeStats(),
+          // A zero address is a valid argument: the walk finds no children
+          // and the rows still carry the rate and the condition for every
+          // level, which is all this call is used for here.
+          lens.levelSummary(wallet || ZERO, 300),
         ]);
+
+      const refBud = stats.referralBudgetToday;
 
       setPool({
         rate: Number(rate),
@@ -3770,8 +3794,8 @@ function Earn({ wallet, ensureReady, showToast }) {
         reason: health[1],
       });
 
-      const lvBps = lvT[0].map((x) => Number(x));
-      const lvCond = lvT[1].map((x) => Number(x));
+      const lvBps = lvSum.rows.map((r) => Number(r.levelBps));
+      const lvCond = lvSum.rows.map((r) => Number(r.directsNeeded));
 
       if (!wallet) {
         setRows([]);
@@ -3780,15 +3804,13 @@ function Earn({ wallet, ensureReady, showToast }) {
       }
 
       const osg = new Contract(ADDRESSES.token, TOKEN_ABI, p);
-      const [bal, n, directs, levels, bps, owed, paid, vol] = await Promise.all([
+      // directReferrals, unlockedLevels, activeBps, owed, paid and volume
+      // were six separate calls. walletCard returns all six and the rank
+      // block besides, in one.
+      const [bal, n, card] = await Promise.all([
         osg.balanceOf(wallet),
         term.positionCount(wallet),
-        ref.directReferrals(wallet),
-        ref.unlockedLevels(wallet),
-        ref.activeBps(wallet),
-        ref.owed(wallet),
-        ref.paid(wallet),
-        ref.volume(wallet),
+        lens.walletCard(wallet),
       ]);
       setOsgBal(f18(bal));
 
@@ -3819,15 +3841,21 @@ function Earn({ wallet, ensureReady, showToast }) {
       setRows(list);
 
       setTeam({
-        directs: Number(directs),
-        levels: Number(levels),
-        bps: Number(bps),
-        owed: f18(owed),
-        paid: f18(paid),
-        volume: f18(vol),
+        directs: Number(card.directsForLevels),
+        levels: Number(card.levelsOpen),
+        bps: Number(card.activeBps),
+        owed: f18(card.owed),
+        paid: f18(card.paid),
+        volume: f18(card.volume),
         refBudget: f18(refBud),
         lvBps,
         lvCond,
+        legacyDirects: Number(card.legacyDirects),
+        registeredDirects: Number(card.registeredDirects),
+        rank: Number(card.rank),
+        rankHold: Number(card.rankHoldRemaining),
+        bonusCooldown: Number(card.bonusCooldownRemaining),
+        bonusPaid: f18(card.bonusPaidTotal),
       });
     } catch (e) {
       console.error("earn load failed", e);
@@ -3891,7 +3919,7 @@ function Earn({ wallet, ensureReady, showToast }) {
     setB("ref", true);
     try {
       showToast("Claiming commission…");
-      const ref = new Contract(ADDRESSES.referralV4, REFERRAL_V4_ABI, signer);
+      const ref = new Contract(ADDRESSES.referralV42, REFERRAL_V42_ABI, signer);
       await (await ref.claimMyReferral()).wait();
       showToast("✅ Commission claimed");
       await loadRead();
@@ -4210,6 +4238,60 @@ function Earn({ wallet, ensureReady, showToast }) {
                 </span>
               </div>
             )}
+          </div>
+
+          <div className="card" style={{ marginBottom: 12 }}>
+            <div className="sec">Rank</div>
+            <div className="mini-grid">
+              <div className="mini">
+                <div className="k">Current rank</div>
+                <div className="vv">
+                  {team.rank > 0 ? "A" + team.rank : "—"}
+                </div>
+              </div>
+              <div className="mini">
+                <div className="k">Bonus received</div>
+                <div className="vv">{fmt(team.bonusPaid, 2)}</div>
+              </div>
+              <div className="mini">
+                <div className="k">From your line</div>
+                <div className="vv">{team.registeredDirects}</div>
+              </div>
+              <div className="mini">
+                <div className="k">Carried over</div>
+                <div className="vv">{team.legacyDirects}</div>
+              </div>
+            </div>
+            {team.rank > 0 && team.rankHold > 0 && (
+              <div className="note" style={{ marginTop: 12 }}>
+                <span>⏳</span>
+                <span>
+                  Rank has to be held for 24h before a bonus —{" "}
+                  {Math.ceil(team.rankHold / 3600)}h left
+                </span>
+              </div>
+            )}
+            {team.rank > 0 && team.rankHold === 0 && team.bonusCooldown > 0 && (
+              <div className="note" style={{ marginTop: 12 }}>
+                <span>📅</span>
+                <span>
+                  Next bonus in {Math.ceil(team.bonusCooldown / 86400)} days
+                </span>
+              </div>
+            )}
+            <div
+              style={{
+                fontSize: 11.5,
+                color: C.txt3,
+                marginTop: 10,
+                lineHeight: 1.6,
+              }}
+            >
+              A rank is proved by submitting your own list of directs, and it is
+              re-proved when a bonus is taken. "Carried over" are directs
+              counted in the old Staking contract — they keep counting toward
+              your levels for good.
+            </div>
           </div>
 
           <div className="card" style={{ marginBottom: 12 }}>
