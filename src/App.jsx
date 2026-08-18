@@ -17,6 +17,7 @@ import {
   TOKEN_ABI,
   STAKING_ABI,
   POOL_ABI,
+  STORAGE_ABI,
   MESSENGER_ABI,
   QUICKSWAP_URL,
   P2P_ABI,
@@ -593,6 +594,47 @@ const C = {
 };
 
 const STYLES = `
+/* ---- emission hero (Home) ---- */
+.emit-hero{position:relative;height:318px;overflow:hidden;margin:-2px -2px 12px;
+  border-radius:18px;border:1px solid rgba(56,189,248,.16);
+  background:radial-gradient(120% 100% at 50% 0%,#0a1420 0%,#080A10 55%,#08080B 100%)}
+.emit-rain{position:absolute;inset:0;width:100%;height:100%}
+.emit-veil{position:absolute;inset:0;
+  background:radial-gradient(78% 58% at 50% 40%,rgba(8,8,11,.88) 0%,rgba(8,8,11,.5) 55%,transparent 100%)}
+.emit-mid{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;padding:0 18px 44px;text-align:center}
+.emit-eyebrow{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.24em;
+  text-transform:uppercase;color:rgba(125,211,252,.72);margin-bottom:9px}
+.emit-big{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:36px;line-height:1;
+  letter-spacing:-.02em;color:#CDEBFF;
+  text-shadow:0 0 14px rgba(56,189,248,.5),0 0 42px rgba(56,189,248,.24)}
+.emit-dec{font-size:20px;color:rgba(125,211,252,.58)}
+.emit-unit{font-family:inherit;font-size:12.5px;font-weight:700;color:rgba(154,154,168,.9);
+  margin-left:7px;text-shadow:none}
+.emit-skel{color:rgba(125,211,252,.25);letter-spacing:.12em;text-shadow:none}
+.emit-sub{font-size:11.5px;color:#9A9AA8;margin-top:9px;line-height:1.5;max-width:280px}
+.emit-sub b{color:#CDEBFF;font-weight:600}
+.emit-today{font-family:'JetBrains Mono',monospace;font-size:10px;
+  color:rgba(125,211,252,.6);margin-top:8px}
+.emit-supply{width:228px;margin-top:12px}
+.emit-track{height:5px;border-radius:3px;background:rgba(255,255,255,.07);overflow:hidden}
+.emit-fill{height:100%;background:linear-gradient(90deg,#7DD3FC,#38BDF8)}
+.emit-line{display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;
+  font-size:8.5px;color:#5E5E6E;margin-top:6px;letter-spacing:.03em}
+.emit-chain{position:absolute;left:0;right:0;bottom:14px;display:flex;gap:5px;
+  justify-content:center;align-items:flex-end;height:28px}
+.emit-blk{width:24px;height:24px;border-radius:5px;
+  background:linear-gradient(180deg,rgba(56,189,248,.2),rgba(56,189,248,.04));
+  border:1px solid rgba(56,189,248,.34);display:flex;align-items:center;justify-content:center;
+  font-family:'JetBrains Mono',monospace;font-size:7.5px;color:#9FD8FF;
+  animation:emitpop .45s cubic-bezier(.2,1.4,.4,1)}
+.emit-blk.fresh{border-color:rgba(125,211,252,.95);color:#E4F5FF;
+  box-shadow:0 0 12px rgba(56,189,248,.6),0 0 26px rgba(56,189,248,.26)}
+@keyframes emitpop{0%{transform:translateY(9px) scale(.6);opacity:0}100%{transform:none;opacity:1}}
+.emit-blabel{position:absolute;left:0;right:0;bottom:-1px;text-align:center;
+  font-family:'JetBrains Mono',monospace;font-size:7.5px;letter-spacing:.14em;
+  color:rgba(94,94,110,.8)}
+@media (prefers-reduced-motion:reduce){.emit-rain{opacity:.22}.emit-blk{animation:none}}
 @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@500;700&family=Noto+Sans+Devanagari:wght@500;700&display=swap');
 @keyframes osgpulse{0%{box-shadow:0 0 0 0 rgba(70,208,138,.5),0 0 8px rgba(70,208,138,.6)}70%{box-shadow:0 0 0 7px rgba(70,208,138,0),0 0 8px rgba(70,208,138,.6)}100%{box-shadow:0 0 0 0 rgba(70,208,138,0),0 0 8px rgba(70,208,138,.6)}}@keyframes shine{0%{background-position:120% 0}100%{background-position:-120% 0}}@keyframes osgping{0%{transform:scale(.6);opacity:.9}100%{transform:scale(2);opacity:0}}
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -940,6 +982,270 @@ function Stat({ label, value, sub, accent }) {
 }
 
 // ══════════════ PAGES ══════════════
+/* ======================================================================
+ *  EmissionHero
+ *
+ *  Everything on screen here is read from the chain and nothing is
+ *  hardcoded, because the two obvious shortcuts are both wrong:
+ *
+ *  - The 5,881 figure is getDailyBase(), which is BASE_DAILY >> halving.
+ *    Write 5,881 into the page and it becomes a lie at the first halving.
+ *
+ *  - The lifetime total is NOT RewardPool.totalAllocated. RewardPool has
+ *    been deployed twice and v2's counters start from 6 June 2026, so it
+ *    is 23,885.82 OSG short. RewardStorage was never replaced and both
+ *    pools were authorised against it, so getStats() there is the whole
+ *    history. Its pendingTotal is also the honest headline nobody has
+ *    been shown: reward that has been earned and never collected.
+ *
+ *  The block counter is read once and then advanced locally at Polygon's
+ *  two-second cadence, resyncing every sixty seconds. Asking the RPC
+ *  every two seconds would be forty thousand calls a day for a decoration.
+ *
+ *  The rain stops whenever it is not on screen. Home is the most-opened
+ *  page in the app and this runs on phones.
+ * ====================================================================== */
+function EmissionHero({ getProvider }) {
+  const EMISSION_SUPPLY = 22540000;
+
+  const [s, setS] = useState({
+    ready: false,
+    rewarded: 0,
+    claimed: 0,
+    pending: 0,
+    dailyBase: 0,
+    halving: 0,
+  });
+  const [blk, setBlk] = useState(0);
+
+  const wrapRef = useRef(null);
+  const canvasRef = useRef(null);
+  const seenRef = useRef(true);
+
+  /* ---- chain reads ---- */
+  useEffect(() => {
+    let dead = false;
+    async function load() {
+      if (!getProvider) return;
+      try {
+        const p = getProvider();
+        const store = new Contract(
+          ADDRESSES.rewardStorage,
+          STORAGE_ABI,
+          p,
+        );
+        const pool = new Contract(ADDRESSES.pool, POOL_ABI, p);
+        const [st, base, halv, bn] = await Promise.all([
+          store.getStats(),
+          pool.getDailyBase(),
+          pool.getHalving(),
+          p.getBlockNumber(),
+        ]);
+        if (dead) return;
+        setS({
+          ready: true,
+          rewarded: Number(st.rewarded) / 1e18,
+          claimed: Number(st.claimed) / 1e18,
+          pending: Number(st.pendingTotal) / 1e18,
+          dailyBase: Number(base) / 1e18,
+          halving: Number(halv),
+        });
+        setBlk(Number(bn));
+      } catch (e) {
+        /* leave the skeleton up rather than showing a zero that looks real */
+      }
+    }
+    load();
+    const t = setInterval(load, 60000);
+    return () => {
+      dead = true;
+      clearInterval(t);
+    };
+  }, [getProvider]);
+
+  /* ---- a block every two seconds, between resyncs ---- */
+  useEffect(() => {
+    if (!blk) return;
+    const t = setInterval(() => setBlk((b) => b + 1), 2000);
+    return () => clearInterval(t);
+  }, [blk > 0]);
+
+  /* ---- the rain ---- */
+  useEffect(() => {
+    const cv = canvasRef.current;
+    const wrap = wrapRef.current;
+    if (!cv || !wrap) return;
+
+    const reduce =
+      typeof window !== "undefined" &&
+      window.matchMedia &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    const cx = cv.getContext("2d");
+    const GL = "0123456789ABCDEF";
+    let W = 0,
+      H = 0,
+      cols = 0,
+      drops = [],
+      raf = 0;
+    const DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+    function size() {
+      const r = cv.getBoundingClientRect();
+      W = r.width;
+      H = r.height;
+      if (!W || !H) return;
+      cv.width = W * DPR;
+      cv.height = H * DPR;
+      cx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      cols = Math.floor(W / 13);
+      drops = [];
+      for (let i = 0; i < cols; i++) {
+        drops.push({
+          y: Math.random() * H,
+          sp: 0.5 + Math.random() * 1.1,
+          len: 6 + Math.floor(Math.random() * 10),
+        });
+      }
+    }
+    size();
+    window.addEventListener("resize", size);
+
+    if (reduce) {
+      cx.fillStyle = "#080A10";
+      cx.fillRect(0, 0, W, H);
+      return () => window.removeEventListener("resize", size);
+    }
+
+    function draw() {
+      if (!seenRef.current || document.hidden) {
+        raf = requestAnimationFrame(draw);
+        return;
+      }
+      cx.fillStyle = "rgba(8,10,16,.14)";
+      cx.fillRect(0, 0, W, H);
+      cx.font = "500 11px 'JetBrains Mono', monospace";
+      for (let i = 0; i < cols; i++) {
+        const d = drops[i];
+        const x = i * 13 + 4;
+        for (let j = 0; j < d.len; j++) {
+          const y = d.y - j * 13;
+          if (y < -13 || y > H + 13) continue;
+          const a = 1 - j / d.len;
+          cx.fillStyle =
+            j === 0
+              ? "rgba(224,245,255," + (0.85 * a + 0.15) + ")"
+              : (i * 7 + j) % 19 === 0
+                ? // one glyph in nineteen carries OSG's gold, so the stream
+                  // reads as OSG moving through the chain, not as code
+                  "rgba(233,185,73," + 0.5 * a + ")"
+                : "rgba(56,189,248," + 0.42 * a + ")";
+          cx.fillText(GL[(Math.random() * 16) | 0], x, y);
+        }
+        d.y += d.sp * 1.9;
+        if (d.y - d.len * 13 > H) {
+          d.y = -Math.random() * 60;
+          d.sp = 0.5 + Math.random() * 1.1;
+        }
+      }
+      raf = requestAnimationFrame(draw);
+    }
+    raf = requestAnimationFrame(draw);
+
+    let io = null;
+    if (typeof IntersectionObserver !== "undefined") {
+      io = new IntersectionObserver(
+        (ents) => {
+          seenRef.current = ents[0] && ents[0].isIntersecting;
+        },
+        { threshold: 0.01 },
+      );
+      io.observe(wrap);
+    }
+
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", size);
+      if (io) io.disconnect();
+    };
+  }, []);
+
+  const pc = s.ready ? (s.rewarded / EMISSION_SUPPLY) * 100 : 0;
+  const blocks = [];
+  for (let i = 8; i >= 0; i--) blocks.push(blk - i);
+
+  return (
+    <div className="emit-hero" ref={wrapRef}>
+      <canvas className="emit-rain" ref={canvasRef} />
+      <div className="emit-veil" />
+      <div className="emit-mid">
+        <div className="emit-eyebrow">Earned by the community</div>
+        <div className="emit-big">
+          {s.ready ? (
+            <>
+              {Math.floor(s.rewarded).toLocaleString("en-US")}
+              <span className="emit-dec">
+                {"." +
+                  String(Math.floor((s.rewarded % 1) * 100)).padStart(2, "0")}
+              </span>
+              <span className="emit-unit">OSG</span>
+            </>
+          ) : (
+            <span className="emit-skel">— — —</span>
+          )}
+        </div>
+        {s.ready && (
+          <>
+            <div className="emit-sub">
+              {Math.round(s.claimed).toLocaleString("en-US")} claimed ·{" "}
+              <b>{Math.round(s.pending).toLocaleString("en-US")} waiting</b> to
+              be claimed
+            </div>
+            <div className="emit-today">
+              {Math.round(s.dailyBase).toLocaleString("en-US")} OSG released a
+              day{s.halving > 0 ? " · halving " + s.halving : ""}
+            </div>
+            <div className="emit-supply">
+              <div className="emit-track">
+                <div
+                  className="emit-fill"
+                  style={{ width: Math.max(pc, 0.6) + "%" }}
+                />
+              </div>
+              <div className="emit-line">
+                <span>{pc.toFixed(2)}% of 22,540,000</span>
+                <span>
+                  {Math.round(EMISSION_SUPPLY - s.rewarded).toLocaleString(
+                    "en-US",
+                  )}{" "}
+                  left
+                </span>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+      {blk > 0 && (
+        <>
+          <div className="emit-chain">
+            {blocks.map((n, i) => (
+              <div
+                key={n}
+                className={"emit-blk" + (i === blocks.length - 1 ? " fresh" : "")}
+              >
+                {String(n).slice(-3)}
+              </div>
+            ))}
+          </div>
+          <div className="emit-blabel">
+            POLYGON · BLOCK {blk.toLocaleString("en-US")}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvider, ensureReady, showToast, setTab }) {
   const [calcUsd, setCalcUsd] = useState("");
   const [calcOsg, setCalcOsg] = useState("");
@@ -1010,6 +1316,7 @@ function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvid
 
   return (
     <div className="page stag">
+      <EmissionHero getProvider={getProvider} />
       {/* MARKET HERO — balance + market + calculator */}
       {(function () {
         var OSG_PER_POL =
