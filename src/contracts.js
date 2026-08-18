@@ -149,6 +149,41 @@ export const POOL_ABI = [
   // owner-only, listed here so the admin page can read/plan around it
   "function miningPercent() view returns (uint256)",
   "function emissionEndTime() view returns (uint256)",
+
+  /* ---- lifetime emission, read straight off the pool ----
+   * Home used to show OSGStaking.getPoolInfo()'s figure as the ecosystem
+   * total. It is the OLD POOL ALONE: Term, LP and referral are all missing
+   * from it, so the number on screen was smaller than the truth.
+   *
+   * totalAllocated  every OSG the pool has ever handed out
+   * totalMinted     the part of that which has actually reached a wallet;
+   *                 the gap is reward that has accrued and not been claimed
+   * *All            the same split by programme
+   */
+  "function totalAllocated() view returns (uint256)",
+  "function totalMinted() view returns (uint256)",
+  "function totalStakingAll() view returns (uint256)",
+  "function totalMiningAll() view returns (uint256)",
+  "function totalReferralAll() view returns (uint256)",
+
+  /* ---- supply and the day's budget ----
+   * BASE_DAILY is 5,881 but getDailyBase() is BASE_DAILY >> getHalving(),
+   * so it falls by half at every halving. Never hardcode the 5,881.
+   */
+  "function MAX_SUPPLY() view returns (uint256)",
+  "function TEAM_SUPPLY() view returns (uint256)",
+  "function EMISSION_SUPPLY() view returns (uint256)",
+  "function BASE_DAILY() view returns (uint256)",
+  "function getDailyBase() view returns (uint256)",
+  "function getHalving() view returns (uint256)",
+
+  /* ---- today's caps ----
+   * getLimits() is what a claim is actually tested against. canClaimNow()
+   * on OSGStaking does NOT check it, which is why the Claim button can look
+   * available and then revert with "Staking cap exceeded".
+   */
+  "function getTodayStats() view returns (uint256 stakingUsedAmt, uint256 miningUsedAmt, uint256 referralUsedAmt, uint256 stakingAvail, uint256 miningAvail, uint256 referralAvail, uint256 dailyBase)",
+  "function getLimits() view returns (uint256 sl, uint256 ml, uint256 rl)",
 ];
 
 // -- OSGP2PExchangeV2 (order-book based P2P trading, pairId=1 = OSG/POL) --
