@@ -120,7 +120,7 @@ const I18N = {
     yourRefLink: "Your Referral Link",
     copy: "Copy",
     shareLink:
-      "Share this link — whoever stakes for the first time using it becomes your referral.",
+      "Share this link. Whoever opens it joins your team from the Stake page — they bind to you first, then stake.",
     upline: "Your Upline",
     empty: "— empty —",
     yourReferrer: "Your Referrer",
@@ -220,8 +220,8 @@ const I18N = {
     yourRefLink: "आपका रेफरल लिंक",
     copy: "कॉपी",
     shareLink:
-      "यह लिंक शेयर करें — जो पहली बार इससे स्टेक करेगा वह आपका रेफरल बनेगा।",
-    upline: "आपकी अपलाइन (5 स्तर)",
+      "यह लिंक शेयर करें। इससे आने वाला Stake पेज पर आपकी टीम से जुड़ता है — पहले जुड़ाव, फिर स्टेक।",
+    upline: "आपकी अपलाइन",
     empty: "— खाली —",
     yourReferrer: "आपका रेफरर",
     noReferrer: "कोई रेफरर नहीं",
@@ -317,7 +317,7 @@ const I18N = {
     directTeam: "直推 + 团队",
     yourRefLink: "你的推荐链接",
     copy: "复制",
-    shareLink: "分享此链接 — 首次通过它质押的人将成为你的推荐。",
+    shareLink: "分享此链接。打开它的人可在质押页面加入你的团队 — 先绑定，再质押。",
     upline: "你的上线（5级）",
     empty: "— 空 —",
     yourReferrer: "你的推荐人",
@@ -416,8 +416,8 @@ const I18N = {
     yourRefLink: "तुमचा रेफरल लिंक",
     copy: "कॉपी",
     shareLink:
-      "हा लिंक शेअर करा — जो पहिल्यांदा यातून स्टेक करेल तो तुमचा रेफरल होईल.",
-    upline: "तुमची अपलाइन (5 स्तर)",
+      "हा लिंक शेअर करा. यातून येणारा Stake पानावर तुमच्या टीममध्ये जोडला जातो — आधी जोडणी, मग स्टेक.",
+    upline: "तुमची अपलाइन",
     empty: "— रिकामे —",
     yourReferrer: "तुमचा रेफरर",
     noReferrer: "रेफरर सेट नाही",
@@ -516,8 +516,8 @@ const I18N = {
     yourRefLink: "Tu enlace de referido",
     copy: "Copiar",
     shareLink:
-      "Comparte este enlace — quien haga staking por primera vez con él será tu referido.",
-    upline: "Tu línea ascendente (5 niveles)",
+      "Comparte este enlace. Quien lo abra se une a tu equipo desde la página Stake — primero se vincula, luego hace staking.",
+    upline: "Tu línea ascendente",
     empty: "— vacío —",
     yourReferrer: "Tu referidor",
     noReferrer: "Sin referidor",
@@ -1785,13 +1785,125 @@ function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvid
   );
 }
 
-function Staking({ wallet, data, refParam, actions, busy, t }) {
+function Staking({
+  wallet,
+  data,
+  refParam,
+  actions,
+  busy,
+  t,
+  getReadProvider,
+  ensureReady,
+  showToast,
+}) {
   const [tab, setTab] = useState("stake");
   const [amount, setAmount] = useState("");
   const [refInput, setRefInput] = useState("");
   useEffect(() => {
     if (refParam && isAddress(refParam)) setRefInput(refParam);
   }, [refParam]);
+
+  /* ---- joining a team, v4.2 ----
+   * Term v2 deposit() takes no referrer, so a wallet that goes straight
+   * there can never have an upline -- OSGStaking writes one only on a first
+   * stake made through it. register() is what binds a new member now, and it
+   * has to happen BEFORE they stake anywhere.
+   *
+   * The sponsor is taken from the link and not editable. A bond is permanent
+   * after 24 hours and cannot be moved once the wallet counts as a direct, so
+   * a typed address is a mistake nobody can undo.
+   */
+  const sponsor = refParam && isAddress(refParam) ? refParam : null;
+  const [upline, setUpline] = useState({
+    loading: true,
+    referrer: ZERO,
+    isLegacy: false,
+    exists: false,
+  });
+  const [reg, setReg] = useState({ ok: false, reason: "", busy: false });
+
+  const loadUpline = useCallback(
+    async function () {
+      if (!wallet || !getReadProvider) {
+        setUpline({
+          loading: false,
+          referrer: ZERO,
+          isLegacy: false,
+          exists: false,
+        });
+        return;
+      }
+      try {
+        const p = getReadProvider();
+        const lens = new Contract(
+          ADDRESSES.referralLens,
+          REFERRAL_LENS_ABI,
+          p,
+        );
+        const u = await lens.uplineOf(wallet);
+        setUpline({
+          loading: false,
+          referrer: u.referrer,
+          isLegacy: Boolean(u.isLegacy),
+          exists: Boolean(u.exists),
+        });
+        if (!u.exists && sponsor) {
+          const diag = new Contract(
+            ADDRESSES.referralHealth,
+            REFERRAL_HEALTH_ABI,
+            p,
+          );
+          const h = await diag.registerHealth(wallet, sponsor);
+          setReg(function (s) {
+            return { ...s, ok: Boolean(h.ok), reason: h.reason };
+          });
+        }
+      } catch (e) {
+        setUpline(function (u) {
+          return { ...u, loading: false };
+        });
+      }
+    },
+    [wallet, sponsor, getReadProvider],
+  );
+  useEffect(
+    function () {
+      loadUpline();
+    },
+    [loadUpline],
+  );
+
+  async function doRegister() {
+    if (!sponsor) return;
+    const signer = await ensureReady();
+    if (!signer) return;
+    setReg(function (s) {
+      return { ...s, busy: true };
+    });
+    try {
+      const core = new Contract(
+        ADDRESSES.referralV42,
+        REFERRAL_V42_ABI,
+        signer,
+      );
+      showToast("Joining…");
+      // Legacy transaction type, as on the claim steps. Some in-app browsers
+      // do not build a valid EIP-1559 transaction, and this is the first
+      // write a brand new member ever makes.
+      const tx = await core.register(sponsor, { type: 0 });
+      await tx.wait();
+      showToast("✓ You are on their team");
+      await loadUpline();
+    } catch (e) {
+      showToast(
+        "⚠️ " + (e.shortMessage || e.reason || e.message || "Failed"),
+      );
+    } finally {
+      setReg(function (s) {
+        return { ...s, busy: false };
+      });
+    }
+  }
   const [history, setHistory] = useState(null);
   const [historyLoading, setHistoryLoading] = useState(false);   const [historyFilter, setHistoryFilter] = useState("all");
   useEffect(
@@ -1844,6 +1956,84 @@ function Staking({ wallet, data, refParam, actions, busy, t }) {
       </div>
 
       {tab === "stake" && (
+        <>
+          {wallet && !upline.loading && (
+            <div className="card" style={{ marginBottom: 12 }}>
+              <div className="sec">Your team</div>
+              {upline.exists ? (
+                <>
+                  <div className="lvl">
+                    <div
+                      className="n"
+                      style={{
+                        color: C.gold1,
+                        borderColor: C.gold1 + "55",
+                        background: C.gold1 + "18",
+                      }}
+                    >
+                      L1
+                    </div>
+                    <div className="mono" style={{ fontSize: 13 }}>
+                      {short(upline.referrer)}
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 11.5,
+                      color: C.txt3,
+                      marginTop: 10,
+                      lineHeight: 1.6,
+                    }}
+                  >
+                    {upline.isLegacy
+                      ? "Carried over from the old Staking contract. Nothing to do — your line is intact."
+                      : "You are bound to this wallet. A bond is permanent."}
+                  </div>
+                </>
+              ) : sponsor ? (
+                <>
+                  <div
+                    className="mono"
+                    style={{
+                      fontSize: 13,
+                      color: C.gold1,
+                      wordBreak: "break-all",
+                      padding: "4px 0 10px",
+                    }}
+                  >
+                    {sponsor}
+                  </div>
+                  <button
+                    className="btn-gold"
+                    disabled={reg.busy || !reg.ok}
+                    onClick={doRegister}
+                  >
+                    {reg.busy ? <span className="spin" /> : "Join this team"}
+                  </button>
+                  <div
+                    style={{
+                      fontSize: 11.5,
+                      color: reg.ok ? C.txt3 : C.red,
+                      marginTop: 10,
+                      lineHeight: 1.6,
+                    }}
+                  >
+                    {reg.ok
+                      ? "Join before you stake. The bond is permanent, and it is what carries commission up to your sponsor."
+                      : reg.reason || "Checking…"}
+                  </div>
+                </>
+              ) : (
+                <div
+                  style={{ fontSize: 12, color: C.txt3, lineHeight: 1.6 }}
+                >
+                  You are not on anyone's team. Open the link your sponsor
+                  gave you to join theirs — an address cannot be typed in by
+                  hand, because the bond is permanent.
+                </div>
+              )}
+            </div>
+          )}
         <div className="card">
           <div className="field">
             <div className="row">
@@ -1872,7 +2062,7 @@ function Staking({ wallet, data, refParam, actions, busy, t }) {
               </button>
             </div>
           </div>
-          {!hasStake && (
+          {!hasStake && !upline.exists && (
             <div style={{ marginTop: 12 }}>
               <label style={{ fontSize: 12, color: C.txt2 }}>
                 {t.referrerOpt}
@@ -1893,9 +2083,16 @@ function Staking({ wallet, data, refParam, actions, busy, t }) {
             disabled={
               busy.stake ||
               !wallet ||
-              (!hasStake && !(refInput && isAddress(refInput)))
+              (!hasStake &&
+                !upline.exists &&
+                !(refInput && isAddress(refInput)))
             }
-            onClick={() => actions.stake(amount, hasStake ? null : refInput)}
+            onClick={() =>
+              actions.stake(
+                amount,
+                hasStake || upline.exists ? null : refInput,
+              )
+            }
           >
             {busy.stake ? (
               <span className="spin" />
@@ -1904,6 +2101,7 @@ function Staking({ wallet, data, refParam, actions, busy, t }) {
             )}
           </button>
         </div>
+        </>
       )}
 
       {tab === "unstake" && (
@@ -2318,11 +2516,21 @@ function Referral({ wallet, data, showToast, getProvider, t }) {
   };
   const [levelStats, setLevelStats] = useState(null);
   const [levelsTruncated, setLevelsTruncated] = useState(false);
+  // The upline and the direct list both used to come from old Staking, which
+  // only knows the wallets bonded THERE. A member who registers in v4.2 has no
+  // referrer in old Staking by construction -- register() refuses a wallet
+  // that already has one -- so that reading would show a brand new member an
+  // empty upline card, and would leave them off their sponsor's list while the
+  // level table above already counted them.
+  const [chainRows, setChainRows] = useState(null);
+  const [directRows, setDirectRows] = useState(null);
   useEffect(() => {
     let cancelled = false;
     async function loadLevels() {
       if (!wallet || !getProvider) {
         setLevelStats(null);
+        setChainRows(null);
+        setDirectRows(null);
         return;
       }
       try {
@@ -2333,7 +2541,11 @@ function Referral({ wallet, data, showToast, getProvider, t }) {
         // eth_call and merges the legacy children with the v4.2 ones, which
         // the old loop could only do for the first tree it was given.
         const lens = new Contract(ADDRESSES.referralLens, REFERRAL_LENS_ABI, p);
-        const res = await lens.levelSummary(wallet, 300);
+        const [res, up, dir] = await Promise.all([
+          lens.levelSummary(wallet, 300),
+          lens.uplineView(wallet),
+          lens.directsView(wallet),
+        ]);
         const levels = res.rows.map(function (r) {
           return {
             count: Number(r.members),
@@ -2348,9 +2560,27 @@ function Referral({ wallet, data, showToast, getProvider, t }) {
         if (!cancelled) {
           setLevelStats(levels);
           setLevelsTruncated(Boolean(res.truncated));
+          setChainRows(
+            up.map(function (e) {
+              return { addr: e.wallet, earning: Boolean(e.earning) };
+            }),
+          );
+          setDirectRows(
+            dir.map(function (d) {
+              return {
+                addr: d.wallet,
+                isLegacy: Boolean(d.isLegacy),
+                stake: d.stake,
+              };
+            }),
+          );
         }
       } catch (e) {
-        if (!cancelled) setLevelStats(null);
+        if (!cancelled) {
+          setLevelStats(null);
+          setChainRows(null);
+          setDirectRows(null);
+        }
       }
     }
     loadLevels();
@@ -2358,8 +2588,19 @@ function Referral({ wallet, data, showToast, getProvider, t }) {
       cancelled = true;
     };
   }, [wallet, getProvider, data.directReferrals]);
-  const r = data.referralInfo,
-    chain = data.referralChain;
+  const r = data.referralInfo;
+  // Prefer the lens, which reads both trees. Fall back to the old five-slot
+  // chain only while the lens call is still in flight or has failed.
+  const chain = chainRows
+    ? chainRows.map(function (x) {
+        return x.addr;
+      })
+    : data.referralChain;
+  const directList = directRows
+    ? directRows.map(function (x) {
+        return x.addr;
+      })
+    : data.directReferrals || [];
   const labels = ["L1","L2","L3","L4","L5","L6","L7","L8","L9","L10","L11","L12","L13","L14","L15"],
     colors = [C.gold1,"#C0C0C0","#CD7F32",C.green,C.blue,C.gold1,"#C0C0C0","#CD7F32",C.green,C.blue,C.gold1,"#C0C0C0","#CD7F32",C.green,C.blue];
   return (
@@ -2515,16 +2756,16 @@ function Referral({ wallet, data, showToast, getProvider, t }) {
       <div className="card" style={{ marginTop: 14 }}>
         <div className="sec">
           {t.yourReferralsTitle || "Your Referrals"}
-          {(data.directReferrals || []).filter(function (a) {
+          {directList.filter(function (a) {
             return a && a !== ZERO;
           }).length
             ? " · " +
-              (data.directReferrals || []).filter(function (a) {
+              directList.filter(function (a) {
                 return a && a !== ZERO;
               }).length
             : ""}
         </div>
-        {(data.directReferrals || []).filter(function (a) {
+        {directList.filter(function (a) {
           return a && a !== ZERO;
         }).length === 0 ? (
           <div
@@ -2539,7 +2780,7 @@ function Referral({ wallet, data, showToast, getProvider, t }) {
               "No one has joined with your link yet. Share it to grow your team!"}
           </div>
         ) : (
-          (data.directReferrals || [])
+          directList
             .filter(function (a) {
               return a && a !== ZERO;
             })
@@ -8782,6 +9023,9 @@ export default function App() {
               actions={actions}
               busy={busy}
               t={t}
+              getReadProvider={getReadProvider}
+              ensureReady={ensureReady}
+              showToast={showToast}
             />
           )}
           {tab === "referral" && (
