@@ -186,6 +186,29 @@ export const POOL_ABI = [
   "function getLimits() view returns (uint256 sl, uint256 ml, uint256 rl)",
 ];
 
+/* -- OSGRewardStorage --
+ *
+ * The only ledger that spans every pool. RewardPool has been deployed twice;
+ * v2's counters start from 6 June 2026, so its totalAllocated is 23,885.82
+ * short of what people have actually earned. RewardStorage was never
+ * replaced — both pools were authorised against the same one — so its
+ * figures are the whole history.
+ *
+ * getStats() returns all of it in a single call:
+ *   rewarded          everything ever credited, across both pools
+ *   claimed           the part that has been minted into wallets
+ *   pendingTotal      the difference -- reward sitting here, unclaimed
+ *   emergencyCleared  owner-cleared balances
+ *   restored          put back after a mint failed; nothing was lost
+ *   pools             authorised pools, currently 2
+ */
+export const STORAGE_ABI = [
+  "function getStats() view returns (uint256 rewarded, uint256 claimed, uint256 pendingTotal, uint256 emergencyCleared, uint256 restored, uint256 pools, bool isPaused)",
+  "function pendingReward(address user) view returns (uint256)",
+  "function totalRewarded() view returns (uint256)",
+  "function totalClaimed() view returns (uint256)",
+];
+
 // -- OSGP2PExchangeV2 (order-book based P2P trading, pairId=1 = OSG/POL) --
 export const P2P_ABI = [
   "error EnforcedPause()",
