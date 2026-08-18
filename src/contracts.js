@@ -50,7 +50,7 @@ export const ADDRESSES = {
   // views and can be redeployed without touching a single balance.
   // referralV4 above stays live until Term and LP are pointed here.
   referralV42:    "0xeaB8a38660EB1556d5F7e52f48E407589B11437c",
-  referralLens:   "0x96DFFE76805A79A84776C17369ff4F447689ED37",
+  referralLens:   "0xa3Aa3d82a7aD78D9421934d740466F66600343A3",
   referralHealth: "0x909987447758C300C537d5a5CB25b1Ec2b7146cb",
 
   // -- Retired. Empty, unwired, kept only so old links resolve. --
@@ -508,15 +508,21 @@ export const REFERRAL_V42_ABI = [
  * nothing at all. Start around 300 and page with downlineAtLevel rather
  * than raising the cap until the call dies.
  *
- * Downline covers wallets registered in v4.2 only -- OSGStaking stores no
- * child list, so older teams have to come from its events. Upline reads
- * correctly for everyone. */
+ * Downline covers BOTH trees. OSGStaking does keep a child list --
+ * getDirectReferrals(address) -- and Lens v2 merges it with the v4.2 one at
+ * every node, so an old team reads in full. Rows carry isLegacy: on those,
+ * qualified is always true (OSGStaking's count is a latch), joinedAt is the
+ * first stake there, and qualifyingStake counts Term and LP only, so it
+ * reads zero for anyone who has not migrated. That zero is correct, not a
+ * failure -- never render it as a pass/fail test on a legacy row. */
 export const REFERRAL_LENS_ABI = [
   "function uplineOf(address user) view returns (address referrer, bool isLegacy, bool exists)",
   "function uplineView(address user) view returns (tuple(uint8 level, address wallet, uint256 stake, uint256 levelBps, bool levelOpen, bool stakeOk, bool earning)[] chain)",
-  "function directsView(address user) view returns (tuple(uint8 level, address wallet, uint256 stake, uint256 qualifyingStake, bool qualified, address referrer, uint256 joinedAt)[] list)",
-  "function levelSummary(address user, uint256 maxNodes) view returns (tuple(uint8 level, uint256 members, uint256 qualified, uint256 totalStake, uint256 levelBps, uint256 directsNeeded, bool open)[] rows, uint256 totalMembers, bool truncated)",
-  "function downlineAtLevel(address user, uint8 level, uint256 offset, uint256 limit, uint256 maxNodes) view returns (tuple(uint8 level, address wallet, uint256 stake, uint256 qualifyingStake, bool qualified, address referrer, uint256 joinedAt)[] page, uint256 totalAtLevel, bool truncated)",
+  "function directsView(address user) view returns (tuple(uint8 level, address wallet, uint256 stake, uint256 qualifyingStake, bool qualified, bool isLegacy, address referrer, uint256 joinedAt)[] list)",
+  "function levelSummary(address user, uint256 maxNodes) view returns (tuple(uint8 level, uint256 members, uint256 legacyMembers, uint256 qualified, uint256 totalStake, uint256 levelBps, uint256 directsNeeded, bool open)[] rows, uint256 totalMembers, bool truncated)",
+  "function downlineAtLevel(address user, uint8 level, uint256 offset, uint256 limit, uint256 maxNodes) view returns (tuple(uint8 level, address wallet, uint256 stake, uint256 qualifyingStake, bool qualified, bool isLegacy, address referrer, uint256 joinedAt)[] page, uint256 totalAtLevel, bool truncated)",
+  "function legacyStaking() view returns (address)",
+  "function core() view returns (address)",
   "function walletCard(address user) view returns (tuple(address referrer, bool hasUpline, bool uplineIsLegacy, uint256 legacyDirects, uint256 registeredDirects, uint256 qualifiedDirects, uint256 directsForLevels, uint256 levelsOpen, uint256 activeBps, uint256 stake, uint256 qualifyingStake, bool countsAsDirect, uint256 owed, uint256 paid, uint256 volume, uint8 rank, uint256 rankHoldRemaining, uint256 bonusCooldownRemaining, uint256 bonusPaidTotal) card)",
   "function previewCommission(address from, uint256 rewardAmount) view returns (address[] earners, uint8[] levels, uint256[] amounts)",
   "function version() pure returns (string)",
