@@ -2317,6 +2317,7 @@ function Referral({ wallet, data, showToast, getProvider, t }) {
     setTimeout(() => setCopied(false), 1800);
   };
   const [levelStats, setLevelStats] = useState(null);
+  const [levelsTruncated, setLevelsTruncated] = useState(false);
   useEffect(() => {
     let cancelled = false;
     async function loadLevels() {
@@ -2326,49 +2327,28 @@ function Referral({ wallet, data, showToast, getProvider, t }) {
       }
       try {
         const p = getProvider();
-        const stk = new Contract(ADDRESSES.staking, STAKING_ABI, p);
-        let currentLevel = (data.directReferrals || []).filter(function (a) {
-          return a && a !== ZERO;
+        // This used to be fifteen serial rounds of getDirectReferrals plus a
+        // stakeOf for every member, so a team of N cost roughly 2N calls and
+        // fifteen round trips. levelSummary walks the whole tree inside one
+        // eth_call and merges the legacy children with the v4.2 ones, which
+        // the old loop could only do for the first tree it was given.
+        const lens = new Contract(ADDRESSES.referralLens, REFERRAL_LENS_ABI, p);
+        const res = await lens.levelSummary(wallet, 300);
+        const levels = res.rows.map(function (r) {
+          return {
+            count: Number(r.members),
+            staked: r.totalStake,
+            // The contract's own rule for whether a member counts toward
+            // this wallet's levels, rather than the old "holds anything at
+            // all" test. Legacy members count permanently.
+            active: Number(r.qualified),
+            legacy: Number(r.legacyMembers),
+          };
         });
-        const levels = [];
-        const ref = new Contract(ADDRESSES.referralV4, REFERRAL_V4_ABI, p);
-for (let lvl = 0; lvl < 15; lvl++) {
-          if (currentLevel.length === 0) {
-            levels.push({ count: 0, staked: 0n, active: 0 });
-            continue;
-          }
-          const infos = await Promise.all(
-            currentLevel.map(function (addr) {
-              return ref.stakeOf(addr).catch(function () {
-                return null;
-              });
-            }),
-          );
-          let staked = 0n,
-            active = 0;
-          infos.forEach(function (info) {
-            if (info) {
-              staked += info;
-              if (info > 0n) active++;
-            }
-          });
-          levels.push({
-            count: currentLevel.length,
-            staked: staked,
-            active: active,
-          });
-          const nextRefs = await Promise.all(
-            currentLevel.map(function (addr) {
-              return stk.getDirectReferrals(addr).catch(function () {
-                return [];
-              });
-            }),
-          );
-          currentLevel = nextRefs.flat().filter(function (a) {
-            return a && a !== ZERO;
-          });
+        if (!cancelled) {
+          setLevelStats(levels);
+          setLevelsTruncated(Boolean(res.truncated));
         }
-        if (!cancelled) setLevelStats(levels);
       } catch (e) {
         if (!cancelled) setLevelStats(null);
       }
@@ -2489,6 +2469,15 @@ for (let lvl = 0; lvl < 15; lvl++) {
                 accent={C.gold2}
               />
             </div>
+            {levelsTruncated && (
+              <div className="note" style={{ marginTop: 12 }}>
+                <span>⚠️</span>
+                <span>
+                  Your team is larger than one read can return — these figures
+                  are partial.
+                </span>
+              </div>
+            )}
           </div>
         )}
         {levelStats &&
