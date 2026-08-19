@@ -1007,6 +1007,43 @@ function Stat({ label, value, sub, accent }) {
  *  The rain stops whenever it is not on screen. Home is the most-opened
  *  page in the app and this runs on phones.
  * ====================================================================== */
+async function mintPreflight(runner, who) {
+  try {
+    const tk = new Contract(ADDRESSES.token, TOKEN_ABI, runner);
+    const pl = new Contract(ADDRESSES.pool, POOL_ABI, runner);
+    const [owed, mh, hs, dm, md, hCap, dCap] = await Promise.all([
+      pl.getUserReward(who),
+      tk.mintedThisHour(),
+      tk.hourStart(),
+      tk.dailyMinted(),
+      tk.mintDay(),
+      tk.HARD_HOURLY_CAP(),
+      tk.HARD_DAILY_CAP(),
+    ]);
+    const now = Math.floor(Date.now() / 1000);
+    const freshHour = now >= Number(hs) + 3600;
+    const freshDay = Math.floor(now / 86400) > Number(md);
+    const usedHour = freshHour ? 0n : mh;
+    const usedDay = freshDay ? 0n : dm;
+    const hourLeft = hCap > usedHour ? hCap - usedHour : 0n;
+    const dayLeft = dCap > usedDay ? dCap - usedDay : 0n;
+    let m = owed;
+    if (m > hourLeft) m = hourLeft;
+    if (m > dayLeft) m = dayLeft;
+    const secs = freshHour ? 0 : Number(hs) + 3600 - now;
+    return {
+      ok: true,
+      owed: Number(owed) / 1e18,
+      mintable: Number(m) / 1e18,
+      waitMin: Math.max(1, Math.ceil(secs / 60)),
+    };
+  } catch (e) {
+    /* a failed read must never block a claim -- fall through and let the
+       transaction decide, exactly as it did before this check existed */
+    return { ok: false };
+  }
+}
+
 function EmissionHero({ getProvider }) {
   const EMISSION_SUPPLY = 22540000;
 
@@ -4464,6 +4501,13 @@ function Earn({ wallet, ensureReady, showToast }) {
             m1.toLowerCase().indexOf("no mining budget") !== -1;
           if (!ok1) throw e1;
         }
+        const pf = await mintPreflight(signer, wallet);
+        if (pf.ok && pf.mintable <= 0) {
+          showToast("⏳ This hour's 500 OSG limit is used up. Your " + pf.owed.toFixed(2) + " OSG stays safe on-chain. Try again in about " + pf.waitMin + " min.");
+          await loadRead();
+          if (typeof setB === "function") setB(key, false);
+          return;
+        }
         showToast("2/2 — Minting OSG to wallet…");
         const poolC = new Contract(ADDRESSES.pool, POOL_ABI, signer);
         try {
@@ -5308,7 +5352,14 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
           m1.toLowerCase().indexOf("no mining budget") !== -1;
         if (!ok1) throw e1;
       }
-      showToast("2/2 — Minting OSG to wallet…");
+      const pf = await mintPreflight(signer, wallet);
+        if (pf.ok && pf.mintable <= 0) {
+          showToast("⏳ This hour's 500 OSG limit is used up. Your " + pf.owed.toFixed(2) + " OSG stays safe on-chain. Try again in about " + pf.waitMin + " min.");
+          await loadRead();
+          if (typeof setB === "function") setB(key, false);
+          return;
+        }
+        showToast("2/2 — Minting OSG to wallet…");
       const poolC = new Contract(ADDRESSES.pool, POOL_ABI, signer);
       try {
         await (await poolC.claim({ gasLimit: 600000, type: 0 })).wait();
