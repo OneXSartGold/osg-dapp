@@ -84,6 +84,12 @@ export const TOKEN_ABI = [
   "function balanceOf(address owner) view returns (uint256)",
   "function decimals() view returns (uint8)",
   "function symbol() view returns (string)",
+  "function mintedThisHour() view returns (uint256)",
+  "function hourStart() view returns (uint256)",
+  "function dailyMinted() view returns (uint256)",
+  "function mintDay() view returns (uint256)",
+  "function HARD_HOURLY_CAP() view returns (uint256)",
+  "function HARD_DAILY_CAP() view returns (uint256)",
   "function approve(address spender, uint256 amount) returns (bool)",
   "function allowance(address owner, address spender) view returns (uint256)",
 ];
