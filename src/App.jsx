@@ -5297,7 +5297,41 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
     setBusy((b) => ({ ...b, cl: true }));
     try {
       const mining = new Contract(ADDRESSES.lpMining, LP_MINING_ABI, signer);
-      const tx = await mining.claimAll();
+      try {
+        var mined = await mining.claimAll();
+        await mined.wait();
+      } catch (e1) {
+        var m1 = (e1 && (e1.shortMessage || e1.reason || e1.message)) || "";
+        var ok1 =
+          m1.toLowerCase().indexOf("no reward") !== -1 ||
+          m1.toLowerCase().indexOf("nothing") !== -1 ||
+          m1.toLowerCase().indexOf("no mining budget") !== -1;
+        if (!ok1) throw e1;
+      }
+      showToast("2/2 — Minting OSG to wallet…");
+      const poolC = new Contract(ADDRESSES.pool, POOL_ABI, signer);
+      try {
+        await (await poolC.claim({ gasLimit: 600000, type: 0 })).wait();
+      } catch (e2) {
+        var m2 = (e2 && (e2.shortMessage || e2.reason || e2.message)) || "";
+        if (
+          m2.indexOf("Mint failed") !== -1 ||
+          m2.indexOf("reward restored") !== -1 ||
+          m2.indexOf("Hourly hard cap") !== -1
+        ) {
+          showToast("⏳ Hourly cap reached (500 OSG/hr). Reward is safe — try again in about an hour.");
+          await loadRead();
+          return;
+        }
+        if (m2.toLowerCase().indexOf("no reward") !== -1) {
+          showToast("ℹ️ Reward moved to storage. Nothing to mint right now.");
+          await loadRead();
+          return;
+        }
+        throw e2;
+      }
+      /* the wait already happened above; the next line is left as a no-op */
+      var tx = { wait: async function () { return null; } };
       await tx.wait();
       showToast("💰 Reward claimed!");
       await loadRead();
