@@ -4453,7 +4453,44 @@ function Earn({ wallet, ensureReady, showToast }) {
     try {
       showToast(label + "…");
       const term = new Contract(ADDRESSES.termStaking, TERM_STAKING_ABI, signer);
-      await (await term[method](arg)).wait();
+      if (method === "claim") {
+        try {
+          await (await term.claim(arg)).wait();
+        } catch (e1) {
+          var m1 = (e1 && (e1.shortMessage || e1.reason || e1.message)) || "";
+          var ok1 =
+            m1.toLowerCase().indexOf("no reward") !== -1 ||
+            m1.toLowerCase().indexOf("nothing") !== -1 ||
+            m1.toLowerCase().indexOf("no mining budget") !== -1;
+          if (!ok1) throw e1;
+        }
+        showToast("2/2 — Minting OSG to wallet…");
+        const poolC = new Contract(ADDRESSES.pool, POOL_ABI, signer);
+        try {
+          await (await poolC.claim({ gasLimit: 600000, type: 0 })).wait();
+        } catch (e2) {
+          var m2 = (e2 && (e2.shortMessage || e2.reason || e2.message)) || "";
+          if (
+            m2.indexOf("Mint failed") !== -1 ||
+            m2.indexOf("reward restored") !== -1 ||
+            m2.indexOf("Hourly hard cap") !== -1
+          ) {
+            showToast("⏳ Hourly cap reached (500 OSG/hr). Reward is safe — try again in about an hour.");
+            await loadRead();
+            setB(key, false);
+            return;
+          }
+          if (m2.toLowerCase().indexOf("no reward") !== -1) {
+            showToast("ℹ️ Reward moved to storage. Nothing to mint right now.");
+            await loadRead();
+            setB(key, false);
+            return;
+          }
+          throw e2;
+        }
+      } else {
+        await (await term[method](arg)).wait();
+      }
       showToast("✅ " + label + " done");
       await loadRead();
     } catch (e) {
