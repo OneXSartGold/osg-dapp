@@ -811,6 +811,39 @@ body{font-family:'Hanken Grotesk',sans-serif;background:${C.bg};color:${C.txt}}
 .stag>*:nth-child(3){animation-delay:.16s}.stag>*:nth-child(4){animation-delay:.22s}
 @keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
 .card{background:${C.card};border:1px solid ${C.line};border-radius:20px;padding:18px}
+.seal{position:relative;border-radius:20px;padding:22px 20px 20px;margin-top:14px;overflow:hidden;background:repeating-linear-gradient(45deg,var(--tex) 0 1px,transparent 1px 8px),repeating-linear-gradient(-45deg,var(--tex) 0 1px,transparent 1px 8px),radial-gradient(130% 80% at 50% -10%,var(--bg1) 0%,var(--bg2) 45%,#0e0c14 100%);border:1px solid var(--edge);box-shadow:0 0 0 1px rgba(0,0,0,.7) inset,0 0 60px var(--inglow) inset,0 22px 50px rgba(0,0,0,.5);transition:border-color .7s ease,box-shadow .7s ease,background .7s ease;--tex:rgba(233,185,73,.022);--bg1:#1d1812;--bg2:#14110d;--edge:rgba(233,185,73,.30);--inglow:rgba(233,185,73,.04);--ink:${C.gold1};--ink3:${C.gold3};--gradnow:${C.grad};--frame1:rgba(233,185,73,.24);--frame2:rgba(233,185,73,.10);--rule:rgba(233,185,73,.32);--halo:rgba(233,185,73,.30);--halo2:rgba(233,185,73,.08)}
+.seal.done{--tex:rgba(70,208,138,.022);--bg1:#0f1d16;--bg2:#0c1512;--edge:rgba(70,208,138,.34);--inglow:rgba(70,208,138,.05);--ink:#8FF0BE;--ink3:#2A9E67;--gradnow:linear-gradient(135deg,#8FF0BE 0%,#46D08A 45%,#2A9E67 100%);--frame1:rgba(70,208,138,.26);--frame2:rgba(70,208,138,.11);--rule:rgba(70,208,138,.34);--halo:rgba(70,208,138,.32);--halo2:rgba(70,208,138,.09)}
+.seal .f1{position:absolute;inset:8px;border-radius:13px;border:1px solid var(--frame1);pointer-events:none;transition:border-color .7s ease}
+.seal .f2{position:absolute;inset:12px;border-radius:11px;border:1px solid var(--frame2);pointer-events:none;transition:border-color .7s ease}
+.seal .cn{position:absolute;color:var(--ink3);font-size:9px;opacity:.7;z-index:2;transition:color .7s ease}
+.seal .tl{top:14px;left:16px}.seal .tr{top:14px;right:16px}.seal .bl{bottom:14px;left:16px}.seal .br{bottom:14px;right:16px}
+.seal .in{position:relative;z-index:1;text-align:center}
+.seal .eb{font-family:'JetBrains Mono';font-size:9px;letter-spacing:3.5px;text-transform:uppercase;color:var(--ink3);font-weight:700;transition:color .7s ease}
+.seal .medal{margin:14px auto 0;width:64px;height:64px;position:relative;display:flex;align-items:center;justify-content:center;color:var(--ink);transition:color .7s ease}
+.seal .medal::before{content:"";position:absolute;inset:-8px;border-radius:50%;background:radial-gradient(circle,var(--halo) 0%,var(--halo2) 45%,transparent 72%);transition:background .7s ease}
+.seal .medal svg{width:34px;height:34px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;position:relative;z-index:1}
+.seal .tick{stroke-dasharray:26;stroke-dashoffset:26;animation:sealdraw .5s .35s ease forwards}
+@keyframes sealdraw{to{stroke-dashoffset:0}}
+.seal h3{font-family:'Bricolage Grotesque';font-size:21px;font-weight:800;margin-top:12px;background:var(--gradnow);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.seal .rule{display:flex;align-items:center;gap:10px;margin:15px 4px}
+.seal .rule .ln{flex:1;height:1px;background:linear-gradient(90deg,transparent,var(--rule),transparent);transition:background .7s ease}
+.seal .rule .dot{color:var(--ink3);font-size:8px;transition:color .7s ease}
+.seal .k{font-size:8px;letter-spacing:2.5px;text-transform:uppercase;color:${C.txt3};font-weight:700}
+.seal .v{font-family:'JetBrains Mono';font-size:11px;color:var(--ink);margin-top:7px;word-break:break-all;line-height:1.6;transition:color .7s ease}
+.seal .go{position:relative;overflow:hidden;width:100%;border:none;cursor:pointer;margin-top:16px;font-family:'Hanken Grotesk';font-weight:700;font-size:14.5px;color:#1A1407;background:${C.grad};border-radius:14px;padding:14px;box-shadow:0 10px 30px -10px rgba(233,185,73,.55);transition:.18s}
+.seal .go:active{transform:scale(.98)}
+.seal .go:disabled{opacity:.6;cursor:progress}
+.seal .go::after{content:"";position:absolute;top:-60%;left:-40%;width:38%;height:220%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.45),transparent);transform:rotate(18deg);animation:sealsweep 4.5s ease-in-out infinite}
+@keyframes sealsweep{0%,72%{left:-40%}86%,100%{left:130%}}
+.seal .badge{margin-top:16px;display:inline-flex;align-items:center;gap:8px;font-family:'JetBrains Mono';font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:${C.green};padding:10px 16px;border-radius:99px;background:rgba(70,208,138,.1);border:1px solid rgba(70,208,138,.34)}
+.seal .badge i{width:6px;height:6px;border-radius:50%;background:${C.green};box-shadow:0 0 8px ${C.green};animation:osgpulse 2.4s infinite;font-style:normal}
+.seal .fine{font-size:11px;color:${C.txt3};margin-top:12px;line-height:1.6}
+.seal .burst{position:absolute;inset:0;z-index:3;pointer-events:none;opacity:0}
+.seal .burst.on{animation:sealburst 1s ease-out forwards}
+@keyframes sealburst{0%{opacity:0;background:radial-gradient(circle at 50% 34%,rgba(143,240,190,.55) 0%,transparent 22%)}22%{opacity:1;background:radial-gradient(circle at 50% 34%,rgba(143,240,190,.5) 0%,transparent 46%)}100%{opacity:0;background:radial-gradient(circle at 50% 34%,rgba(143,240,190,0) 0%,transparent 100%)}}
+.seal .ring{position:absolute;left:50%;top:34%;width:70px;height:70px;margin:-35px 0 0 -35px;border-radius:50%;border:2px solid rgba(143,240,190,.85);opacity:0;z-index:3;pointer-events:none}
+.seal .ring.on{animation:sealring .95s cubic-bezier(.2,.8,.3,1) forwards}
+@keyframes sealring{0%{transform:scale(.5);opacity:.95}100%{transform:scale(3.4);opacity:0}}
 .page-head{margin:12px 2px 16px}
 .page-head h1{font-family:'Bricolage Grotesque';font-size:25px;font-weight:700;letter-spacing:-.6px}
 .hero{position:relative;overflow:hidden;background:radial-gradient(140% 120% at 100% 0%,rgba(233,185,73,.18),transparent 55%),linear-gradient(160deg,#1C1A16,#121118);border:1px solid rgba(233,185,73,.22);border-radius:24px;padding:22px}
@@ -1308,6 +1341,7 @@ function TeamJoin({ wallet, refParam, getReadProvider, ensureReady, showToast })
     exists: false,
   });
   const [reg, setReg] = useState({ ok: false, reason: "", busy: false });
+  const [flash, setFlash] = useState(false);
 
   const loadUpline = useCallback(
     async function () {
@@ -1376,36 +1410,76 @@ function TeamJoin({ wallet, refParam, getReadProvider, ensureReady, showToast })
 
   /* Nothing to show unless a sponsor link brought them here and the wallet
      is not on a team yet. Everyone else sees a clean Home. */
-  if (!wallet || upline.loading || upline.exists || !sponsor) return null;
+  if (!wallet || upline.loading) return null;
+  if (!upline.exists && !sponsor) return null;
+
+  const joined = upline.exists;
+
+  async function joinAndFlash() {
+    const before = upline.exists;
+    await doRegister();
+    if (!before) {
+      setFlash(true);
+      setTimeout(function () {
+        setFlash(false);
+      }, 1100);
+    }
+  }
+
+  const BOND = (
+    <>
+      <path d="M9.4 15.6a3.6 3.6 0 0 1 0-5.1l2.1-2.1a3.6 3.6 0 0 1 5.1 5.1l-.9.9" />
+      <path d="M14.6 8.4a3.6 3.6 0 0 1 0 5.1l-2.1 2.1a3.6 3.6 0 0 1-5.1-5.1l.9-.9" />
+    </>
+  );
 
   return (
-    <div className="card" style={{ marginTop: 14 }}>
-      <div className="sec">Your team</div>
-      <div
-        className="mono"
-        style={{
-          fontSize: 13,
-          color: C.gold1,
-          wordBreak: "break-all",
-          padding: "4px 0 10px",
-        }}
-      >
-        {sponsor}
-      </div>
-      <button className="btn-gold" disabled={reg.busy || !reg.ok} onClick={doRegister}>
-        {reg.busy ? <span className="spin" /> : "Join this team"}
-      </button>
-      <div
-        style={{
-          fontSize: 11.5,
-          color: reg.ok ? C.txt3 : C.red,
-          marginTop: 10,
-          lineHeight: 1.6,
-        }}
-      >
-        {reg.ok
-          ? "Join before you stake. The bond is permanent, and it is what carries commission up to your sponsor."
-          : reg.reason || "Checking…"}
+    <div className={joined ? "seal done" : "seal"}>
+      <div className="f1"></div>
+      <div className="f2"></div>
+      <span className="cn tl">◤</span>
+      <span className="cn tr">◥</span>
+      <span className="cn bl">◣</span>
+      <span className="cn br">◢</span>
+      {flash && <div className="burst on"></div>}
+      {flash && <div className="ring on"></div>}
+      <div className="in">
+        <div className="eb">
+          {joined ? "Step 1 complete" : "Step 1 · you were invited"}
+        </div>
+        <div className="medal">
+          <svg viewBox="0 0 24 24">
+            {BOND}
+            {joined && <path className="tick" d="M8.2 12.4l2.6 2.6 5.2-5.6" />}
+          </svg>
+        </div>
+        <h3>{joined ? "You are on the team" : "Join this team"}</h3>
+        <div className="rule">
+          <span className="ln"></span>
+          <span className="dot">◆</span>
+          <span className="ln"></span>
+        </div>
+        <div className="k">Your sponsor</div>
+        <div className="v">{joined ? upline.referrer : sponsor}</div>
+        {joined ? (
+          <span className="badge">
+            <i></i>
+            Bonded on-chain
+          </span>
+        ) : (
+          <button className="go" disabled={reg.busy || !reg.ok} onClick={joinAndFlash}>
+            {reg.busy ? <span className="spin" /> : "Join this team"}
+          </button>
+        )}
+        <div className="fine">
+          {joined
+            ? upline.isLegacy
+              ? "Carried over from the old Staking contract. Your line is intact. Pick a pool below whenever you are ready."
+              : "The bond is permanent and it is what carries commission up to your sponsor. Pick a pool below whenever you are ready."
+            : reg.ok
+              ? "Join before you stake. The bond is permanent, and it is what carries commission up to your sponsor."
+              : reg.reason || "Checking…"}
+        </div>
       </div>
     </div>
   );
@@ -2788,83 +2862,7 @@ function Staking({
 
       {tab === "stake" && (
         <>
-          {wallet && !upline.loading && (
-            <div className="card" style={{ marginBottom: 12 }}>
-              <div className="sec">Your team</div>
-              {upline.exists ? (
-                <>
-                  <div className="lvl">
-                    <div
-                      className="n"
-                      style={{
-                        color: C.gold1,
-                        borderColor: C.gold1 + "55",
-                        background: C.gold1 + "18",
-                      }}
-                    >
-                      L1
-                    </div>
-                    <div className="mono" style={{ fontSize: 13 }}>
-                      {short(upline.referrer)}
-                    </div>
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 11.5,
-                      color: C.txt3,
-                      marginTop: 10,
-                      lineHeight: 1.6,
-                    }}
-                  >
-                    {upline.isLegacy
-                      ? "Carried over from the old Staking contract. Nothing to do — your line is intact."
-                      : "You are bound to this wallet. A bond is permanent."}
-                  </div>
-                </>
-              ) : sponsor ? (
-                <>
-                  <div
-                    className="mono"
-                    style={{
-                      fontSize: 13,
-                      color: C.gold1,
-                      wordBreak: "break-all",
-                      padding: "4px 0 10px",
-                    }}
-                  >
-                    {sponsor}
-                  </div>
-                  <button
-                    className="btn-gold"
-                    disabled={reg.busy || !reg.ok}
-                    onClick={doRegister}
-                  >
-                    {reg.busy ? <span className="spin" /> : "Join this team"}
-                  </button>
-                  <div
-                    style={{
-                      fontSize: 11.5,
-                      color: reg.ok ? C.txt3 : C.red,
-                      marginTop: 10,
-                      lineHeight: 1.6,
-                    }}
-                  >
-                    {reg.ok
-                      ? "Join before you stake. The bond is permanent, and it is what carries commission up to your sponsor."
-                      : reg.reason || "Checking…"}
-                  </div>
-                </>
-              ) : (
-                <div
-                  style={{ fontSize: 12, color: C.txt3, lineHeight: 1.6 }}
-                >
-                  You are not on anyone's team. Open the link your sponsor
-                  gave you to join theirs — an address cannot be typed in by
-                  hand, because the bond is permanent.
-                </div>
-              )}
-            </div>
-          )}
+          
         <div className="card">
           <div className="field">
             <div className="row">
