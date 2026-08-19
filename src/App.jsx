@@ -9224,12 +9224,21 @@ export default function App() {
           var msg1 = (e1 && (e1.shortMessage || e1.reason || e1.message)) || "";
           var benign =
             msg1.toLowerCase().indexOf("no reward") !== -1 ||
-            msg1.toLowerCase().indexOf("nothing") !== -1;
+            msg1.toLowerCase().indexOf("nothing") !== -1 ||
+            msg1.toLowerCase().indexOf("cap exceeded") !== -1 ||
+            msg1.toLowerCase().indexOf("reverted") !== -1;
           if (!benign) throw e1;
         }
 
         // ── STEP 2: RewardPool.claim() — mints up to 500 OSG from storage to wallet ──
         showToast("2/2 — " + (t.tClaimStep2 || "Minting OSG to wallet..."));
+        const pf = await mintPreflight(signer, wallet);
+        if (pf.ok && pf.mintable <= 0) {
+          showToast("⏳ This hour's 500 OSG limit is used up. Your " + pf.owed.toFixed(2) + " OSG stays safe on-chain. Try again in about " + pf.waitMin + " min.");
+          await loadData(wallet);
+          setBusyKey("claim", false);
+          return;
+        }
         const pool = new Contract(ADDRESSES.pool, POOL_ABI, signer);
         const tx2 = await pool.claim({ gasLimit: 600000, type: 0 });
         await tx2.wait();
@@ -9252,7 +9261,7 @@ export default function App() {
         } else if (m.toLowerCase().indexOf("no reward") !== -1) {
           showToast("ℹ️ " + (t.tNoReward || "No claimable reward right now."));
         } else {
-          showToast(m.indexOf("reverted") !== -1 || m.indexOf("cap exceeded") !== -1 ? "⏳ Daily staking budget is used up. Your reward is safe — try again tomorrow." : "❌ " + (m || t.tClaimFail));
+          showToast(m.indexOf("reverted") !== -1 || m.indexOf("cap exceeded") !== -1 ? "⏳ Could not mint just now. Your reward stays safe on-chain. Up to 500 OSG mints per hour across everyone, so try again in about an hour." : "❌ " + (m || t.tClaimFail));
         }
         await loadData(wallet);
       } finally {
