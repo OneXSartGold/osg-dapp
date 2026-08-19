@@ -4473,9 +4473,9 @@ function Earn({ wallet, ensureReady, showToast }) {
           if (
             m2.indexOf("Mint failed") !== -1 ||
             m2.indexOf("reward restored") !== -1 ||
-            m2.indexOf("Hourly hard cap") !== -1
+            m2.indexOf("Hourly hard cap") !== -1 ||           m2.toLowerCase().indexOf("reverted") !== -1 ||           m2.toLowerCase().indexOf("reverted") !== -1
           ) {
-            showToast("⏳ Hourly cap reached (500 OSG/hr). Reward is safe — try again in about an hour.");
+            showToast("⏳ Could not mint just now. Your reward stays safe on-chain. Up to 500 OSG mints per hour across everyone, so try again in about an hour.");
             await loadRead();
             setB(key, false);
             return;
@@ -5317,9 +5317,9 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
         if (
           m2.indexOf("Mint failed") !== -1 ||
           m2.indexOf("reward restored") !== -1 ||
-          m2.indexOf("Hourly hard cap") !== -1
+          m2.indexOf("Hourly hard cap") !== -1 ||           m2.toLowerCase().indexOf("reverted") !== -1 ||           m2.toLowerCase().indexOf("reverted") !== -1
         ) {
-          showToast("⏳ Hourly cap reached (500 OSG/hr). Reward is safe — try again in about an hour.");
+          showToast("⏳ Could not mint just now. Your reward stays safe on-chain. Up to 500 OSG mints per hour across everyone, so try again in about an hour.");
           await loadRead();
           return;
         }
