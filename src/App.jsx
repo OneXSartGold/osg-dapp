@@ -1295,6 +1295,463 @@ function EmissionHero({ getProvider }) {
   );
 }
 
+function PoolCards({ getProvider, wallet, oldStaked, setTab }) {
+  const [p, setP] = useState({
+    ready: false, base: 0,
+    lpDaily: 0, lpTotal: 0, lpMine: 0,
+    termDaily: 0, termTotal: 0, termMine: 0,
+  });
+
+  useEffect(() => {
+    let dead = false;
+    async function load() {
+      if (!getProvider) return;
+      try {
+        const pv = getProvider();
+        const term = new Contract(ADDRESSES.termStaking, TERM_STAKING_ABI, pv);
+        const mine = new Contract(ADDRESSES.lpMining, LP_MINING_ABI, pv);
+        const pool = new Contract(ADDRESSES.pool, POOL_ABI, pv);
+        const [base, tD, tT, lD, lT, tM, lM] = await Promise.all([
+          pool.getDailyBase(),
+          term.getTermStakingDailyBudget(),
+          term.totalStaked(),
+          mine.getLpMiningDailyBudget(),
+          mine.totalLp(),
+          wallet ? term.stakedOf(wallet) : Promise.resolve(0n),
+          wallet ? mine.stakedLpOf(wallet) : Promise.resolve(0n),
+        ]);
+        if (dead) return;
+        setP({
+          ready: true,
+          base: Number(base) / 1e18,
+          termDaily: Number(tD) / 1e18,
+          termTotal: Number(tT) / 1e18,
+          termMine: Number(tM) / 1e18,
+          lpDaily: Number(lD) / 1e18,
+          lpTotal: Number(lT) / 1e18,
+          lpMine: Number(lM) / 1e18,
+        });
+      } catch (e) {
+        /* leave the last good figures on screen rather than flashing zeros */
+      }
+    }
+    load();
+    const t = setInterval(load, 60000);
+    return () => {
+      dead = true;
+      clearInterval(t);
+    };
+  }, [getProvider, wallet]);
+
+  const pct = (d) => (p.base > 0 ? Math.round((d / p.base) * 100) : 0);
+
+  /* two circles with a gem forming = the OSG/POL pair producing reward
+     closed padlock = shut for 180 days
+     arrows in and out = no fixed term
+     open padlock = the pool people are leaving                        */
+  const ICO = {
+    lp: (
+      <g>
+        <circle cx="8.9" cy="12" r="5.3" />
+        <circle cx="15.1" cy="12" r="5.3" />
+        <path d="M12 9.2l2 2.8-2 2.8-2-2.8z" />
+      </g>
+    ),
+    term: (
+      <g>
+        <rect x="4.4" y="10.8" width="15.2" height="9.9" rx="2.6" />
+        <path d="M8.1 10.8V7.5a3.9 3.9 0 0 1 7.8 0v3.3" />
+        <circle cx="12" cy="14.9" r="1.15" />
+        <path d="M12 16.5v1.7" />
+      </g>
+    ),
+    flexi: (
+      <g>
+        <path d="M4.6 9.6h11.6a3.4 3.4 0 0 1 0 6.8H4.6" />
+        <path d="M7.4 6.4L4.3 9.6l3.1 3.2" />
+        <path d="M16.6 19.6l3.1-3.2-3.1-3.2" />
+      </g>
+    ),
+    old: (
+      <g>
+        <rect x="4.4" y="10.8" width="15.2" height="9.9" rx="2.6" />
+        <path d="M8.1 10.8V7.5a3.9 3.9 0 0 1 7.5-1.4" />
+        <circle cx="12" cy="14.9" r="1.15" />
+        <path d="M12 16.5v1.7" />
+      </g>
+    ),
+  };
+
+  const Card = (o) => (
+    <div
+      onClick={o.soon ? undefined : o.go}
+      style={{
+        position: "relative",
+        overflow: "hidden",
+        cursor: o.soon ? "default" : "pointer",
+        borderRadius: 20,
+        padding: "17px 16px",
+        marginBottom: 12,
+        background: "linear-gradient(158deg," + o.tint + " 0%,#0b0c12 64%)",
+        border: "1px solid " + o.edge,
+        boxShadow: "0 1px 0 rgba(255,255,255,.035) inset",
+      }}
+    >
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 18,
+          right: 18,
+          height: 1,
+          background:
+            "linear-gradient(90deg,transparent," + o.ink + ",transparent)",
+          opacity: 0.45,
+        }}
+      ></div>
+      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+        <div
+          style={{
+            width: 54,
+            height: 54,
+            borderRadius: 16,
+            flex: "none",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: o.ink,
+            background:
+              "linear-gradient(158deg," + o.tint2 + ",rgba(255,255,255,.012))",
+            border: "1px solid " + o.edge2,
+            boxShadow: "0 1px 0 rgba(255,255,255,.08) inset",
+          }}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="27"
+            height="27"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            {o.icon}
+          </svg>
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div
+            className="disp"
+            style={{
+              fontWeight: 700,
+              fontSize: 16,
+              letterSpacing: "-.25px",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              flexWrap: "wrap",
+            }}
+          >
+            {o.name}
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 5,
+                fontFamily: "'JetBrains Mono'",
+                fontSize: 8.5,
+                fontWeight: 800,
+                letterSpacing: ".14em",
+                borderRadius: 99,
+                padding: "3px 8px",
+                color: o.soon ? C.purple : C.green,
+                background: o.soon
+                  ? "rgba(167,139,250,.09)"
+                  : "rgba(70,208,138,.1)",
+                border: o.soon
+                  ? "1px solid rgba(167,139,250,.3)"
+                  : "1px solid rgba(70,208,138,.32)",
+              }}
+            >
+              {!o.soon && (
+                <i
+                  style={{
+                    width: 5,
+                    height: 5,
+                    borderRadius: "50%",
+                    background: C.green,
+                    boxShadow: "0 0 7px " + C.green,
+                    animation: "scanpulse 2.2s infinite",
+                  }}
+                ></i>
+              )}
+              {o.tag}
+            </span>
+          </div>
+          <div
+            style={{
+              fontSize: 11.5,
+              color: C.txt3,
+              marginTop: 4,
+              lineHeight: 1.45,
+            }}
+          >
+            {o.sub}
+          </div>
+        </div>
+      </div>
+
+      {o.soon ? (
+        <div style={{ marginTop: 16 }}>
+          <div
+            className="mono"
+            style={{
+              fontSize: 20,
+              fontWeight: 700,
+              letterSpacing: "-.4px",
+              color: o.ink,
+            }}
+          >
+            Not live yet
+          </div>
+          <div
+            style={{
+              fontSize: 9.5,
+              color: C.txt3,
+              marginTop: 7,
+              letterSpacing: ".1em",
+              textTransform: "uppercase",
+              fontWeight: 700,
+            }}
+          >
+            Details to follow
+          </div>
+        </div>
+      ) : (
+        <div>
+          <div
+            style={{
+              marginTop: 16,
+              display: "flex",
+              alignItems: "flex-end",
+              gap: 12,
+            }}
+          >
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div
+                className="mono"
+                style={{
+                  fontSize: 27,
+                  fontWeight: 700,
+                  lineHeight: 1,
+                  letterSpacing: "-1.1px",
+                  color: o.ink,
+                }}
+              >
+                {p.ready ? fmt(o.daily, 0) : "—"}
+              </div>
+              <div
+                style={{
+                  fontSize: 9.5,
+                  color: C.txt3,
+                  marginTop: 7,
+                  letterSpacing: ".1em",
+                  textTransform: "uppercase",
+                  fontWeight: 700,
+                }}
+              >
+                OSG shared each day
+              </div>
+            </div>
+            <div style={{ width: 98, flex: "none", textAlign: "right" }}>
+              <div
+                className="mono"
+                style={{ fontSize: 10.5, fontWeight: 700, color: C.txt2 }}
+              >
+                {p.ready ? pct(o.daily) + "% of today" : ""}
+              </div>
+              <div
+                style={{
+                  height: 5,
+                  borderRadius: 99,
+                  background: "#0d0d13",
+                  border: "1px solid " + C.line,
+                  overflow: "hidden",
+                  marginTop: 7,
+                }}
+              >
+                <div
+                  style={{
+                    height: "100%",
+                    borderRadius: 99,
+                    background: o.ink,
+                    width: pct(o.daily) + "%",
+                  }}
+                ></div>
+              </div>
+            </div>
+          </div>
+          <div
+            className="mono"
+            style={{ fontSize: 10.5, color: C.txt3, marginTop: 12 }}
+          >
+            {o.meta}
+          </div>
+        </div>
+      )}
+
+      <div
+        style={{
+          marginTop: 14,
+          paddingTop: 13,
+          borderTop: "1px solid " + C.line,
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+        }}
+      >
+        <span
+          style={{
+            fontSize: 12.5,
+            color: C.txt2,
+            flex: 1,
+            minWidth: 0,
+            lineHeight: 1.4,
+          }}
+        >
+          {o.you}
+        </span>
+        <span
+          style={{
+            flex: "none",
+            fontSize: 11.5,
+            fontWeight: 700,
+            color: o.soon ? C.txt3 : o.ink,
+            border: "1px solid " + (o.soon ? C.line2 : o.edge2),
+            background: "rgba(255,255,255,.03)",
+            borderRadius: 99,
+            padding: "8px 13px",
+          }}
+        >
+          {o.chip}
+          {o.soon ? "" : " →"}
+        </span>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ marginTop: 14 }}>
+      <div className="sec" style={{ margin: "0 2px 12px" }}>
+        Pools
+      </div>
+
+      {Card({
+        name: "LP Mining",
+        icon: ICO.lp,
+        tag: "OPEN",
+        sub: "Supply OSG/POL liquidity, then stake the LP token",
+        ink: "#8FC7FF",
+        tint: "#0D1220",
+        tint2: "rgba(56,163,255,.18)",
+        edge: "rgba(80,180,255,.24)",
+        edge2: "rgba(80,180,255,.42)",
+        daily: p.lpDaily,
+        meta:
+          p.lpTotal > 0
+            ? fmt(p.lpTotal, 2) + " LP staked in this pool"
+            : "Almost nothing staked here yet",
+        you:
+          wallet && p.lpMine > 0
+            ? "You have " + fmt(p.lpMine, 2) + " LP here"
+            : "The largest daily share, barely claimed",
+        chip: wallet && p.lpMine > 0 ? "View" : "Open",
+        go: function () {
+          setTab("mining");
+        },
+      })}
+
+      {Card({
+        name: "Term Staking",
+        icon: ICO.term,
+        tag: "OPEN",
+        sub: "Locked 180 days · 45% referral across 15 levels",
+        ink: "#F7D27A",
+        tint: "#17150D",
+        tint2: "rgba(233,185,73,.14)",
+        edge: "rgba(233,185,73,.22)",
+        edge2: "rgba(233,185,73,.38)",
+        daily: p.termDaily,
+        meta: fmt(p.termTotal, 0) + " OSG staked in this pool",
+        you:
+          wallet && p.termMine > 0
+            ? "You have " + fmt(p.termMine, 0) + " OSG here"
+            : "Open to anyone holding OSG",
+        chip: wallet && p.termMine > 0 ? "View" : "Open",
+        go: function () {
+          setTab("earn");
+        },
+      })}
+
+      {Card({
+        name: "Flexi Staking",
+        icon: ICO.flexi,
+        tag: "COMING SOON",
+        soon: true,
+        sub: "Stake and unstake whenever you like — no fixed term",
+        ink: "#C4B5FD",
+        tint: "#131120",
+        tint2: "rgba(167,139,250,.14)",
+        edge: "rgba(167,139,250,.2)",
+        edge2: "rgba(167,139,250,.32)",
+        you: "Being designed now",
+        chip: "Soon",
+      })}
+
+      {Number(oldStaked) > 0 && (
+        <div
+          onClick={() => setTab("staking")}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            cursor: "pointer",
+            marginTop: 2,
+            padding: "13px 15px",
+            borderRadius: 15,
+            background: "rgba(255,255,255,.014)",
+            border: "1px solid " + C.line,
+          }}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="19"
+            height="19"
+            fill="none"
+            stroke={C.txt3}
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            {ICO.old}
+          </svg>
+          <span
+            style={{
+              flex: 1,
+              fontSize: 13,
+              fontWeight: 600,
+              color: C.txt2,
+            }}
+          >
+            Old Stake
+          </span>
+          <span style={{ color: C.txt3, fontSize: 15 }}>→</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvider, ensureReady, showToast, setTab }) {
   const [calcUsd, setCalcUsd] = useState("");
   const [calcOsg, setCalcOsg] = useState("");
