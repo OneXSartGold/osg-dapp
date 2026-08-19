@@ -1295,6 +1295,122 @@ function EmissionHero({ getProvider }) {
   );
 }
 
+function TeamJoin({ wallet, refParam, getReadProvider, ensureReady, showToast }) {
+  /* register() binds a new member. Term v2's deposit() takes no referrer, so
+     a wallet that goes straight there can never gain an upline afterwards --
+     this has to happen BEFORE they stake anywhere. The sponsor comes from the
+     link and is never typed: a bond is permanent after 24 hours. */
+  const sponsor = refParam && isAddress(refParam) ? refParam : null;
+  const [upline, setUpline] = useState({
+    loading: true,
+    referrer: ZERO,
+    isLegacy: false,
+    exists: false,
+  });
+  const [reg, setReg] = useState({ ok: false, reason: "", busy: false });
+
+  const loadUpline = useCallback(
+    async function () {
+      if (!wallet || !getReadProvider) {
+        setUpline({ loading: false, referrer: ZERO, isLegacy: false, exists: false });
+        return;
+      }
+      try {
+        const p = getReadProvider();
+        const lens = new Contract(ADDRESSES.referralLens, REFERRAL_LENS_ABI, p);
+        const u = await lens.uplineOf(wallet);
+        setUpline({
+          loading: false,
+          referrer: u.referrer,
+          isLegacy: Boolean(u.isLegacy),
+          exists: Boolean(u.exists),
+        });
+        if (!u.exists && sponsor) {
+          const diag = new Contract(ADDRESSES.referralHealth, REFERRAL_HEALTH_ABI, p);
+          const h = await diag.registerHealth(wallet, sponsor);
+          setReg(function (s) {
+            return { ...s, ok: Boolean(h.ok), reason: h.reason };
+          });
+        }
+      } catch (e) {
+        setUpline(function (u) {
+          return { ...u, loading: false };
+        });
+      }
+    },
+    [wallet, sponsor, getReadProvider],
+  );
+
+  useEffect(
+    function () {
+      loadUpline();
+    },
+    [loadUpline],
+  );
+
+  async function doRegister() {
+    if (!sponsor) return;
+    const signer = await ensureReady();
+    if (!signer) return;
+    setReg(function (s) {
+      return { ...s, busy: true };
+    });
+    try {
+      const core = new Contract(ADDRESSES.referralV42, REFERRAL_V42_ABI, signer);
+      showToast("Joining…");
+      /* Legacy transaction type, as on the claim steps. Some in-app browsers
+         do not build a valid EIP-1559 transaction, and this is the first
+         write a brand new member ever makes. */
+      const tx = await core.register(sponsor, { type: 0 });
+      await tx.wait();
+      showToast("✓ You are on their team");
+      await loadUpline();
+    } catch (e) {
+      showToast("⚠️ " + (e.shortMessage || e.reason || e.message || "Failed"));
+    } finally {
+      setReg(function (s) {
+        return { ...s, busy: false };
+      });
+    }
+  }
+
+  /* Nothing to show unless a sponsor link brought them here and the wallet
+     is not on a team yet. Everyone else sees a clean Home. */
+  if (!wallet || upline.loading || upline.exists || !sponsor) return null;
+
+  return (
+    <div className="card" style={{ marginTop: 14 }}>
+      <div className="sec">Your team</div>
+      <div
+        className="mono"
+        style={{
+          fontSize: 13,
+          color: C.gold1,
+          wordBreak: "break-all",
+          padding: "4px 0 10px",
+        }}
+      >
+        {sponsor}
+      </div>
+      <button className="btn-gold" disabled={reg.busy || !reg.ok} onClick={doRegister}>
+        {reg.busy ? <span className="spin" /> : "Join this team"}
+      </button>
+      <div
+        style={{
+          fontSize: 11.5,
+          color: reg.ok ? C.txt3 : C.red,
+          marginTop: 10,
+          lineHeight: 1.6,
+        }}
+      >
+        {reg.ok
+          ? "Join before you stake. The bond is permanent, and it is what carries commission up to your sponsor."
+          : reg.reason || "Checking…"}
+      </div>
+    </div>
+  );
+}
+
 function PoolCards({ getProvider, wallet, oldStaked, setTab }) {
   const [p, setP] = useState({
     ready: false, base: 0,
@@ -1752,7 +1868,7 @@ function PoolCards({ getProvider, wallet, oldStaked, setTab }) {
   );
 }
 
-function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvider, ensureReady, showToast, setTab }) {
+function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvider, ensureReady, showToast, setTab, refParam }) {
   const [calcUsd, setCalcUsd] = useState("");
   const [calcOsg, setCalcOsg] = useState("");
   const [calcUnit, setCalcUnit] = useState("USD");
@@ -2483,6 +2599,7 @@ function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvid
       )}
 
       
+      <TeamJoin wallet={wallet} refParam={refParam} getReadProvider={getProvider} ensureReady={ensureReady} showToast={showToast} />
       <PoolCards getProvider={getProvider} wallet={wallet} oldStaked={data.staked} setTab={setTab} />
       
       <div style={{ marginTop: 14 }}>
@@ -9796,7 +9913,8 @@ export default function App() {
         <main className="screen" onClick={() => setLangOpen(false)}>
           <NewsPopup logo={LOGO} />{" "}
          {tab === "dashboard" && (
-  <Dashboard
+    <Dashboard
+    refParam={refParam}
     data={data}
     wallet={wallet}
     polUsd={polUsd}
