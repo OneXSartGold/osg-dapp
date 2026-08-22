@@ -8342,33 +8342,33 @@ function AIAssistant({ wallet, staked, liveData, holders, polUsd, getReadProvide
           (holders ? String(holders) : "not available right now") +
           ". " +
           (wallet
-            ? "This user's own wallet data — " +
+            ? "This user's own wallet data. The next eight figures come ONLY from the RETIRED Active Staking contract, which most users have migrated away from, so they are usually zero and are NOT this user's real position. Their REAL figures appear later in this block under 'Their Term Staking (Earn tab)', 'Their LP Mining (Mining tab)' and 'Their referral standing' — always answer from those. Mention the retired-contract numbers only if the user asks about the old Active Staking contract specifically. Retired-contract figures: " +
               "OSG Balance: " +
               fmt(liveData.balance, 2) +
               " OSG, " +
-              "Their Staked Amount: " +
+              "Retired-contract staked amount: " +
               fmt(liveData.staked, 2) +
               " OSG, " +
-              "Their Pending Rewards: " +
+              "Retired-contract pending rewards: " +
               fmt(liveData.pending, 2) +
               " OSG, " +
-              "Their Total Earned So Far: " +
+              "Retired-contract total earned: " +
               fmt(liveData.totalEarned, 2) +
               " OSG, " +
-              "Their Share of Pool: " +
+              "Retired-contract share of that old pool: " +
               fmt(liveData.sharePercent, 2) +
               "%, " +
-              "Their Total Referrals: " +
+              "Retired-contract legacy referral count: " +
               (liveData.referralInfo
                 ? liveData.referralInfo.totalReferrals
                 : "0") +
               ", " +
-              "Their Total Referral Earnings: " +
+              "Retired-contract legacy referral earned: " +
               (liveData.referralInfo
                 ? fmt(liveData.referralInfo.totalReferralEarned, 2)
                 : "0") +
               " OSG, " +
-              "Their Pending Referral Rewards: " +
+              "Retired-contract legacy referral pending: " +
               (liveData.referralInfo
                 ? fmt(liveData.referralInfo.pendingReferral, 2)
                 : "0") +
