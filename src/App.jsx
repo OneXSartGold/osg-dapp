@@ -8092,8 +8092,8 @@ function AIAssistant({ wallet, staked, liveData, holders, polUsd }) {
   const bodyRef = useRef(null);
   const tier = !wallet
     ? "locked"
-    : Number(staked) >= 3000
-      ? "premium"
+    : wallet
+      ? "open"
       : Number(staked) >= 500
         ? "basic"
         : "locked";
@@ -8442,7 +8442,7 @@ function AIAssistant({ wallet, staked, liveData, holders, polUsd }) {
                     padding: "0 12px",
                   }}
                 >
-                  🔒 Connect your wallet and stake at least 500 OSG to unlock
+                  🔒 Connect your wallet to start using
                   OSG Assistant.
                 </div>
               ) : (
@@ -8502,7 +8502,7 @@ function AIAssistant({ wallet, staked, liveData, holders, polUsd }) {
                 placeholder={
                   unlocked
                     ? "Type your question…"
-                    : "Connect wallet + stake first"
+                    : "Connect your wallet first"
                 }
                 value={input}
                 disabled={!unlocked || sending}
