@@ -8243,7 +8243,7 @@ function AIAssistant({ wallet, staked, liveData, holders, polUsd }) {
           message: text.trim(),
           history: history,
           liveContext: liveContext,
-          tier: tier,
+          tier: tier, wallet: wallet,
         }),
       });
       var d = await r.json();
