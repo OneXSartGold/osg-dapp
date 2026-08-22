@@ -8078,7 +8078,7 @@ function FireworksCanvas({ trigger }) {
     />
   );
 }
-function AIAssistant({ wallet, staked, liveData, holders, polUsd }) {
+function AIAssistant({ wallet, staked, liveData, holders, polUsd, getReadProvider }) {
   const [open, setOpen] = useState(false);
   const [msgs, setMsgs] = useState([
     {
@@ -8161,6 +8161,145 @@ function AIAssistant({ wallet, staked, liveData, holders, polUsd }) {
     [msgs, open],
   );
 
+    // -------------------------------------------------------------------
+  // Reads this wallet's own on-chain position directly from the
+  // contracts, immediately before each question is sent, so the
+  // assistant never answers from a stale figure.
+  // Earn and Mining keep their figures in their own local state, which
+  // this component cannot see, so it reads for itself rather than
+  // lifting that state up through the whole tree.
+  // Each section fails on its own: one unreachable contract must never
+  // blank out the others.
+  // -------------------------------------------------------------------
+  var loadWalletFacts = async function () {
+    if (!wallet || !getReadProvider) return "";
+    var p = getReadProvider();
+    var out = [];
+    var DAY = 86400;
+    var nowSec = Math.floor(Date.now() / 1000);
+
+    out.push("Their connected wallet address is " + wallet);
+
+    // ---- Term Staking v2 (Earn tab) ----
+    try {
+      var term = new Contract(ADDRESSES.termStaking, TERM_STAKING_ABI, p);
+      var tCount = Number(await term.positionCount(wallet));
+      var tLines = [];
+      for (var i = 0; i < tCount; i++) {
+        var tr = await Promise.all([
+          term.positions(wallet, i),
+          term.pendingReward(wallet, i).catch(function () { return 0n; }),
+          term.lockRemaining(wallet, i).catch(function () { return 0n; }),
+        ]);
+        var tp = tr[0], tPend = tr[1], tLock = tr[2];
+        if (tp.closed) continue;
+        var tAge = Math.floor((nowSec - Number(tp.startTime)) / DAY);
+        tLines.push(
+          "#" +
+            i +
+            " staked " +
+            Number(f18(tp.amount)).toFixed(2) +
+            " OSG, staked " +
+            tAge +
+            " days ago, reward cap " +
+            Number(f18(tp.cap)).toFixed(2) +
+            ", already claimed " +
+            Number(f18(tp.rewardPaid)).toFixed(2) +
+            ", claimable now " +
+            Number(f18(tPend)).toFixed(2) +
+            ", 2x cap reached " +
+            (tp.capped ? "YES" : "no") +
+            ", 180-day lock " +
+            (Number(tLock) > 0
+              ? Math.ceil(Number(tLock) / DAY) + " days left"
+              : "COMPLETE"),
+        );
+      }
+      out.push(
+        "Their Term Staking (Earn tab) open positions: " +
+          (tLines.length ? tLines.join(" || ") : "none"),
+      );
+    } catch (e) {
+      out.push("Their Term Staking positions could not be read just now");
+    }
+
+    // ---- LP Mining v7 (Mining tab) ----
+    try {
+      var mine = new Contract(ADDRESSES.lpMining, LP_MINING_ABI, p);
+      var mCount = Number(await mine.positionCount(wallet));
+      var mLines = [];
+      for (var j = 0; j < mCount; j++) {
+        var mr = await Promise.all([
+          mine.positions(wallet, j),
+          mine.pendingReward(wallet, j).catch(function () { return 0n; }),
+          mine.lockRemaining(wallet, j).catch(function () { return 0n; }),
+        ]);
+        var mp = mr[0], mPend = mr[1], mLock = mr[2];
+        if (mp.closed) continue;
+        var mAge = Math.floor((nowSec - Number(mp.startTime)) / DAY);
+        mLines.push(
+          "#" +
+            j +
+            " " +
+            Number(f18(mp.lpAmount)).toFixed(4) +
+            " LP (counted as " +
+            Number(f18(mp.osgValue)).toFixed(2) +
+            " OSG), deposited " +
+            mAge +
+            " days ago, already claimed " +
+            Number(f18(mp.rewardPaid)).toFixed(2) +
+            ", claimable now " +
+            Number(f18(mPend)).toFixed(2) +
+            ", 365-day lock " +
+            (Number(mLock) > 0
+              ? Math.ceil(Number(mLock) / DAY) + " days left"
+              : "COMPLETE"),
+        );
+      }
+      out.push(
+        "Their LP Mining (Mining tab) open positions: " +
+          (mLines.length ? mLines.join(" || ") : "none"),
+      );
+    } catch (e) {
+      out.push("Their LP Mining positions could not be read just now");
+    }
+
+    // ---- Referral v4.2, read through the lens ----
+    try {
+      var lens = new Contract(ADDRESSES.referralLens, REFERRAL_LENS_ABI, p);
+      var c = await lens.walletCard(wallet);
+      var rankName = ["none", "A1", "A2", "A3"][Number(c.rank)] || "none";
+      out.push(
+        "Their referral standing: referrer " +
+          (c.hasUpline ? String(c.referrer) : "none set") +
+          ", directs counting toward levels " +
+          Number(c.directsForLevels) +
+          ", levels currently open " +
+          Number(c.levelsOpen) +
+          " of 15, active commission " +
+          (Number(c.activeBps) / 100).toFixed(2) +
+          "%, commission claimable now " +
+          Number(f18(c.owed)).toFixed(2) +
+          " OSG, commission claimed so far " +
+          Number(f18(c.paid)).toFixed(2) +
+          " OSG, team volume " +
+          Number(f18(c.volume)).toFixed(2) +
+          " OSG, team rank " +
+          rankName +
+          ", rank bonus paid so far " +
+          Number(f18(c.bonusPaidTotal)).toFixed(2) +
+          " OSG, next rank bonus " +
+          (Number(c.bonusCooldownRemaining) > 0
+            ? "in " + Math.ceil(Number(c.bonusCooldownRemaining) / DAY) + " days"
+            : "claimable now"),
+      );
+    } catch (e) {
+      out.push("Their referral standing could not be read just now");
+    }
+
+    return out.join(". ") + ". ";
+  };
+
   var ask = async function (text) {
     if (!text || !text.trim() || !unlocked) return;
     var userMsg = { role: "user", content: text.trim() };
@@ -8236,6 +8375,8 @@ function AIAssistant({ wallet, staked, liveData, holders, polUsd }) {
               " OSG."
             : "")
         : "";
+      var walletFacts = await loadWalletFacts();
+      if (walletFacts) liveContext = liveContext + " " + walletFacts;
       var r = await fetch("/api/ai-assistant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -10027,6 +10168,7 @@ export default function App() {
         <AIAssistant
           wallet={wallet}
           staked={data.staked}
+          getReadProvider={getReadProvider}
           liveData={data}
           holders={holders}
           polUsd={polUsd}
