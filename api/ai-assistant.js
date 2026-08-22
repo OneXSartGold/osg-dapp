@@ -123,6 +123,61 @@ Friendly, concise, mobile-friendly — short lists beat long paragraphs. Plain l
 // bursts hitting the SAME warm instance. For real protection, add Vercel
 // Firewall rate limiting or an Upstash Redis-based limiter at the edge.
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Per-wallet hourly quota, backed by Upstash Redis over its REST API.
+// Unlike the in-memory IP limiter below, this is shared across every
+// serverless instance and survives cold starts.
+// Key: ai:<wallet>:<UTC hour>   TTL: 1 hour
+// ---------------------------------------------------------------------------
+const HOURLY_QUOTA = 30; // messages per wallet per UTC hour
+const HISTORY_TURNS = 6; // conversation turns replayed to the model
+
+/** Runs one Redis command via the Upstash REST API. */
+async function redisCommand(args) {
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) throw new Error("Upstash env vars not configured");
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: "Bearer " + token,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(args),
+  });
+  if (!res.ok) throw new Error("Upstash responded " + res.status);
+  const data = await res.json();
+  return data.result;
+}
+
+/** Minutes remaining in the current UTC hour, at least 1. */
+function minutesLeftInHour() {
+  const msIntoHour = Date.now() % 3600000;
+  return Math.max(1, 60 - Math.floor(msIntoHour / 60000));
+}
+
+/**
+ * Increments this wallet's counter for the current UTC hour.
+ * Returns { allowed, minutesLeft }. Fails OPEN: if Redis is unreachable
+ * the user is let through rather than blocked by our own outage.
+ */
+async function checkWalletQuota(wallet) {
+  try {
+    const hour = Math.floor(Date.now() / 3600000);
+    const key = "ai:" + wallet + ":" + hour;
+    const count = await redisCommand(["INCR", key]);
+    // Only the first hit of the hour needs a TTL; later hits inherit it.
+    if (Number(count) === 1) await redisCommand(["EXPIRE", key, 3600]);
+    if (Number(count) > HOURLY_QUOTA) {
+      return { allowed: false, minutesLeft: minutesLeftInHour() };
+    }
+    return { allowed: true, minutesLeft: 0 };
+  } catch (e) {
+    console.error("ai-assistant quota check failed:", e?.message || e);
+    return { allowed: true, minutesLeft: 0 };
+  }
+}
+
 const RATE_LIMIT_WINDOW_MS = 10_000; // 10s window
 const RATE_LIMIT_MAX_REQUESTS = 8; // per IP per window, per warm instance
 /** @type {Map<string, number[]>} */
@@ -230,14 +285,39 @@ export default async function handler(req, res) {
 
   try {
     /** @type {AiAssistantRequestBody} */
-    const { message, history, liveContext } = req.body || {};
+    const { message, history, liveContext, wallet } = req.body || {};
 
     if (!message || typeof message !== "string" || !message.trim()) {
       return res.status(400).json({ error: "Message is required" });
     }
 
-    // Validate + sanitize history: only well-formed { role, content } turns,
-    // last 4 turns max, markdown stripped, shorter cap per turn.
+    // The assistant is wallet-gated. We check the address is well-formed,
+// not that the caller owns it (see design note 3).
+const walletId =
+  typeof wallet === "string" && /^0x[a-fA-F0-9]{40}$/.test(wallet.trim())
+    ? wallet.trim().toLowerCase()
+    : "";
+
+if (!walletId) {
+  return res.status(200).json({
+    reply: "Please connect your wallet to use the OSG Assistant.",
+  });
+}
+
+const quota = await checkWalletQuota(walletId);
+if (!quota.allowed) {
+  return res.status(200).json({
+    reply:
+      "You have reached this hour's message limit. Please come back in " +
+      quota.minutesLeft +
+      " minute" +
+      (quota.minutesLeft === 1 ? "" : "s") +
+      " — your limit resets then.",
+  });
+}
+
+// Validate + sanitize history: only well-formed { role, content } turns,
+    // last 6 turns max, markdown stripped, shorter cap per turn.
     const trimmedHistory = (Array.isArray(history) ? history : [])
       .filter(
         (h) =>
@@ -246,7 +326,7 @@ export default async function handler(req, res) {
           typeof h.content === "string" &&
           (h.role === "user" || h.role === "assistant")
       )
-      .slice(-4)
+      .slice(-HISTORY_TURNS)
       .map((h) => ({
         role: h.role,
         content: stripMarkdown(h.content).slice(0, 800),
@@ -284,7 +364,15 @@ export default async function handler(req, res) {
       max_tokens: 800, // headroom for LP Mining/Whitepaper/Marathi answers
     });
 
-    if (!groqRes.ok) {
+    if (groqRes.status === 429) {
+  // Groq free-tier allowance exhausted — never surface this as an error.
+  return res.status(200).json({
+    reply:
+      "The assistant is very busy right now. Please try again in a few minutes.",
+  });
+}
+
+if (!groqRes.ok) {
       // Log only status + a short, truncated snippet — never the full user
       // message/history/wallet context, and keep log size bounded.
       const errText = await groqRes.text();
