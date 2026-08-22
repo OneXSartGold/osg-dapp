@@ -335,7 +335,7 @@ if (!quota.allowed) {
     // Cap liveContext defensively — regardless of how the caller built it,
     // this bounds worst-case token usage/latency if it ever grows too large.
     const safeLiveContext =
-      typeof liveContext === "string" ? liveContext.slice(0, 3000) : "";
+      typeof liveContext === "string" ? liveContext.slice(0, 4000) : "";
 
     /** @type {{ role: "system"|"user"|"assistant", content: string }[]} */
     const messages = [
