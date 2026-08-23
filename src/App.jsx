@@ -5044,7 +5044,29 @@ function Earn({ wallet, ensureReady, showToast }) {
   return (
     <div className="page">
       <div className="page-head">
-        <h1>Earn</h1>
+        <h1>
+            Stake
+            <span
+              style={{
+                fontSize: 9,
+                letterSpacing: ".13em",
+                fontWeight: 700,
+                color: C.green,
+                background: "rgba(70,208,138,.10)",
+                border: "1px solid rgba(70,208,138,.45)",
+                padding: "3px 7px",
+                borderRadius: 999,
+                marginLeft: 9,
+                verticalAlign: "middle",
+                fontFamily: "'Hanken Grotesk',sans-serif",
+              }}
+            >
+              NEW
+            </span>
+          </h1>
+          <div style={{ fontSize: 12, color: C.txt3, marginTop: 4 }}>
+            180-day term · fixed daily rate · 2× reward cap
+          </div>
       </div>
 
       {/* ---------- claimable header ---------- */}
@@ -9886,8 +9908,8 @@ export default function App() {
 
   const navItems = [
     ["dashboard", Ico.home, t.dashboard],
-    ["staking", Ico.stake, t.staking],
-    ["earn", Ico.stake, "Earn"],
+    ["earn", Ico.mining, "Stake", true],
+    ["staking", Ico.stake, "Old Stake"],
     ["referral", Ico.ref, t.referral],
     ["swap", Ico.swap, t.swap],
     ["messenger", Ico.chat, t.messenger],
@@ -10153,14 +10175,36 @@ export default function App() {
         {/* BOTTOM NAV */}
         {!chatFullscreen && (
           <nav className="nav">
-            {navItems.map(([id, icon, label]) => (
+            {navItems.map(([id, icon, label, isNew]) => (
               <button
                 key={id}
                 className={tab === id ? "on" : ""}
+                style={{ position: "relative" }}
                 onClick={() => setTab(id)}
               >
                 {icon}
                 <span>{label}</span>
+                {isNew && (
+                  <span
+                    style={{
+                      position: "absolute",
+                      top: -2,
+                      right: -1,
+                      fontSize: 7,
+                      letterSpacing: ".07em",
+                      fontWeight: 700,
+                      color: C.green,
+                      background: "rgba(70,208,138,.13)",
+                      border: "1px solid rgba(70,208,138,.45)",
+                      padding: "1px 4px",
+                      borderRadius: 999,
+                      lineHeight: 1.4,
+                      pointerEvents: "none",
+                    }}
+                  >
+                    NEW
+                  </span>
+                )}
               </button>
             ))}
           </nav>
