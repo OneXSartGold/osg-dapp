@@ -984,6 +984,23 @@ const Ico = {
       <path d="m21 21-4.35-4.35" />
     </svg>
   ),
+    pick: (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path
+        d="M9.2 5.5C14.4 6.1 18.3 10.1 18.9 15.8L16.4 14.6C15.6 10.5 13.2 8.1 9.9 7.7Z"
+        fill="currentColor"
+        stroke="none"
+      />
+      <path d="M4.5 20 14.6 9.9" />
+    </svg>
+  ),
   mining: (
     <svg
       viewBox="0 0 24 24"
@@ -5160,7 +5177,7 @@ function Earn({ wallet, ensureReady, showToast }) {
             <span
               style={{
                 fontSize: 9,
-                letterSpacing: ".13em",
+                letterSpacing: ".13em", display: "none",
                 fontWeight: 700,
                 color: C.green,
                 background: "rgba(70,208,138,.10)",
@@ -8475,7 +8492,7 @@ function AIAssistant({ wallet, staked, liveData, holders, polUsd, getReadProvide
           (holders ? String(holders) : "not available right now") +
           ". " +
           (wallet
-            ? "This user's own wallet data. The next eight figures come ONLY from the RETIRED Active Staking contract, which most users have migrated away from, so they are usually zero and are NOT this user's real position. Their REAL figures appear later in this block under 'Their Term Staking (Earn tab)', 'Their LP Mining (Mining tab)' and 'Their referral standing' — always answer from those. Mention the retired-contract numbers only if the user asks about the old Active Staking contract specifically. Retired-contract figures (this is the 'Old Stake' page in the app, which no longer accepts deposits): " +
+            ? "This user's own wallet data. The next eight figures come ONLY from the RETIRED Active Staking contract, which most users have migrated away from, so they are usually zero and are NOT this user's real position. Their REAL figures appear later in this block under 'Their Term Staking (the Stake tab)', 'Their LP Mining (the Miner tab)' and 'Their referral standing' — always answer from those. Mention the retired-contract numbers only if the user asks about the old Active Staking contract specifically. Retired-contract figures (this is the 'Old Stake' page in the app, which no longer accepts deposits): " +
               "OSG Balance: " +
               fmt(liveData.balance, 2) +
               " OSG, " +
@@ -10019,8 +10036,9 @@ export default function App() {
 
   const navItems = [
     ["dashboard", Ico.home, t.dashboard],
-    ["earn", Ico.mining, "Stake", true],
-    ["staking", Ico.stake, "Old Stake"],
+    ["mining", Ico.pick, "Miner"],
+    ["earn", Ico.mining, "Stake"],
+    
     ["referral", Ico.ref, t.referral],
     ["swap", Ico.swap, t.swap],
     ["messenger", Ico.chat, t.messenger],
