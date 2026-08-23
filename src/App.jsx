@@ -993,8 +993,14 @@ const Ico = {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      <path d="M22 12l-4.5 4.5L12 22 2 12 12 2z" />
-      <path d="M12 2v20M2 12h20" strokeOpacity="0.4" />
+      <path d="M7 5h10l3.5 5-8.5 10.5L3.5 10z" />
+      <path d="M3.5 10h17" strokeOpacity="0.55" />
+      <path d="M10 10l2 10.5 2-10.5" strokeOpacity="0.55" />
+      <path
+        d="M20.5 2.2c.25 1.1.6 1.45 1.7 1.7-1.1.25-1.45.6-1.7 1.7-.25-1.1-.6-1.45-1.7-1.7 1.1-.25 1.45-.6 1.7-1.7z"
+        fill="currentColor"
+        stroke="none"
+      />
     </svg>
   ),
 };
