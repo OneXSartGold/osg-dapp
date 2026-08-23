@@ -2691,6 +2691,7 @@ function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvid
 }
 
 function Staking({
+  goTo,
   wallet,
   data,
   refParam,
@@ -2701,7 +2702,7 @@ function Staking({
   ensureReady,
   showToast,
 }) {
-  const [tab, setTab] = useState("stake");
+  const [tab, setTab] = useState("unstake");
   const [amount, setAmount] = useState("");
   const [refInput, setRefInput] = useState("");
   useEffect(() => {
@@ -2842,11 +2843,115 @@ function Staking({
   return (
     <div className="page">
       <div className="page-head">
-        <h1>{t.staking}</h1>
+        <h1>Old Stake</h1>
+          <div style={{ fontSize: 12, color: C.txt3, marginTop: 4 }}>
+            Closed to new deposits · claim and unstake stay open
+          </div>
+          <div
+            style={{
+              marginTop: 16,
+              background: C.card,
+              border: "1px solid rgba(247,210,122,.35)",
+              borderRadius: 16,
+              padding: "16px 16px 18px",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 9,
+                marginBottom: 10,
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 10,
+                  letterSpacing: ".09em",
+                  textTransform: "uppercase",
+                  color: "#08080B",
+                  background: C.grad,
+                  padding: "4px 9px",
+                  borderRadius: 999,
+                  fontWeight: 700,
+                }}
+              >
+                Closed
+              </span>
+              <span style={{ fontSize: 15, fontWeight: 600 }}>
+                No longer taking deposits
+              </span>
+            </div>
+            <p
+              style={{
+                fontSize: 13.5,
+                lineHeight: 1.62,
+                color: C.txt2,
+                margin: "0 0 10px",
+              }}
+            >
+              New deposits into this older pool are closed. Your existing stake
+              and rewards are untouched and fully under your control — you can
+              claim and unstake here as normal, at any time.
+            </p>
+            <p
+              style={{
+                fontSize: 13.5,
+                lineHeight: 1.62,
+                color: C.txt2,
+                margin: "0 0 14px",
+              }}
+            >
+              Stake is where new deposits go now. Moving over is optional and
+              entirely your decision.
+            </p>
+            <div
+              style={{
+                display: "flex",
+                gap: 10,
+                alignItems: "flex-start",
+                background: C.card2,
+                border: "1px dashed " + C.line2,
+                borderRadius: 11,
+                padding: "11px 12px",
+                marginBottom: 14,
+              }}
+            >
+              <span
+                style={{
+                  flex: "0 0 auto",
+                  fontSize: 9.5,
+                  letterSpacing: ".08em",
+                  textTransform: "uppercase",
+                  color: C.txt2,
+                  border: "1px solid " + C.line2,
+                  padding: "3px 7px",
+                  borderRadius: 999,
+                  marginTop: 1,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Coming soon
+              </span>
+              <span style={{ fontSize: 12.5, lineHeight: 1.6, color: C.txt3 }}>
+                Flexi Stake is being built. Its terms are not settled yet, so
+                please don't plan around it — it will be announced here once it
+                is live.
+              </span>
+            </div>
+            <button
+              className="btn-gold"
+              onClick={function () {
+                if (goTo) goTo("earn");
+              }}
+            >
+              Go to Stake
+            </button>
+          </div>
       </div>
       <div className="tabs2">
         {[
-          ["stake", t.stakeBtn],
+          
           ["unstake", t.unstakeTab],
          ["claim", t.claimTab],           ["history", t.historyTab || "History"],
         ].map(([k, l]) => (
@@ -8364,7 +8469,7 @@ function AIAssistant({ wallet, staked, liveData, holders, polUsd, getReadProvide
           (holders ? String(holders) : "not available right now") +
           ". " +
           (wallet
-            ? "This user's own wallet data. The next eight figures come ONLY from the RETIRED Active Staking contract, which most users have migrated away from, so they are usually zero and are NOT this user's real position. Their REAL figures appear later in this block under 'Their Term Staking (Earn tab)', 'Their LP Mining (Mining tab)' and 'Their referral standing' — always answer from those. Mention the retired-contract numbers only if the user asks about the old Active Staking contract specifically. Retired-contract figures: " +
+            ? "This user's own wallet data. The next eight figures come ONLY from the RETIRED Active Staking contract, which most users have migrated away from, so they are usually zero and are NOT this user's real position. Their REAL figures appear later in this block under 'Their Term Staking (Earn tab)', 'Their LP Mining (Mining tab)' and 'Their referral standing' — always answer from those. Mention the retired-contract numbers only if the user asks about the old Active Staking contract specifically. Retired-contract figures (this is the 'Old Stake' page in the app, which no longer accepts deposits): " +
               "OSG Balance: " +
               fmt(liveData.balance, 2) +
               " OSG, " +
@@ -10104,6 +10209,7 @@ export default function App() {
           
           {tab === "staking" && (
             <Staking
+              goTo={setTab}
               wallet={wallet}
               data={data}
               refParam={refParam}
