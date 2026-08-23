@@ -1595,7 +1595,8 @@ function PoolCards({ getProvider, wallet, oldStaked, setTab }) {
     ),
   };
 
-  const Card = (o) => (
+  const SHOW_POOL_CARDS = false;
+  const Card = (o) => SHOW_POOL_CARDS && (
     <div
       onClick={o.soon ? undefined : o.go}
       style={{
@@ -1855,7 +1856,7 @@ function PoolCards({ getProvider, wallet, oldStaked, setTab }) {
 
   return (
     <div style={{ marginTop: 14 }}>
-      <div className="sec" style={{ margin: "0 2px 12px" }}>
+      <div className="sec" style={{ display: "none" }}>
         Pools
       </div>
 
