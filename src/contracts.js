@@ -2,6 +2,9 @@
 //  OSG Contract Config -- Polygon Mainnet
 //  Updated 11 August 2026: Treasury, TermStaking v2, LPMining v7,
 //  Referral v4.1 deployed and wired.
+//  Updated 26 August 2026: P2P Exchange v3 is live on mainnet with two
+//  pairs (1 = OSG/POL, 2 = OSG/USDT). p2pExchange now points at v3 and
+//  P2P_ABI has been replaced wholesale -- see the note above it.
 //
 //  WHAT CHANGED FROM THE PREVIOUS FILE
 //  -----------------------------------
@@ -32,7 +35,10 @@ export const ADDRESSES = {
   // referral is built into staking (no separate contract)
   referral: "0x048E814C02e85ec1438Ab8C1d2e9150A5289A886",
   referralDistributor: "0x4f1eFf6Fc4A0271096dD78B6F6284D4c9f1904F1",
-  p2pExchange: "0xDc172cbbB940C8AF717De1cB46a89a6d91aFa567",
+  p2pExchange: "0x269EcA6aDb7c9c1beFDc6c0be48a545b1920E1bb",
+  // Polygon USDT is the quote token of P2P pair 2. It is a proxy and
+  // has 6 decimals, not 18. Use TOKEN_ABI for approve/allowance.
+  usdt: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F",
 
   // -- QuickSwap (for in-app Add Liquidity) --
   quickswapRouter: "0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff",
@@ -58,6 +64,10 @@ export const ADDRESSES = {
   // lpMiningV6:    "0xb0510d6f707dF47fE7427732D5507290D847b736",
   // lpReferralV1:  "0xFa1CC9D7a9643156d797142D47e3930895401565",
   // referralV3:    "0x0A7a88B23076F35ee2c0B41E85a892C17ae2aC92",
+  // p2pExchangeV2: "0xDc172cbbB940C8AF717De1cB46a89a6d91aFa567",
+  //   Still unpaused as of 26 Aug 2026 and its book is empty. Pause it
+  //   from Polygonscan only AFTER v3 has taken a real trade from the
+  //   DApp, otherwise a problem in v3 leaves P2P with no venue at all.
 };
 
 export const ZERO = "0x0000000000000000000000000000000000000000";
@@ -215,45 +225,148 @@ export const STORAGE_ABI = [
   "function totalClaimed() view returns (uint256)",
 ];
 
-// -- OSGP2PExchangeV2 (order-book based P2P trading, pairId=1 = OSG/POL) --
+/* ======================================================================
+   P2P_ABI  --  OSGP2PExchangeV3
+   0x269EcA6aDb7c9c1beFDc6c0be48a545b1920E1bb  (deployed 25 Aug 2026)
+
+   THIS IS NOT v2. Read the rename table before touching P2PPanel.
+
+     v2                          v3
+     ------------------------    ----------------------------------
+     PRICE_SCALE()               gone -- the divisor is 10**baseDec
+     placeBuyOrder(...)          placeOrder(pairId, true,  ...)
+     placeSellOrder(...)         placeOrder(pairId, false, ...)
+     cancelExpiredOrder(id)      cancelExpired(id)
+     pairBuyOrderIdsLength(p)    buyOrderIdsLength(p)
+     pairSellOrderIdsLength(p)   sellOrderIdsLength(p)
+     pairBuyOrderIds(p, i)       buyOrderIdAt(p, i)
+     pairSellOrderIds(p, i)      sellOrderIdAt(p, i)
+     order.user                  order.maker
+     order.amount                order.baseAmount
+     order.timestamp             order.createdAt
+     order.expiryTime            order.expiry
+     --                          bookSlice()   one call, whole side
+     --                          sweepExpired()
+     --                          quoteFor()    on-chain price maths
+     --                          withdrawNative() / withdrawToken()
+
+   cancelOrder(uint256) and acceptOrder(...) keep the exact v2 signature
+   and therefore the exact v2 selector. Do not rewrite those two.
+
+   PRICING. price is quote smallest units per ONE WHOLE base token, and
+   quoteAmount = mulDiv(baseAmount, price, 10**baseDec). baseDec is OSG's
+   18 on BOTH pairs, so pair 1's divisor is the same 1e18 that v2's
+   PRICE_SCALE was: nothing in the POL maths changes. Pair 2 divides by
+   1e18 too, but its price is denominated in 6-decimal USDT, so only the
+   UI's formatting of price and quote differs. When in doubt, call
+   quoteFor() and show what the contract itself would charge.
+
+   TWO THINGS THE APP MUST DO
+   1. sweepExpired(pairId, side, 50) before a trade. SWEEP_ON_PLACE = 6
+      runs automatically, which is not enough if 50 orders have expired.
+   2. Never treat an index as a stable cursor. _close does swap-and-pop,
+      so closing an order moves a different one into its slot. Read the
+      book with bookSlice() and drive acceptOrder off PRICE, not index.
+
+   Owner-only setters (addPair, setPairActive, setMinBase, setFee,
+   setFeeCollector, pause, unpause, rescueNative, rescueToken) are left
+   out on purpose -- they are done from Polygonscan by OSG-MAIN.
+   ====================================================================== */
 export const P2P_ABI = [
+  /* ---- errors: listed so a revert shows a name, not a hex blob ---- */
   "error EnforcedPause()",
   "error ExpectedPause()",
   "error OwnableInvalidOwner(address owner)",
   "error OwnableUnauthorizedAccount(address account)",
   "error ReentrancyGuardReentrantCall()",
   "error SafeERC20FailedOperation(address token)",
-  // writes
-  "function placeBuyOrder(uint256 pairId, uint128 price, uint128 amount, uint40 expiryTime) payable returns (uint256 orderId)",
-  "function placeSellOrder(uint256 pairId, uint128 price, uint128 amount, uint40 expiryTime) returns (uint256 orderId)",
-  "function acceptOrder(uint256 pairId, bool wantBuy, uint128 amount, uint128 priceLimit, uint256 startFrom, uint256 maxScan) payable returns (uint256 filledAmount, uint256 nextScanIndex)",
+  "error NotAContract()",
+  "error InvalidPair()",
+  "error PairNotActive()",
+  "error PairExists()",
+  "error InvalidPrice()",
+  "error InvalidAmount()",
+  "error BelowMinimum()",
+  "error BadExpiry()",
+  "error TooManyOpenOrders()",
+  "error InsufficientPayment()",
+  "error NativeNotAccepted()",
+  "error NotOrderOwner()",
+  "error OrderNotOpen()",
+  "error NotExpired()",
+  "error NothingPending()",
+  "error NothingToRescue()",
+  "error ZeroAddress()",
+  "error FeeTooHigh()",
+  "error RenounceDisabled()",
+
+  /* ---- writes ----
+   * placeOrder is payable ONLY for a buy on a native-quote pair (pair 1).
+   * Send 0 value for a sell, and 0 value for any ERC20-quote pair, or it
+   * reverts NativeNotAccepted.
+   */
+  "function placeOrder(uint256 pairId, bool isBuy, uint128 price, uint128 baseAmount, uint40 expiry) payable returns (uint256 orderId)",
+  "function acceptOrder(uint256 pairId, bool wantBuy, uint128 baseAmount, uint128 priceLimit, uint256 startFrom, uint256 maxScan) payable returns (uint256 filledBase, uint256 nextIndex)",
   "function cancelOrder(uint256 orderId)",
-  "function cancelExpiredOrder(uint256 orderId)",
-  // reads
-  "function orders(uint256) view returns (address user, uint256 pairId, bool isBuy, uint128 price, uint128 amount, uint40 timestamp, uint40 expiryTime, uint8 status)",
-  "function pairs(uint256) view returns (address token, bool active, uint256 minAmount)",
+  "function cancelExpired(uint256 orderId)",
+  "function sweepExpired(uint256 pairId, bool isBuy, uint256 maxSweep) returns (uint256 swept)",
+  // pull payments: only reachable if a payout transfer failed
+  "function withdrawNative()",
+  "function withdrawToken(address token)",
+
+  /* ---- reads: the book ----
+   * bookSlice replaces the per-order RPC loop. One call returns a whole
+   * side; 50 orders cost 1 round trip instead of 52.
+   */
+  "function bookSlice(uint256 pairId, bool isBuy, uint256 start, uint256 count) view returns (uint256[] ids, address[] makers, uint256[] prices, uint256[] amounts, uint256[] expiries)",
+  "function buyOrderIdsLength(uint256 pairId) view returns (uint256)",
+  "function sellOrderIdsLength(uint256 pairId) view returns (uint256)",
+  "function buyOrderIdAt(uint256 pairId, uint256 i) view returns (uint256)",
+  "function sellOrderIdAt(uint256 pairId, uint256 i) view returns (uint256)",
+  "function orders(uint256) view returns (address maker, uint64 pairId, bool isBuy, uint128 price, uint128 baseAmount, uint40 createdAt, uint40 expiry, uint32 index, uint8 status)",
   "function orderCounter() view returns (uint256)",
+  "function openOrderCount(address user) view returns (uint256)",
+
+  /* ---- reads: pairs and maths ---- */
+  "function pairs(uint256) view returns (address base, address quote, uint8 baseDec, uint8 quoteDec, uint256 minBase, bool active)",
   "function pairCounter() view returns (uint256)",
-  "function pairBuyOrderIds(uint256, uint256) view returns (uint256)",
-  "function pairSellOrderIds(uint256, uint256) view returns (uint256)",
-  "function pairBuyOrderIdsLength(uint256 pairId) view returns (uint256)",
-  "function pairSellOrderIdsLength(uint256 pairId) view returns (uint256)",
-  "function userBuyPriceOrder(address, uint256, uint256) view returns (uint256)",
-  "function userSellPriceOrder(address, uint256, uint256) view returns (uint256)",
+  "function quoteFor(uint256 pairId, uint256 baseAmount, uint256 price) view returns (uint256)",
+
+  /* ---- reads: fee, state, owed balances ---- */
   "function feeBps() view returns (uint256)",
   "function feeCollector() view returns (address)",
+  "function paused() view returns (bool)",
+  "function owner() view returns (address)",
+  "function pendingNative(address user) view returns (uint256)",
+  "function pendingToken(address user, address token) view returns (uint256)",
+  "function liabilityNative() view returns (uint256)",
+  "function liabilityToken(address token) view returns (uint256)",
+
+  /* ---- reads: limits ----
+   * MAX_OPEN_PER_USER counts every open order a wallet holds across all
+   * pairs and both sides. It only falls when an order closes.
+   */
   "function MAX_FEE_BPS() view returns (uint256)",
   "function MAX_SCAN() view returns (uint256)",
   "function MAX_MATCH() view returns (uint256)",
   "function AUTO_MATCH_SCAN() view returns (uint256)",
-  "function PRICE_SCALE() view returns (uint256)",
-  "function paused() view returns (bool)",
-  "function tokenRegistered(address) view returns (bool)",
-  // events
-  "event OrderPlaced(uint256 indexed orderId, address indexed user, uint256 indexed pairId, bool isBuy, uint256 price, uint256 amount, uint256 expiryTime)",
-  "event OrderFilled(uint256 indexed orderId, address indexed taker, uint256 filledAmount, uint256 remainingAmount)",
-  "event OrderCancelled(uint256 indexed orderId, address indexed user, uint256 refundedAmount)",
-  "event OrderMerged(uint256 indexed orderId, address indexed user, uint256 addedAmount, uint256 newTotalAmount, uint256 newExpiryTime)",
+  "function MAX_EXPIRY() view returns (uint256)",
+  "function MAX_OPEN_PER_USER() view returns (uint256)",
+  "function SWEEP_ON_PLACE() view returns (uint256)",
+  "function OPEN() view returns (uint8)",
+  "function FILLED() view returns (uint8)",
+  "function CANCELLED() view returns (uint8)",
+
+  /* ---- events ----
+   * OrderFilled now carries maker, taker, both amounts and the fee, so a
+   * "last trade" ticker can be built from this event alone.
+   */
+  "event OrderPlaced(uint256 indexed orderId, address indexed maker, uint256 indexed pairId, bool isBuy, uint256 price, uint256 baseAmount, uint256 expiry)",
+  "event OrderFilled(uint256 indexed orderId, address indexed maker, address indexed taker, uint256 pairId, bool makerWasBuying, uint256 price, uint256 filledBase, uint256 quoteAmount, uint256 fee, uint256 remainingBase)",
+  "event OrderCancelled(uint256 indexed orderId, address indexed maker, uint256 refundedBase, uint256 refundedQuote)",
+  "event PairAdded(uint256 indexed pairId, address indexed base, address indexed quote, uint256 minBase)",
+  "event PayoutDeferred(address indexed to, address indexed asset, uint256 amount)",
+  "event Withdrawn(address indexed to, address indexed asset, uint256 amount)",
 ];
 
 // -- Router (for in-app Add Liquidity via addLiquidityETH) --
