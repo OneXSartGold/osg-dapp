@@ -3789,98 +3789,75 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
   if (!p2pProviderRef.current) {
     p2pProviderRef.current = new JsonRpcProvider(RPC_URLS[0], 137);
   }
-  
+
+  /* v3 runs two markets: 1 = OSG/POL, 2 = OSG/USDT. This panel still shows
+   * pair 1 only. The pair switcher belongs to the new book UI, not here, and
+   * pair 2's book is nearly empty -- defaulting to it would show a blank. */
+  const PAIR_ID = 1;
+
   const loadBook = useCallback(async () => {
     try {
       const p = p2pProviderRef.current;
       const c = new Contract(ADDRESSES.p2pExchange, P2P_ABI, p);
-      const scale = await c.PRICE_SCALE().catch(function () {
-        return 1000000000000000000n;
-      });
-      const scaleNum = Number(scale) || 1e18;
-      const SCAN_CAP = 200;
-      const buyLen = Number(
-        await c.pairBuyOrderIdsLength(1).catch(function () {
-          return 0n;
-        }),
-      );
-      const sellLen = Number(
-        await c.pairSellOrderIdsLength(1).catch(function () {
-          return 0n;
-        }),
-      );
-      const buyStart = buyLen > SCAN_CAP ? buyLen - SCAN_CAP : 0;
-      const sellStart = sellLen > SCAN_CAP ? sellLen - SCAN_CAP : 0;
-      const buyIdxs = [];
-      for (let i = buyStart; i < buyLen; i++) buyIdxs.push(i);
-      const sellIdxs = [];
-      for (let i = sellStart; i < sellLen; i++) sellIdxs.push(i);
-      const buyIds = await Promise.all(
-        buyIdxs.map(function (i) {
-          return c.pairBuyOrderIds(1, i).catch(function () {
-            return null;
-          });
-        }),
-      );
-      const sellIds = await Promise.all(
-        sellIdxs.map(function (i) {
-          return c.pairSellOrderIds(1, i).catch(function () {
-            return null;
-          });
-        }),
-      );
-      const ids = buyIds.concat(sellIds).filter(function (x) {
-        return x !== null;
-      });
-      const orders = await Promise.all(
-        ids.map(function (id) {
-          return c
-            .orders(id)
-            .then(function (o) {
-              return { id: id, o: o };
-            })
-            .catch(function () {
-              return null;
-            });
-        }),
-      );
+
+      /* Decimals come from the pair, never from an assumption.
+       *   price  = quote smallest units per ONE WHOLE base token
+       *   shown  = price / 10**quoteDec        -> 0.13 POL, 0.10 USDT
+       *   cost   = baseAmount * price / 10**baseDec, in quote smallest units
+       * On pair 1 both decimals are 18, which is exactly what v2's
+       * PRICE_SCALE was, so no POL figure on screen changes. On pair 2 the
+       * cost divisor is still 1e18 (OSG's) while the price is denominated in
+       * 6-decimal USDT -- which is why these two must be read separately. */
+      const pair = await c.pairs(PAIR_ID);
+      const quoteUnit = Math.pow(10, Number(pair.quoteDec));
+
+      /* One call per side instead of one per order: 50 orders used to cost
+       * 52 round trips and now cost 2.
+       *
+       * bookSlice returns OPEN orders only. _close does swap-and-pop, so a
+       * filled or cancelled order is removed from the array rather than left
+       * in it with status 1 -- which is how the old code found lastTrade.
+       * It cannot be recovered from the book any more; it has to come from
+       * OrderFilled events. Until that is built the panel says nothing about
+       * the last trade rather than guessing. */
+      const SLICE = 100;
+      const rawBuys = await c.bookSlice(PAIR_ID, true, 0, SLICE);
+      const rawSells = await c.bookSlice(PAIR_ID, false, 0, SLICE);
+
       const now = Math.floor(Date.now() / 1000);
-      const buys = [],
-        sells = [];
-      let lastTrade = null;
-      orders.forEach(function (row) {
-        if (!row) return;
-        const o = row.o;
-        const price = Number(o.price) / scaleNum;
-        const ts = Number(o.timestamp);
-        if (
-          Number(o.status) === 1 &&
-          (!lastTrade || ts > lastTrade.timestamp)
-        ) {
-          lastTrade = { price: price, timestamp: ts };
+      const pack = function (raw, isBuy) {
+        const out = [];
+        for (let i = 0; i < raw.ids.length; i++) {
+          const amt = Number(formatUnits(raw.amounts[i], 18));
+          if (amt <= 0) continue;
+          /* sweepExpired clears these on-chain, but only six per placement,
+             so an expired order can still be sitting here. */
+          if (Number(raw.expiries[i]) <= now) continue;
+          const maker = raw.makers[i];
+          out.push({
+            id: raw.ids[i],
+            price: Number(raw.prices[i]) / quoteUnit,
+            rawPrice: raw.prices[i],
+            amount: amt,
+            isBuy: isBuy,
+            mine:
+              Boolean(wallet) &&
+              Boolean(maker) &&
+              maker.toLowerCase() === wallet.toLowerCase(),
+          });
         }
-        const amt = Number(formatUnits(o.amount, 18));
-        const notExpired =
-          Number(o.expiryTime) === 0 || Number(o.expiryTime) > now;
-        if (amt <= 0 || !notExpired) return;
-        const entry = {
-          id: row.id,
-          price: price,
-          rawPrice: o.price,
-          amount: amt,
-          isBuy: o.isBuy,
-          mine:
-            wallet && o.user && o.user.toLowerCase() === wallet.toLowerCase(),
-        };
-        if (o.isBuy) buys.push(entry);
-        else sells.push(entry);
-      });
+        return out;
+      };
+
+      const buys = pack(rawBuys, true);
+      const sells = pack(rawSells, false);
       buys.sort(function (a, b) {
         return b.price - a.price;
       });
       sells.sort(function (a, b) {
         return a.price - b.price;
       });
+
       setBook({
         buys: buys.slice(0, 5),
         sells: sells.slice(0, 5),
@@ -3892,7 +3869,7 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
           .sort(function (a, b) {
             return Number(b.id) - Number(a.id);
           }),
-        lastTrade: lastTrade,
+        lastTrade: null,
       });
     } catch (e) {
       console.error("P2P book load failed", e);
@@ -3918,7 +3895,7 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
     var priceNum = parseFloat(pPrice) || 0;
     var amountNum = parseFloat(pAmount) || 0;
     if (priceNum <= 0 || amountNum <= 0) {
-      showToast("⚠️ Enter price & amount");
+      showToast("\u26a0\ufe0f Enter price & amount");
       return;
     }
     var signer = await ensureReady();
@@ -3927,40 +3904,79 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
     try {
       var p = getProvider();
       var cRead = new Contract(ADDRESSES.p2pExchange, P2P_ABI, p);
-      var scale = await cRead.PRICE_SCALE().catch(function () {
-        return 1000000000000000000n;
-      });
-      var priceScaled = BigInt(Math.round(priceNum * Number(scale)));
+      var pair = await cRead.pairs(PAIR_ID);
+      var quoteDec = Number(pair.quoteDec);
+      var nativeQuote = String(pair.quote) === ZERO;
+
+      /* price is quote smallest units per ONE WHOLE base token. Built with
+         parseUnits so a decimal price never goes through a float multiply. */
+      var priceScaled;
+      try {
+        priceScaled = parseUnits(String(priceNum), quoteDec);
+      } catch (errP) {
+        showToast("\u26a0\ufe0f Price has too many decimals for this pair");
+        setPBusy(false);
+        return;
+      }
       var amountWei = parseUnits(String(amountNum), 18);
+
+      /* Ask the contract what it will charge instead of repeating its
+         arithmetic here. quoteFor reverts on an unknown pair, so a wrong
+         pairId surfaces now rather than as a wrong msg.value later. */
+      var costWei = await cRead.quoteFor(PAIR_ID, amountWei, priceScaled);
+
       var c = new Contract(ADDRESSES.p2pExchange, P2P_ABI, signer);
+      var expiry = Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60;
+
       if (pSide === "buy") {
-        var totalWei = (priceScaled * amountWei) / BigInt(scale);
-        showToast("Placing buy order…");
-        var expiry = Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60;
-        var tx = await c.placeBuyOrder(1, priceScaled, amountWei, expiry, {
-          value: totalWei,
-        });
+        if (!nativeQuote) {
+          /* An ERC20-quote buy needs the QUOTE token approved, not OSG, and
+             msg.value must be zero. Pair 2 is not wired into this panel yet,
+             so refuse plainly rather than send a transaction that reverts. */
+          showToast("\u26a0\ufe0f This pair is paid in a token \u2014 not supported here yet");
+          setPBusy(false);
+          return;
+        }
+        /* Anything that matches immediately is filled at the resting price
+           and the difference comes straight back, so sending the limit-price
+           cost is the worst case, not the price paid. */
+        showToast("Placing buy order\u2026");
+        var tx = await c.placeOrder(
+          PAIR_ID,
+          true,
+          priceScaled,
+          amountWei,
+          expiry,
+          { value: costWei },
+        );
         await tx.wait();
       } else {
         var token = new Contract(ADDRESSES.token, TOKEN_ABI, signer);
         var allowance = await token.allowance(wallet, ADDRESSES.p2pExchange);
         if (allowance < amountWei) {
-          showToast("1/2 — Approving OSG…");
+          showToast("1/2 \u2014 Approving OSG\u2026");
           var txA = await token.approve(ADDRESSES.p2pExchange, amountWei);
           await txA.wait();
         }
-        showToast("2/2 — Placing sell order…");
-        var expiry2 = Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60;
-        var tx2 = await c.placeSellOrder(1, priceScaled, amountWei, expiry2);
+        showToast("2/2 \u2014 Placing sell order\u2026");
+        /* No value on a sell, on either pair: _placeSell reverts
+           NativeNotAccepted if msg.value is anything but zero. */
+        var tx2 = await c.placeOrder(
+          PAIR_ID,
+          false,
+          priceScaled,
+          amountWei,
+          expiry,
+        );
         await tx2.wait();
       }
-      showToast("✅ Order placed!");
+      showToast("\u2705 Order placed!");
       setPPrice("");
       setPAmount("");
       loadBook();
     } catch (e) {
       showToast(
-        "❌ " + ((e && (e.shortMessage || e.reason)) || "Order failed"),
+        "\u274c " + ((e && (e.shortMessage || e.reason)) || "Order failed"),
       );
     } finally {
       setPBusy(false);
@@ -4006,10 +4022,10 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
       var wantBuy = !o.isBuy;
       if (wantBuy) {
         var cRead = new Contract(ADDRESSES.p2pExchange, P2P_ABI, p);
-        var scale = await cRead.PRICE_SCALE().catch(function () {
-          return 1000000000000000000n;
-        });
-        var totalWei = (priceScaled * amountWei) / BigInt(scale);
+        /* v3 has no PRICE_SCALE. The contract's own quoteFor is the divisor,
+           and it is the exact figure acceptOrder will require as msg.value --
+           anything filled below the limit price is refunded. */
+        var totalWei = await cRead.quoteFor(PAIR_ID, amountWei, priceScaled);
         var polBalance = await p.getBalance(wallet);
         if (polBalance < totalWei) {
           showToast("⚠️ Insufficient POL balance");
@@ -4017,7 +4033,7 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
           return;
         }
         showToast("Buying…");
-        var tx = await c.acceptOrder(1, true, amountWei, priceScaled, 0, 50, {
+        var tx = await c.acceptOrder(PAIR_ID, true, amountWei, priceScaled, 0, 50, {
           value: totalWei,
         });
         await tx.wait();
@@ -4036,7 +4052,7 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
           await txA.wait();
         }
         showToast("2/2 — Selling…");
-        var tx2 = await c.acceptOrder(1, false, amountWei, priceScaled, 0, 50);
+        var tx2 = await c.acceptOrder(PAIR_ID, false, amountWei, priceScaled, 0, 50);
         await tx2.wait();
       }
       showToast("✅ Order filled!");
