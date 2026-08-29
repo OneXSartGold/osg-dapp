@@ -3802,7 +3802,8 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
   /* v3 runs two markets: 1 = OSG/POL, 2 = OSG/USDT. This panel still shows
    * pair 1 only. The pair switcher belongs to the new book UI, not here, and
    * pair 2's book is nearly empty -- defaulting to it would show a blank. */
-  const PAIR_ID = 1;
+  const [PAIR_ID, setPairId] = useState(1);
+  const [quoteSym, setQuoteSym] = useState("POL");
 
   const loadBook = useCallback(async () => {
     try {
@@ -3819,6 +3820,7 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
        * 6-decimal USDT -- which is why these two must be read separately. */
       const pair = await c.pairs(PAIR_ID);
       const quoteUnit = Math.pow(10, Number(pair.quoteDec));
+      setQuoteSym(String(pair.quote) === ZERO ? "POL" : "USDT");
       setMinBase(Number(formatUnits(pair.minBase, 18)));
       if (wallet) {
         const tok = new Contract(ADDRESSES.token, TOKEN_ABI, p);
@@ -3898,7 +3900,7 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
       setBookError(true);
       setBookLoaded(true);
     }
-  }, [wallet]);
+  }, [wallet, PAIR_ID]);
   useEffect(
     function () {
       loadBook();
@@ -4127,6 +4129,7 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
     <div className="card">
       {" "}
       <div className="sec">P2P Exchange</div>{" "}
+      <div style={{ display: "flex", gap: 5, background: C.bg2, borderRadius: 11, padding: 3, marginBottom: 11 }}>{[[1, "OSG / POL"], [2, "OSG / USDT"]].map(function (m) { return (<button key={m[0]} onClick={function () { setPairId(m[0]); setPPrice(""); setPAmount(""); setSelectedOrder(null); }} style={{ flex: 1, border: 0, borderRadius: 9, padding: "9px 4px", cursor: "pointer", fontFamily: "'JetBrains Mono',monospace", fontSize: 11.5, fontWeight: 600, background: PAIR_ID === m[0] ? C.card2 : "transparent", color: PAIR_ID === m[0] ? C.gold1 : C.txt3, boxShadow: PAIR_ID === m[0] ? "inset 0 0 0 1px rgba(233,185,73,.24)" : "none" }}>{m[1]}</button>); })}</div>
       {wallet && (<div style={{ display: "flex", gap: 7, marginBottom: 12 }}><div style={{ flex: 1, background: C.bg2, border: "1px solid " + C.line, borderRadius: 11, padding: "8px 11px" }}><div style={{ fontSize: 9, letterSpacing: 1.1, textTransform: "uppercase", color: C.txt3, fontWeight: 700, marginBottom: 3 }}>Your OSG</div><div className="mono" style={{ fontSize: 14, fontWeight: 600 }}>{bal.osg.toFixed(2)}</div></div><div style={{ flex: 1, background: C.bg2, border: "1px solid " + C.line, borderRadius: 11, padding: "8px 11px" }}><div style={{ fontSize: 9, letterSpacing: 1.1, textTransform: "uppercase", color: C.txt3, fontWeight: 700, marginBottom: 3 }}>Your POL</div><div className="mono" style={{ fontSize: 14, fontWeight: 600 }}>{bal.pol.toFixed(2)}</div></div><div style={{ flex: 1, background: C.bg2, border: "1px solid rgba(233,185,73,.28)", borderRadius: 11, padding: "8px 11px" }}><div style={{ fontSize: 9, letterSpacing: 1.1, textTransform: "uppercase", color: C.txt3, fontWeight: 700, marginBottom: 3 }}>In orders</div><div className="mono" style={{ fontSize: 14, fontWeight: 600, color: C.gold1 }}>{bal.locked.toFixed(2)}</div></div></div>)}
       <div className="p2p-book">
         {" "}
@@ -4276,7 +4279,7 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
             </button>
           </div>
           <div style={{ fontSize: 11, color: C.txt3, marginBottom: 8 }}>
-            Price {selectedOrder.price.toFixed(4)} POL · Available{" "}
+            Price {selectedOrder.price.toFixed(4)} {quoteSym} · Available{" "}
             {fmt(selectedOrder.amount, 4)} OSG
           </div>
           <div className="field">
@@ -4331,7 +4334,7 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
       <div className="p2p-bmid">
         {" "}
         <div className="p">
-          {lastPrice ? lastPrice.toFixed(4) + " POL" : "—"}
+          {lastPrice ? lastPrice.toFixed(4) + " " + quoteSym : "—"}
         </div>{" "}
         <div className="s">{priceLabel} · updates every 20s</div>{" "}
         {book.lastTrade && (
@@ -4380,7 +4383,7 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
         <div className="field">
           {" "}
           <div className="row">
-            <label>Price (POL per OSG)</label>
+            <label>Price ({quoteSym} per OSG)</label>
           </div>{" "}
           <input
             className="inp"
@@ -4437,7 +4440,7 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
           <span>{pSide === "buy" ? "You'll pay" : "You'll lock"}</span>
           <b className="mono" style={{ color: C.txt }}>
                         ≈ {(pSide === "buy" ? estTotal : parseFloat(pAmount) || 0).toFixed(4)}{" "}
-            {pSide === "buy" ? "POL" : "OSG"}
+            {pSide === "buy" ? quoteSym : "OSG"}
           </b>
         </div>{" "}
         {pSide === "buy" && (
