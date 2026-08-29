@@ -4401,7 +4401,8 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
         >
           <span>{pSide === "buy" ? "You'll pay" : "You'll lock"}</span>
           <b className="mono" style={{ color: C.txt }}>
-            ≈ {estTotal.toFixed(4)} {pSide === "buy" ? "POL" : "OSG"}
+                        ≈ {(pSide === "buy" ? estTotal : parseFloat(pAmount) || 0).toFixed(4)}{" "}
+            {pSide === "buy" ? "POL" : "OSG"}
           </b>
         </div>{" "}
         {pSide === "buy" && (
