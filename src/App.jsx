@@ -3867,6 +3867,8 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
         return a.price - b.price;
       });
 
+      setBookError(false);
+      setBookLoaded(true);
       setBook({
         buys: buys.slice(0, 5),
         sells: sells.slice(0, 5),
