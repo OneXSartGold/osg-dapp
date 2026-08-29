@@ -3784,6 +3784,7 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
   const [acceptBusyId, setAcceptBusyId] = useState(null);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [acceptAmount, setAcceptAmount] = useState("");
+  const [minBase, setMinBase] = useState(0);
 
   const p2pProviderRef = useRef(null);
    if (!p2pProviderRef.current) {
@@ -3816,6 +3817,7 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
        * 6-decimal USDT -- which is why these two must be read separately. */
       const pair = await c.pairs(PAIR_ID);
       const quoteUnit = Math.pow(10, Number(pair.quoteDec));
+      setMinBase(Number(formatUnits(pair.minBase, 18)));
 
       /* One call per side instead of one per order: 50 orders used to cost
        * 52 round trips and now cost 2.
@@ -4385,10 +4387,26 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
             placeholder="0.0"
             value={pAmount}
             inputMode="decimal"
-            onChange={function (e) {
+            onChange={function (e) {                       
               setPAmount(e.target.value.replace(/[^0-9.]/g, ""));
             }}
           />{" "}
+          <div
+            className="mono"
+            style={{
+              fontSize: 10.5,
+              marginTop: 6,
+              color:
+                (parseFloat(pAmount) || 0) > 0 &&
+                (parseFloat(pAmount) || 0) < minBase
+                  ? C.gold2
+                  : C.txt3,
+            }}
+          >
+            {minBase > 0
+              ? "Minimum " + minBase + " OSG per order"
+              : "Loading minimum\u2026"}
+          </div>{" "}
         </div>{" "}
         <div
           style={{
@@ -4422,8 +4440,10 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
           </div>
         )}{" "}
         <button
-          className={pSide === "buy" ? "p2p-btn-buy" : "p2p-btn-sell"}
-          disabled={pBusy || !wallet}
+                    className={pSide === "buy" ? "p2p-btn-buy" : "p2p-btn-sell"}
+          disabled={
+            pBusy || !wallet || (parseFloat(pAmount) || 0) < minBase
+          }
           onClick={placeOrder}
         >
           {" "}
