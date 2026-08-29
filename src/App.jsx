@@ -3785,7 +3785,8 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [acceptAmount, setAcceptAmount] = useState("");
   const [minBase, setMinBase] = useState(0);
-
+  const [bookError, setBookError] = useState(false);
+  const [bookLoaded, setBookLoaded] = useState(false);
   const p2pProviderRef = useRef(null);
    if (!p2pProviderRef.current) {
     p2pProviderRef.current = new FallbackProvider(
@@ -3881,6 +3882,8 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
       });
     } catch (e) {
       console.error("P2P book load failed", e);
+      setBookError(true);
+      setBookLoaded(true);
     }
   }, [wallet]);
   useEffect(
@@ -4117,7 +4120,7 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
           {" "}
           <div className="p2p-blabel buy">● Buy</div>{" "}
           {book.buys.length === 0 ? (
-            <div style={{ fontSize: 11, color: C.txt3 }}>No buy orders</div>
+            <div style={{ fontSize: 11, color: bookError ? C.red : C.txt3 }}>{bookError ? "Couldn't load" : bookLoaded ? "No buy orders" : "Loading…"}</div>
           ) : (
             book.buys.map(function (o) {
               var canTake = !o.mine && wallet;
@@ -4161,7 +4164,7 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
           {" "}
           <div className="p2p-blabel sell">● Sell</div>{" "}
           {book.sells.length === 0 ? (
-            <div style={{ fontSize: 11, color: C.txt3 }}>No sell orders</div>
+            <div style={{ fontSize: 11, color: bookError ? C.red : C.txt3 }}>{bookError ? "Couldn't load" : bookLoaded ? "No sell orders" : "Loading…"}</div>
           ) : (
             book.sells.map(function (o) {
               var canTake = !o.mine && wallet;
