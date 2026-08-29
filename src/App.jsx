@@ -3787,6 +3787,7 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
   const [minBase, setMinBase] = useState(0);
   const [bookError, setBookError] = useState(false);
   const [bookLoaded, setBookLoaded] = useState(false);
+  const [bal, setBal] = useState({ osg: 0, pol: 0, locked: 0 });
   const p2pProviderRef = useRef(null);
    if (!p2pProviderRef.current) {
     p2pProviderRef.current = new FallbackProvider(
@@ -3819,6 +3820,13 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
       const pair = await c.pairs(PAIR_ID);
       const quoteUnit = Math.pow(10, Number(pair.quoteDec));
       setMinBase(Number(formatUnits(pair.minBase, 18)));
+      if (wallet) {
+        const tok = new Contract(ADDRESSES.token, TOKEN_ABI, p);
+        const [osgWei, polWei] = await Promise.all([tok.balanceOf(wallet), p.getBalance(wallet)]);
+        setBal(function (b) {
+          return { osg: Number(formatUnits(osgWei, 18)), pol: Number(formatUnits(polWei, 18)), locked: b.locked };
+        });
+      }
 
       /* One call per side instead of one per order: 50 orders used to cost
        * 52 round trips and now cost 2.
@@ -3869,6 +3877,9 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
 
       setBookError(false);
       setBookLoaded(true);
+      setBal(function (b) {
+        return { osg: b.osg, pol: b.pol, locked: buys.concat(sells).filter(function (o) { return o.mine; }).reduce(function (s, o) { return s + o.amount; }, 0) };
+      });
       setBook({
         buys: buys.slice(0, 5),
         sells: sells.slice(0, 5),
@@ -4116,6 +4127,7 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
     <div className="card">
       {" "}
       <div className="sec">P2P Exchange</div>{" "}
+      {wallet && (<div style={{ display: "flex", gap: 7, marginBottom: 12 }}><div style={{ flex: 1, background: C.bg2, border: "1px solid " + C.line, borderRadius: 11, padding: "8px 11px" }}><div style={{ fontSize: 9, letterSpacing: 1.1, textTransform: "uppercase", color: C.txt3, fontWeight: 700, marginBottom: 3 }}>Your OSG</div><div className="mono" style={{ fontSize: 14, fontWeight: 600 }}>{bal.osg.toFixed(2)}</div></div><div style={{ flex: 1, background: C.bg2, border: "1px solid " + C.line, borderRadius: 11, padding: "8px 11px" }}><div style={{ fontSize: 9, letterSpacing: 1.1, textTransform: "uppercase", color: C.txt3, fontWeight: 700, marginBottom: 3 }}>Your POL</div><div className="mono" style={{ fontSize: 14, fontWeight: 600 }}>{bal.pol.toFixed(2)}</div></div><div style={{ flex: 1, background: C.bg2, border: "1px solid rgba(233,185,73,.28)", borderRadius: 11, padding: "8px 11px" }}><div style={{ fontSize: 9, letterSpacing: 1.1, textTransform: "uppercase", color: C.txt3, fontWeight: 700, marginBottom: 3 }}>In orders</div><div className="mono" style={{ fontSize: 14, fontWeight: 600, color: C.gold1 }}>{bal.locked.toFixed(2)}</div></div></div>)}
       <div className="p2p-book">
         {" "}
         <div>
