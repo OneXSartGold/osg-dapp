@@ -85,8 +85,8 @@ export const POLYGON_PARAMS = {
 export const RPC_URLS = [
   "https://polygon-mainnet.g.alchemy.com/v2/ZyChInaPXbkZQdhA0Ep_V",
   "https://polygon-bor-rpc.publicnode.com",
-  "https://rpc.ankr.com/polygon",
-  "https://polygon-rpc.com",
+  "https://polygon.drpc.org",
+  "https://1rpc.io/matic",
 ];
 
 // -- ERC20 (OSG Token) --
