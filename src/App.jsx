@@ -3786,8 +3786,14 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
   const [acceptAmount, setAcceptAmount] = useState("");
 
   const p2pProviderRef = useRef(null);
-  if (!p2pProviderRef.current) {
-    p2pProviderRef.current = new JsonRpcProvider(RPC_URLS[0], 137);
+   if (!p2pProviderRef.current) {
+    p2pProviderRef.current = new FallbackProvider(
+      RPC_URLS.map(function (u) {
+        return { provider: new JsonRpcProvider(u, 137), priority: 1, stallTimeout: 2000 };
+      }),
+      137,
+      { quorum: 1 },
+    );
   }
 
   /* v3 runs two markets: 1 = OSG/POL, 2 = OSG/USDT. This panel still shows
