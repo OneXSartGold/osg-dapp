@@ -82,9 +82,8 @@ export const POLYGON_PARAMS = {
 };
 
 // -- Read RPCs (fallback order: first that responds wins) --
-export const RPC_URLS = [
-  "https://polygon-mainnet.g.alchemy.com/v2/ZyChInaPXbkZQdhA0Ep_V",
-  "https://polygon-bor-rpc.publicnode.com",
+export const RPC_URLS = [  
+ "https://polygon-bor-rpc.publicnode.com",
   "https://polygon.drpc.org",
   "https://1rpc.io/matic",
 ];
