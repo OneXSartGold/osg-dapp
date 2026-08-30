@@ -2707,7 +2707,7 @@ function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvid
           getProvider={getProvider}
           ensureReady={ensureReady}
           showToast={showToast}
-          t={t} poolRate={data && data.osgPerPol ? Number(data.osgPerPol) : 0}
+          t={t} poolRate={data && data.osgPerPol ? Number(data.osgPerPol) : 0} polUsd={polUsd}
         />
       </div>
     </div>
@@ -3773,7 +3773,7 @@ function Referral({ wallet, data, showToast, getProvider, t }) {
   );
 }
 
-function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t, poolRate }) {
+function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t, poolRate, polUsd }) {
   const [book, setBook] = useState({
     buys: [],
     sells: [],
@@ -4336,7 +4336,7 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t, poo
         <div className="p">
           {lastPrice ? lastPrice.toFixed(4) + " " + quoteSym : "—"}
         </div>{" "}
-        <div className="s">{priceLabel} · updates every 20s</div>{PAIR_ID === 1 && poolRate > 0 && (<div className="s" style={{ marginTop: 4, color: rateDir < 0 ? C.red : C.green, fontWeight: 600 }}>Pool rate {poolRate.toFixed(4)} POL · QuickSwap</div>)}{" "}
+        <div className="s">{priceLabel} · updates every 20s</div>{PAIR_ID === 1 && poolRate > 0 && (<div className="s" style={{ marginTop: 4, color: rateDir < 0 ? C.red : C.green, fontWeight: 600 }}>{"Last trade " + poolRate.toFixed(2) + " POL · $" + (poolRate * (polUsd || 0)).toFixed(2)}</div>)}{" "}
         {book.lastTrade && (
           <div
             style={{
@@ -4600,7 +4600,7 @@ function Swap({
           getProvider={getProvider}
           ensureReady={ensureReady}
           showToast={showToast}
-          t={t} poolRate={data && data.osgPerPol ? Number(data.osgPerPol) : 0}
+          t={t} poolRate={data && data.osgPerPol ? Number(data.osgPerPol) : 0} polUsd={polUsd}
         />
       )}{" "}
       {swapTab === "swap" && (
