@@ -3787,7 +3787,7 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t, poo
   const [minBase, setMinBase] = useState(0);
   const [bookError, setBookError] = useState(false);
   const [bookLoaded, setBookLoaded] = useState(false);
-  const [bal, setBal] = useState({ osg: 0, pol: 0, locked: 0 });
+  const [bal, setBal] = useState({ osg: 0, pol: 0, locked: 0 }); const prevRateRef = useRef(0); const [rateDir, setRateDir] = useState(0); useEffect(function(){ if (poolRate > 0) { if (prevRateRef.current > 0 && poolRate !== prevRateRef.current) setRateDir(poolRate > prevRateRef.current ? 1 : -1); prevRateRef.current = poolRate; } }, [poolRate]);
   const p2pProviderRef = useRef(null);
    if (!p2pProviderRef.current) {
     p2pProviderRef.current = new FallbackProvider(
@@ -4336,7 +4336,7 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t, poo
         <div className="p">
           {lastPrice ? lastPrice.toFixed(4) + " " + quoteSym : "—"}
         </div>{" "}
-        <div className="s">{priceLabel} · updates every 20s</div>{PAIR_ID === 1 && poolRate > 0 && (<div className="s" style={{ marginTop: 4, color: C.txt3 }}>Pool rate {poolRate.toFixed(4)} POL · QuickSwap</div>)}{" "}
+        <div className="s">{priceLabel} · updates every 20s</div>{PAIR_ID === 1 && poolRate > 0 && (<div className="s" style={{ marginTop: 4, color: rateDir < 0 ? C.red : C.green, fontWeight: 600 }}>Pool rate {poolRate.toFixed(4)} POL · QuickSwap</div>)}{" "}
         {book.lastTrade && (
           <div
             style={{
