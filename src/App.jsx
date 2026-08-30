@@ -4388,7 +4388,7 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t }) {
           <input
             className="inp"
             style={{ fontSize: 19 }}
-            placeholder="0.0000"
+            placeholder={lastPrice ? lastPrice.toFixed(4) : "0.0000"} onFocus={function(){ if(!pPrice && lastPrice) setPPrice(lastPrice.toFixed(4)); }}
             value={pPrice}
             inputMode="decimal"
             onChange={function (e) {
