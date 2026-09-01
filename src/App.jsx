@@ -6148,7 +6148,7 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
         )}
       </div>
 
-      {/* ---------- create LP ---------- */}
+      <LegacyMining wallet={wallet} ensureReady={ensureReady} showToast={showToast} />{/* ---------- create LP ---------- */}
       <div className="card">
         <div className="sec">Add liquidity</div>
         <div style={{ fontSize: 12.5, color: C.txt2, lineHeight: 1.6, marginTop: 8 }}>
@@ -10420,5 +10420,245 @@ export default function App() {
       {toast && <div className="toast">{toast}</div>}{" "}
       <FireworksCanvas trigger={celebrateTick} />
     </>
+  );
+}
+function LegacyMining({ wallet, ensureReady, showToast }) {
+  const [rows, setRows] = useState([]);
+  const [lifted, setLifted] = useState(false);
+  const [busy, setBusy] = useState({});
+
+  // Mining's own fmtDate is scoped inside that component, so keep a copy here.
+  const fmtDay = (t) =>
+    t ? new Date(t * 1000).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "—";
+
+  const legacyProviderRef = useRef(null);
+  if (!legacyProviderRef.current) {
+    legacyProviderRef.current = new FallbackProvider(
+      RPC_URLS.map((u, i) => ({
+        provider: new JsonRpcProvider(u, 137),
+        priority: i + 1,
+        weight: 1,
+        stallTimeout: 900,
+      })),
+      137,
+      { quorum: 1 },
+    );
+  }
+
+  const loadLegacy = useCallback(async () => {
+    if (!wallet) {
+      setRows([]);
+      return;
+    }
+    try {
+      const p = legacyProviderRef.current;
+      const old = new Contract(ADDRESSES.lpMiningLegacy, LP_MINING_ABI, p);
+
+      const [count, isLifted] = await Promise.all([
+        old.positionCount(wallet),
+        old.termLifted(),
+      ]);
+      setLifted(Boolean(isLifted));
+
+      const list = [];
+      const n = Number(count);
+      for (let i = 0; i < n; i++) {
+        const [pos, pend, lockLeft] = await Promise.all([
+          old.positions(wallet, i),
+          old.pendingReward(wallet, i).catch(function () { return 0n; }),
+          old.lockRemaining(wallet, i).catch(function () { return 0n; }),
+        ]);
+        if (pos.closed) continue;
+        const secsLeft = Number(lockLeft);
+        list.push({
+          id: i,
+          lp: f18(pos.lpAmount),
+          pending: f18(pend),
+          startTime: Number(pos.startTime),
+          daysLeft: Math.ceil(secsLeft / 86400),
+          unlocked: secsLeft === 0 || Boolean(isLifted),
+        });
+      }
+      setRows(list);
+    } catch (e) {
+      setRows([]);
+    }
+  }, [wallet]);
+
+  useEffect(function () {
+    loadLegacy();
+    const t = setInterval(loadLegacy, 30000);
+    return function () { clearInterval(t); };
+  }, [loadLegacy]);
+
+  async function doLegacyClaim(posId) {
+    setBusy(function (b) { return { ...b, ["c" + posId]: true }; });
+    try {
+      const signer = await ensureReady();
+      if (!signer) return;
+      const old = new Contract(ADDRESSES.lpMiningLegacy, LP_MINING_ABI, signer);
+      showToast("Claiming from the older pool…");
+      const tx = await old.claim(posId);
+      await tx.wait();
+      showToast("Claimed. Collect it on the Rewards page.");
+      await loadLegacy();
+    } catch (e) {
+      showToast("Error: " + (e?.shortMessage || e?.reason || "Claim failed"));
+    } finally {
+      setBusy(function (b) { return { ...b, ["c" + posId]: false }; });
+    }
+  }
+
+  async function doLegacyWithdraw(posId) {
+    setBusy(function (b) { return { ...b, ["w" + posId]: true }; });
+    try {
+      const signer = await ensureReady();
+      if (!signer) return;
+      const old = new Contract(ADDRESSES.lpMiningLegacy, LP_MINING_ABI, signer);
+      showToast("Withdrawing your LP…");
+      const tx = await old.withdraw(posId);
+      await tx.wait();
+      showToast("LP is back in your wallet. Stake it below.");
+      await loadLegacy();
+    } catch (e) {
+      showToast("Error: " + (e?.shortMessage || e?.reason || "Withdraw failed"));
+    } finally {
+      setBusy(function (b) { return { ...b, ["w" + posId]: false }; });
+    }
+  }
+
+  if (!wallet || rows.length === 0) return null;
+
+  return (
+    <div
+      style={{
+        border: "1px solid rgba(242,103,92,.28)",
+        borderRadius: 18,
+        background:
+          "linear-gradient(180deg,rgba(242,103,92,.05) 0%,rgba(242,103,92,0) 40%)",
+        padding: 16,
+        marginBottom: 16,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+        <span
+          style={{
+            fontSize: 10, fontWeight: 700, letterSpacing: ".7px",
+            textTransform: "uppercase", color: C.red,
+            border: "1px solid rgba(242,103,92,.4)",
+            borderRadius: 999, padding: "3px 9px",
+          }}
+        >
+          Legacy
+        </span>
+        <span style={{ fontSize: 16, fontWeight: 700, color: C.txt }}>
+          Your older positions
+        </span>
+      </div>
+
+      <div style={{ fontSize: 12.5, color: C.txt2, lineHeight: 1.6, margin: "8px 0 4px" }}>
+        {lifted
+          ? "These are in the older mining pool. Withdrawal is now open — claim, withdraw, and re-stake the same LP below."
+          : "These are in the older mining pool. Deposits there are closed. You can claim what you have earned now; withdrawal opens shortly."}
+      </div>
+
+      <div
+        style={{
+          margin: "14px 0 4px", padding: "12px 14px",
+          background: C.card, border: "1px solid " + C.line, borderRadius: 14,
+        }}
+      >
+        <div
+          style={{
+            fontSize: 11, fontWeight: 700, letterSpacing: ".6px",
+            color: C.txt3, textTransform: "uppercase", marginBottom: 9,
+          }}
+        >
+          How to move
+        </div>
+        {[
+          "Claim your earned OSG here first",
+          "Withdraw LP — the LP returns to your wallet",
+          "Stake the same LP in the current pool below",
+        ].map(function (line, i) {
+          return (
+            <div
+              key={i}
+              style={{
+                display: "flex", gap: 10, fontSize: 13, color: C.txt2,
+                lineHeight: 1.55, marginBottom: i === 2 ? 0 : 7,
+              }}
+            >
+              <span
+                style={{
+                  flex: "0 0 19px", height: 19, borderRadius: "50%",
+                  background: C.card2, border: "1px solid " + C.line2,
+                  color: C.txt3, fontSize: 10.5, fontWeight: 700,
+                  display: "flex", alignItems: "center",
+                  justifyContent: "center", marginTop: 1,
+                }}
+              >
+                {i + 1}
+              </span>
+              <span>{line}</span>
+            </div>
+          );
+        })}
+      </div>
+
+      {rows.map(function (p) {
+        return (
+          <div
+            key={p.id}
+            style={{
+              background: C.card, border: "1px solid " + C.line,
+              borderRadius: 16, padding: 14, marginTop: 12,
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+              <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 15, fontWeight: 600, color: C.txt }}>
+                {Number(p.lp).toFixed(4)} LP
+              </span>
+              <span style={{ fontSize: 11.5, color: p.unlocked ? C.green : C.txt3 }}>
+                {p.unlocked ? "Unlocked" : p.daysLeft + " days left"}
+              </span>
+            </div>
+
+            <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 12.5, color: C.txt2, marginTop: 5 }}>
+              {Number(p.pending).toFixed(4)} OSG earned
+            </div>
+
+            <div style={{ fontSize: 11, color: C.txt3, marginTop: 8 }}>
+              Opened {fmtDay(p.startTime)}
+            </div>
+
+            <div style={{ display: "flex", gap: 9, marginTop: 12 }}>
+              <button
+                className="btn-ghost"
+                style={{ flex: 1, color: C.green, borderColor: "rgba(70,208,138,.4)" }}
+                disabled={busy["c" + p.id] || Number(p.pending) <= 0}
+                onClick={function () { doLegacyClaim(p.id); }}
+              >
+                {busy["c" + p.id] ? <span className="spin" /> : "Claim"}
+              </button>
+              <button
+                className="btn-ghost"
+                style={{ flex: 1 }}
+                disabled={busy["w" + p.id] || !p.unlocked}
+                onClick={function () { doLegacyWithdraw(p.id); }}
+              >
+                {busy["w" + p.id] ? <span className="spin" /> : "Withdraw LP"}
+              </button>
+            </div>
+
+            {!p.unlocked && (
+              <div style={{ fontSize: 11.5, color: C.txt3, marginTop: 9, lineHeight: 1.5 }}>
+                Withdraw opens when the term is lifted. Claim still works now.
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
   );
 }
