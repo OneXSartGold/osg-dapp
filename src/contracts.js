@@ -48,7 +48,7 @@ export const ADDRESSES = {
   // -- Live programme contracts (deployed 11 Aug 2026) --
   treasury: "0x4669b2d38098Ae28D0332F03D1630B334aDDDF50",
   termStaking: "0xb3DE3956DF62a069c9AC428Ec58120b3d9CD7cCc",
-  lpMining: "0x4bFad548efD22e2fE75bBC77B6114380f8EF1bA3",
+  lpMining: "0x1F04F1441208ee8dDD3a124DEfc4a493d768d0fC",
   lpMiningLegacy: "0x4bFad548efD22e2fE75bBC77B6114380f8EF1bA3",
   referralV4: "0x82cfA8CB35176BAC5d9d2Ec791Aa22B33AbAA381",
 
