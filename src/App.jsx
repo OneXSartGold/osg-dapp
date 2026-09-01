@@ -6286,7 +6286,7 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
         <button
           className="btn-gold"
           style={{ marginTop: 14 }}
-          style={{ display: "none" }} disabled={true}
+          
           onClick={doDeposit}
         >
           {busy.dep ? <span className="spin" /> : "Stake LP"}
