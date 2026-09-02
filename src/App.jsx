@@ -4508,64 +4508,7 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t, poo
             "Place Sell Order"
           )}{" "}
         </button>{" "}
-        {/* OLD-MY-ORDERS-START */}
-        <div className="sec" style={{ marginTop: 18 }}>
-          My Orders
-        </div>{" "}
-        {book.myOrders.length === 0 ? (
-          <div style={{ fontSize: 11, color: C.txt3 }}>No open orders</div>
-        ) : (
-          book.myOrders.map(function (o) {
-            return (
-              <div
-                key={String(o.id)}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  padding: "9px 2px",
-                  borderBottom: "1px solid " + C.line,
-                }}
-              >
-                {" "}
-                <span
-                  style={{
-                    fontSize: 12.5,
-                    color: o.isBuy ? C.green : C.red,
-                    fontWeight: 600,
-                  }}
-                >
-                  {o.isBuy ? "BUY" : "SELL"} · {o.price.toFixed(4)} ·{" "}
-                  {fmt(o.amount, 0)}
-                </span>{" "}
-                <button
-                  disabled={cancelBusyId === o.id}
-                  onClick={function () {
-                    cancelMyOrder(o.id);
-                  }}
-                  style={{
-                    background: "rgba(242,103,92,.12)",
-                    border: "1px solid rgba(242,103,92,.35)",
-                    color: C.red,
-                    borderRadius: 8,
-                    padding: "6px 12px",
-                    fontSize: 11.5,
-                    fontWeight: 700,
-                    cursor: "pointer",
-                  }}
-                >
-                  {" "}
-                  {cancelBusyId === o.id ? (
-                    <span className="spin" />
-                  ) : (
-                    "Cancel"
-                  )}{" "}
-                </button>{" "}
-              </div>
-            );
-          })
-        )}{" "}
-        {/* OLD-MY-ORDERS-END */}
+        
       </div>{" "}
     </div>
   );
