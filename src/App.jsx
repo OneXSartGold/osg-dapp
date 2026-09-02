@@ -3955,26 +3955,35 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t, poo
       var expiry = Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60;
 
       if (pSide === "buy") {
-        if (!nativeQuote) {
-          /* An ERC20-quote buy needs the QUOTE token approved, not OSG, and
-             msg.value must be zero. Pair 2 is not wired into this panel yet,
-             so refuse plainly rather than send a transaction that reverts. */
-          showToast("\u26a0\ufe0f This pair is paid in a token \u2014 not supported here yet");
-          setPBusy(false);
-          return;
+                var tx;
+        if (nativeQuote) {
+          /* Anything that matches immediately is filled at the resting price
+             and the difference comes straight back, so sending the limit-price
+             cost is the worst case, not the price paid. */
+          showToast("Placing buy order\u2026");
+          tx = await c.placeOrder(PAIR_ID, true, priceScaled, amountWei, expiry, {
+            value: costWei,
+          });
+        } else {
+          /* An ERC20-quote buy approves the QUOTE token, not OSG, and sends
+             no value. costWei is quoteFor's own output and is already in the
+             quote token's units -- never run it through parseUnits again. */
+          var qTok = new Contract(String(pair.quote), TOKEN_ABI, signer);
+          var qBal = await qTok.balanceOf(wallet);
+          if (qBal < costWei) {
+            showToast("\u26a0\ufe0f Insufficient USDT balance");
+            setPBusy(false);
+            return;
+          }
+          var qAllow = await qTok.allowance(wallet, ADDRESSES.p2pExchange);
+          if (qAllow < costWei) {
+            showToast("1/2 \u2014 Approving USDT\u2026");
+            var txQ = await qTok.approve(ADDRESSES.p2pExchange, costWei);
+            await txQ.wait();
+          }
+          showToast("2/2 \u2014 Placing buy order\u2026");
+          tx = await c.placeOrder(PAIR_ID, true, priceScaled, amountWei, expiry);
         }
-        /* Anything that matches immediately is filled at the resting price
-           and the difference comes straight back, so sending the limit-price
-           cost is the worst case, not the price paid. */
-        showToast("Placing buy order\u2026");
-        var tx = await c.placeOrder(
-          PAIR_ID,
-          true,
-          priceScaled,
-          amountWei,
-          expiry,
-          { value: costWei },
-        );
         await tx.wait();
       } else {
         var token = new Contract(ADDRESSES.token, TOKEN_ABI, signer);
