@@ -10662,3 +10662,279 @@ function LegacyMining({ wallet, ensureReady, showToast }) {
     </div>
   );
 }
+
+/* ============================================================
+ * YourOrders — open P2P orders across BOTH pairs, with cancel.
+ *
+ * Lives at the end of the file, like LegacyMining. Function
+ * declarations hoist, so P2PPanel can render it.
+ *
+ * Why it exists: myOrders inside P2PPanel is built only from the
+ * currently selected pair, so an order on the other pair is
+ * invisible and its escrow looks lost. No expiry was shown
+ * anywhere either. Both cost a real user 100 OSG for 6 days.
+ *
+ * Reads its own FallbackProvider, cached in a useRef, exactly as
+ * LegacyMining does. Returns null when the wallet has nothing
+ * open, so it is invisible to everyone else.
+ * ============================================================ */
+function YourOrders({ wallet, ensureReady, showToast, poolRate, polUsd }) {
+  const [rows, setRows] = useState([]);
+  const [busy, setBusy] = useState({});
+  const [tick, setTick] = useState(0);
+
+  const ordProviderRef = useRef(null);
+  if (!ordProviderRef.current) {
+    ordProviderRef.current = new FallbackProvider(
+      RPC_URLS.map((u, i) => ({
+        provider: new JsonRpcProvider(u, 137),
+        priority: i + 1,
+        weight: 1,
+        stallTimeout: 900,
+      })),
+      137,
+      { quorum: 1 },
+    );
+  }
+
+  const osgUsd = poolRate > 0 && polUsd > 0 ? poolRate * polUsd : 0;
+
+  const loadOrders = useCallback(async () => {
+    if (!wallet) {
+      setRows([]);
+      return;
+    }
+    try {
+      const p = ordProviderRef.current;
+      const c = new Contract(ADDRESSES.p2pExchange, P2P_ABI, p);
+      const me = String(wallet).toLowerCase();
+
+      const found = [];
+      for (const pairId of [1, 2]) {
+        let pair;
+        try {
+          pair = await c.pairs(pairId);
+        } catch (e) {
+          continue;
+        }
+        if (!pair || !pair.active) continue;
+
+        const quoteDec = Number(pair.quoteDec);
+        const quoteUnit = Math.pow(10, quoteDec);
+        const quoteSym = String(pair.quote) === ZERO ? "POL" : "USDT";
+
+        for (const isBuy of [true, false]) {
+          let raw;
+          try {
+            raw = await c.bookSlice(pairId, isBuy, 0, 100);
+          } catch (e) {
+            continue;
+          }
+          for (let i = 0; i < raw.ids.length; i++) {
+            if (String(raw.makers[i]).toLowerCase() !== me) continue;
+            const osg = f18(raw.amounts[i]);
+            if (osg <= 0) continue;
+            const price = Number(raw.prices[i]) / quoteUnit;
+            found.push({
+              id: Number(raw.ids[i]),
+              pairId,
+              pairName: quoteSym === "POL" ? "OSG / POL" : "OSG / USDT",
+              quoteSym,
+              isBuy,
+              osg,
+              price,
+              cost: osg * price,
+              expiry: Number(raw.expiries[i]),
+            });
+          }
+        }
+      }
+
+      found.sort((a, b) => a.expiry - b.expiry);
+      setRows(found);
+    } catch (e) {
+      setRows([]);
+    }
+  }, [wallet]);
+
+  useEffect(function () {
+    loadOrders();
+    const t = setInterval(loadOrders, 30000);
+    return function () { clearInterval(t); };
+  }, [loadOrders]);
+
+  /* countdown ticks on its own so the timer never looks frozen */
+  useEffect(function () {
+    const t = setInterval(function () { setTick(function (n) { return n + 1; }); }, 30000);
+    return function () { clearInterval(t); };
+  }, []);
+
+  async function doCancel(o) {
+    const key = "x" + o.id;
+    setBusy(function (b) { return { ...b, [key]: true }; });
+    try {
+      const signer = await ensureReady();
+      if (!signer) return;
+      const c = new Contract(ADDRESSES.p2pExchange, P2P_ABI, signer);
+      const expired = o.expiry <= Math.floor(Date.now() / 1000);
+      showToast("Cancelling order #" + o.id + "…");
+      const tx = expired ? await c.cancelExpired(o.id) : await c.cancelOrder(o.id);
+      await tx.wait();
+      showToast("Cancelled — " + (o.isBuy ? o.quoteSym : "OSG") + " is back in your wallet");
+      loadOrders();
+    } catch (e) {
+      showToast((e && (e.shortMessage || e.message)) || "Cancel failed");
+    } finally {
+      setBusy(function (b) { return { ...b, [key]: false }; });
+    }
+  }
+
+  if (!wallet || rows.length === 0) return null;
+
+  const nowS = Math.floor(Date.now() / 1000);
+  const usd = (n) => "$" + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const num = (n, d) => n.toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d });
+
+  function timeLeft(secs) {
+    if (secs <= 0) return null;
+    const d = Math.floor(secs / 86400);
+    const h = Math.floor((secs % 86400) / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    if (d) return d + "d " + h + "h";
+    if (h) return h + "h " + m + "m";
+    return m + "m";
+  }
+
+  const quoteUsd = (sym, amt) => (sym === "POL" ? amt * (polUsd || 0) : amt);
+
+  let totalLocked = 0;
+  rows.forEach(function (o) {
+    totalLocked += o.isBuy ? quoteUsd(o.quoteSym, o.cost) : o.osg * osgUsd;
+  });
+
+  return (
+    <div
+      style={{
+        background: C.bg2,
+        border: "1px solid " + C.line,
+        borderRadius: 16,
+        padding: "14px 13px 15px",
+        margin: "14px 0",
+      }}
+    >
+      <div
+        style={{
+          fontSize: 11, fontWeight: 700, letterSpacing: ".7px",
+          color: C.txt3, textTransform: "uppercase", marginBottom: 11,
+        }}
+      >
+        Your orders
+      </div>
+
+      {rows.map(function (o) {
+        const secs = o.expiry - nowS;
+        const rem = timeLeft(secs);
+        const gone = rem === null;
+        const key = "x" + o.id;
+
+        return (
+          <div
+            key={o.pairId + "-" + o.id}
+            style={{
+              background: C.card,
+              border: "1px solid " + C.line,
+              borderLeft: "3px solid " + (gone ? C.red : C.green),
+              borderRadius: 12,
+              padding: "11px 12px 12px",
+              marginBottom: 9,
+            }}
+          >
+            <div
+              style={{
+                display: "flex", justifyContent: "space-between",
+                alignItems: "baseline", marginBottom: 7,
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 10, fontWeight: 700, letterSpacing: "1.2px",
+                  color: gone ? C.red : C.green,
+                }}
+              >
+                {gone ? "EXPIRED" : "OPEN"}
+              </span>
+              <span style={{ fontSize: 11, color: C.txt3, letterSpacing: ".5px" }}>
+                {o.pairName}
+              </span>
+            </div>
+
+            <div style={{ fontSize: 14.5, color: C.txt, lineHeight: 1.45 }}>
+              <span style={{ color: o.isBuy ? C.green : C.gold2, fontWeight: 600 }}>
+                {o.isBuy ? "Buy" : "Sell"}
+              </span>{" "}
+              <b>{num(o.osg, 2)} OSG</b>
+              {osgUsd > 0 && (
+                <span style={{ color: C.txt3, fontSize: 12 }}>
+                  {"  " + usd(o.osg * osgUsd)}
+                </span>
+              )}
+            </div>
+
+            <div style={{ fontSize: 12, color: C.txt2, marginTop: 4 }}>
+              {o.isBuy ? "Locked " : "@ "}
+              <span style={{ color: C.txt }}>
+                {num(o.isBuy ? o.cost : o.price, o.isBuy ? 2 : 4) + " " + o.quoteSym}
+              </span>
+              <span style={{ color: C.txt3 }}>
+                {"  " + usd(quoteUsd(o.quoteSym, o.cost))}
+              </span>
+            </div>
+
+            <div
+              style={{
+                fontSize: 11, marginTop: 8,
+                color: gone ? C.red : secs < 21600 ? C.gold2 : C.txt3,
+              }}
+            >
+              {gone
+                ? "Expired " + timeLeft(nowS - o.expiry) + " ago"
+                : "Expires in " + rem}
+            </div>
+
+            <button
+              onClick={function () { doCancel(o); }}
+              disabled={Boolean(busy[key])}
+              style={{
+                display: "block", width: "100%", marginTop: 10,
+                padding: "9px 0", background: "transparent",
+                border: "1px solid " + (gone ? C.red : C.gold3),
+                color: gone ? C.red : C.gold2,
+                borderRadius: 9, fontSize: 12.5, fontWeight: 600,
+                letterSpacing: ".3px",
+                cursor: busy[key] ? "default" : "pointer",
+                opacity: busy[key] ? 0.55 : 1,
+              }}
+            >
+              {busy[key] ? "Cancelling…" : "Cancel"}
+            </button>
+          </div>
+        );
+      })}
+
+      {totalLocked > 0 && (
+        <div
+          style={{
+            display: "flex", justifyContent: "space-between",
+            fontSize: 12, color: C.txt2,
+            borderTop: "1px solid " + C.line,
+            marginTop: 11, paddingTop: 10,
+          }}
+        >
+          <span>Total locked</span>
+          <span style={{ color: C.gold2, fontWeight: 600 }}>{usd(totalLocked)}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
