@@ -4052,16 +4052,37 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t, poo
            and it is the exact figure acceptOrder will require as msg.value --
            anything filled below the limit price is refunded. */
         var totalWei = await cRead.quoteFor(PAIR_ID, amountWei, priceScaled);
-        var polBalance = await p.getBalance(wallet);
-        if (polBalance < totalWei) {
-          showToast("⚠️ Insufficient POL balance");
-          setAcceptBusyId(null);
-          return;
+                var pairA = await cRead.pairs(PAIR_ID);
+        var qAddr = String(pairA.quote);
+        var tx;
+        if (qAddr === ZERO) {
+          var polBalance = await p.getBalance(wallet);
+          if (polBalance < totalWei) {
+            showToast("\u26a0\ufe0f Insufficient POL balance");
+            setAcceptBusyId(null);
+            return;
+          }
+          showToast("Buying\u2026");
+          tx = await c.acceptOrder(PAIR_ID, true, amountWei, priceScaled, 0, 50, {
+            value: totalWei,
+          });
+        } else {
+          var qTok = new Contract(qAddr, TOKEN_ABI, signer);
+          var qBal = await qTok.balanceOf(wallet);
+          if (qBal < totalWei) {
+            showToast("\u26a0\ufe0f Insufficient USDT balance");
+            setAcceptBusyId(null);
+            return;
+          }
+          var qAllow = await qTok.allowance(wallet, ADDRESSES.p2pExchange);
+          if (qAllow < totalWei) {
+            showToast("1/2 \u2014 Approving USDT\u2026");
+            var txQ = await qTok.approve(ADDRESSES.p2pExchange, totalWei);
+            await txQ.wait();
+          }
+          showToast("2/2 \u2014 Buying\u2026");
+          tx = await c.acceptOrder(PAIR_ID, true, amountWei, priceScaled, 0, 50);
         }
-        showToast("Buying…");
-        var tx = await c.acceptOrder(PAIR_ID, true, amountWei, priceScaled, 0, 50, {
-          value: totalWei,
-        });
         await tx.wait();
       } else {
         var token = new Contract(ADDRESSES.token, TOKEN_ABI, signer);
