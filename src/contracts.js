@@ -86,9 +86,7 @@ export const POLYGON_PARAMS = {
 export const RPC_URLS = [  
  "https://polygon-bor-rpc.publicnode.com",
   "https://polygon.drpc.org",
-  "https://1rpc.io/matic",
-  "https://polygon.llamarpc.com",
-  "https://polygon.blockpi.network/v1/rpc/public",
+  "https://1rpc.io/matic",  
   "https://rpc.ankr.com/polygon",
 ];
 
