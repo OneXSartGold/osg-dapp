@@ -3826,9 +3826,9 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t, poo
       setMinBase(Number(formatUnits(pair.minBase, 18)));
       if (wallet) {
         const tok = new Contract(ADDRESSES.token, TOKEN_ABI, p);
-        const [osgWei, polWei] = await Promise.all([tok.balanceOf(wallet), p.getBalance(wallet)]);
+        const qAddr = String(pair.quote); const [osgWei, polWei, qWei] = await Promise.all([tok.balanceOf(wallet), p.getBalance(wallet), qAddr === ZERO ? Promise.resolve(0n) : new Contract(qAddr, TOKEN_ABI, p).balanceOf(wallet)]);
         setBal(function (b) {
-          return { osg: Number(formatUnits(osgWei, 18)), pol: Number(formatUnits(polWei, 18)), locked: b.locked };
+          return { osg: Number(formatUnits(osgWei, 18)), pol: qAddr === ZERO ? Number(formatUnits(polWei, 18)) : Number(formatUnits(qWei, Number(pair.quoteDec))), locked: b.locked };
         });
       }
 
@@ -4162,7 +4162,7 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t, poo
       {" "}
       <div className="sec">P2P Exchange</div>{" "}
       <div style={{ display: "flex", gap: 5, background: C.bg2, borderRadius: 11, padding: 3, marginBottom: 11 }}>{[[1, "OSG / POL"], [2, "OSG / USDT"]].map(function (m) { return (<button key={m[0]} onClick={function () { setPairId(m[0]); setPPrice(""); setPAmount(""); setSelectedOrder(null); }} style={{ flex: 1, border: 0, borderRadius: 9, padding: "9px 4px", cursor: "pointer", fontFamily: "'JetBrains Mono',monospace", fontSize: 11.5, fontWeight: 600, background: PAIR_ID === m[0] ? C.card2 : "transparent", color: PAIR_ID === m[0] ? C.gold1 : C.txt3, boxShadow: PAIR_ID === m[0] ? "inset 0 0 0 1px rgba(233,185,73,.24)" : "none" }}>{m[1]}</button>); })}</div>
-      {wallet && (<div style={{ display: "flex", gap: 7, marginBottom: 12 }}><div style={{ flex: 1, background: C.bg2, border: "1px solid " + C.line, borderRadius: 11, padding: "8px 11px" }}><div style={{ fontSize: 9, letterSpacing: 1.1, textTransform: "uppercase", color: C.txt3, fontWeight: 700, marginBottom: 3 }}>Your OSG</div><div className="mono" style={{ fontSize: 14, fontWeight: 600 }}>{bal.osg.toFixed(2)}</div></div><div style={{ flex: 1, background: C.bg2, border: "1px solid " + C.line, borderRadius: 11, padding: "8px 11px" }}><div style={{ fontSize: 9, letterSpacing: 1.1, textTransform: "uppercase", color: C.txt3, fontWeight: 700, marginBottom: 3 }}>Your POL</div><div className="mono" style={{ fontSize: 14, fontWeight: 600 }}>{bal.pol.toFixed(2)}</div></div><div style={{ flex: 1, background: C.bg2, border: "1px solid rgba(233,185,73,.28)", borderRadius: 11, padding: "8px 11px" }}><div style={{ fontSize: 9, letterSpacing: 1.1, textTransform: "uppercase", color: C.txt3, fontWeight: 700, marginBottom: 3 }}>In orders</div><div className="mono" style={{ fontSize: 14, fontWeight: 600, color: C.gold1 }}>{bal.locked.toFixed(2)}</div></div></div>)}
+      {wallet && (<div style={{ display: "flex", gap: 7, marginBottom: 12 }}><div style={{ flex: 1, background: C.bg2, border: "1px solid " + C.line, borderRadius: 11, padding: "8px 11px" }}><div style={{ fontSize: 9, letterSpacing: 1.1, textTransform: "uppercase", color: C.txt3, fontWeight: 700, marginBottom: 3 }}>Your OSG</div><div className="mono" style={{ fontSize: 14, fontWeight: 600 }}>{bal.osg.toFixed(2)}</div></div><div style={{ flex: 1, background: C.bg2, border: "1px solid " + C.line, borderRadius: 11, padding: "8px 11px" }}><div style={{ fontSize: 9, letterSpacing: 1.1, textTransform: "uppercase", color: C.txt3, fontWeight: 700, marginBottom: 3 }}>{"Your " + quoteSym}</div><div className="mono" style={{ fontSize: 14, fontWeight: 600 }}>{bal.pol.toFixed(2)}</div></div><div style={{ flex: 1, background: C.bg2, border: "1px solid rgba(233,185,73,.28)", borderRadius: 11, padding: "8px 11px" }}><div style={{ fontSize: 9, letterSpacing: 1.1, textTransform: "uppercase", color: C.txt3, fontWeight: 700, marginBottom: 3 }}>In orders</div><div className="mono" style={{ fontSize: 14, fontWeight: 600, color: C.gold1 }}>{bal.locked.toFixed(2)}</div></div></div>)}
       <div className="p2p-book">
         {" "}
         <div>
