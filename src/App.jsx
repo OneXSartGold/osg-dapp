@@ -2790,6 +2790,7 @@ function Staking({
           });
         }
       } catch (e) {
+        setReg(function (s) { return { ...s, ok: false, reason: "Couldn't check right now — please try again in a moment." }; });
         setUpline(function (u) {
           return { ...u, loading: false };
         });
