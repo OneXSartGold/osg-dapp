@@ -4488,7 +4488,7 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t, poo
           >
             <span>Est. fee (0.5%)</span>
             <b className="mono" style={{ color: C.txt }}>
-              {estFee.toFixed(4)} POL
+              {estFee.toFixed(4)} {quoteSym}
             </b>
           </div>
         )}{" "}
