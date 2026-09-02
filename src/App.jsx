@@ -4358,6 +4358,7 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t, poo
             </b>
           </div>
         )}{" "}
+        <YourOrders wallet={wallet} ensureReady={ensureReady} showToast={showToast} poolRate={poolRate} polUsd={polUsd} />
         <div className="sec" style={{ marginTop: 18 }}>
           Place Order
         </div>{" "}
