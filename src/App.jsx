@@ -4508,6 +4508,7 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t, poo
             "Place Sell Order"
           )}{" "}
         </button>{" "}
+        {/* OLD-MY-ORDERS-START */}
         <div className="sec" style={{ marginTop: 18 }}>
           My Orders
         </div>{" "}
@@ -4564,6 +4565,7 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t, poo
             );
           })
         )}{" "}
+        {/* OLD-MY-ORDERS-END */}
       </div>{" "}
     </div>
   );
