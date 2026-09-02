@@ -4343,7 +4343,7 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t, poo
               {((parseFloat(acceptAmount) || 0) * selectedOrder.price).toFixed(
                 4,
               )}{" "}
-              POL
+              {quoteSym}
             </b>
           </div>
           <button
