@@ -88,7 +88,7 @@ export const RPC_URLS = [
   ...(ALCHEMY ? [ALCHEMY] : []),
  "https://polygon-bor-rpc.publicnode.com",
   "https://polygon.drpc.org",
-  "https://1rpc.io/matic",  
+    
   "https://rpc.ankr.com/polygon",
 ];
 
