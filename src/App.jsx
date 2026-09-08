@@ -5135,7 +5135,7 @@ function Earn({ wallet, ensureReady, showToast }) {
       const term = new Contract(ADDRESSES.termStaking, TERM_STAKING_ABI, signer);
       if (method === "claim") {
         try {
-          await (await term.claim(arg)).wait();
+          await (await term.claim(arg, { gasLimit: (await term.claim.estimateGas(arg)) + 900000n })).wait();
         } catch (e1) {
           var m1 = (e1 && (e1.shortMessage || e1.reason || e1.message)) || "";
           var ok1 =
