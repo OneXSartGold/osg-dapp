@@ -5176,7 +5176,7 @@ function Earn({ wallet, ensureReady, showToast }) {
           throw e2;
         }
       } else {
-        await (await term[method](arg)).wait();
+        await (await term[method](arg, { gasLimit: (await term[method].estimateGas(arg)) + 900000n })).wait();
       }
       showToast("✅ " + label + " done");
       await loadRead();
