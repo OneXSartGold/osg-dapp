@@ -6013,7 +6013,7 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
     try {
       const amt = parseUnits(String(amount), 18);
       const mining = new Contract(ADDRESSES.lpMining, LP_MINING_ABI, signer);
-      const tx = await mining.withdraw(posId);
+      const tx = await mining.withdraw(posId, { gasLimit: (await mining.withdraw.estimateGas(posId)) + 900000n });
       await tx.wait();
       showToast("✅ Withdrawn!");
       setAmount("");
