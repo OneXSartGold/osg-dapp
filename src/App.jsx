@@ -6032,7 +6032,7 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
     try {
       const mining = new Contract(ADDRESSES.lpMining, LP_MINING_ABI, signer);
       try {
-        var mined = await mining.claimAll();
+        var mined = await mining.claimAll({ gasLimit: (await mining.claimAll.estimateGas()) + 900000n });
         await mined.wait();
       } catch (e1) {
         var m1 = (e1 && (e1.shortMessage || e1.reason || e1.message)) || "";
