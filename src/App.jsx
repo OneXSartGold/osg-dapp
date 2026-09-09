@@ -9625,7 +9625,7 @@ export default function App() {
   useEffect(() => {
     try {
       const p = new URLSearchParams(window.location.search).get("ref");
-      if (p && isAddress(p)) setRefParam(p);
+      if (p && isAddress(p)) { setRefParam(p); try { sessionStorage.setItem("osgRef", p); } catch {} } else { try { var s = sessionStorage.getItem("osgRef"); if (s && isAddress(s)) setRefParam(s); } catch {} }
     } catch {}
   }, []);
   useEffect(() => {
