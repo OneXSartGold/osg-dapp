@@ -52,13 +52,14 @@ export const ADDRESSES = {
   lpMiningLegacy: "0x4bFad548efD22e2fE75bBC77B6114380f8EF1bA3",
   referralV4: "0x82cfA8CB35176BAC5d9d2Ec791Aa22B33AbAA381",
 
-  // -- Referral v4.2 set (deployed 17 Aug 2026) --
+    // -- Referral v5 set (cut over 12 Sep 2026) --
   // The ledger holds the money and the rules; the two lenses hold the
   // views and can be redeployed without touching a single balance.
-  // referralV4 above stays live until Term and LP are pointed here.
-  referralV42:    "0xeaB8a38660EB1556d5F7e52f48E407589B11437c",
-  referralLens:   "0xa3Aa3d82a7aD78D9421934d740466F66600343A3",
-  referralHealth: "0x909987447758C300C537d5a5CB25b1Ec2b7146cb",
+  // v4.2 (0xeaB8a386...) is frozen and paused: removed from RewardPool,
+  // and Term v2 and LP v8 now hook into v5. Its ledger was copied here.
+  referralV42:    "0x58383A8171014a8008d28e7CbB509e21412ec52A",
+  referralLens:   "0xdF9462D08CDcB70BCFc56579faC863F128B7Ff27",
+  referralHealth: "0x43dA472c78ed18fe5964C638B09F62a5bebf435C",
 
   // -- Retired. Empty, unwired, kept only so old links resolve. --
   // termStakingV1: "0x9432B8C2B67C4c86c26EdB98893611013FAdF562",
