@@ -558,7 +558,7 @@ export const REFERRAL_V4_ABI = [
   "function referralDailyBudget() view returns (uint256)",
   "function payoutHealth() view returns (bool canPayNow, string reason)",
   "function bonusHealth() view returns (bool canPayNow, string reason)",
-  "function isWiredForReferral() view returns (bool)",
+
   "function stakeWiringHealthy() view returns (bool termOk, bool lpOk)",
   "function paused() view returns (bool)",
   "function version() pure returns (string)",
@@ -584,14 +584,14 @@ export const REFERRAL_V4_ABI = [
   "function bonusPaidTotal(address) view returns (uint256)",
   "function lastBonusAt(address) view returns (uint256)",
   "function bonusCooldownRemaining(address user) view returns (uint256)",
-  "function tiers(uint256) view returns (uint256 directsNeeded, uint256 stakeNeeded, uint256 monthlyPayout)",
+  "function tiers(uint256) view returns (uint256 directsNeeded, uint256 selfStakeNeeded, uint256 stakeNeeded, uint256 monthlyPayout, uint256 selfStakeUsd, uint256 stakeUsdNeeded)",
   "function previewRank(address user, address[] directs) view returns (uint8 rank, uint256 count, uint256 stakeTotal)",
   "function BONUS_PERIOD() view returns (uint256)",
   "function RANK_HOLD() view returns (uint256)",
 
   /* ---- writes ---- */
   "function claimMyReferral()",
-  "function claimTeamBonus(address[] directs)",
+  "function accrueRankBonus(address user, address[] directs)",   "function claimBonusOwed()",
   "function refreshRank(address user, address[] directs)",
 
   /* ---- events ---- */
@@ -651,12 +651,12 @@ export const REFERRAL_V42_ABI = [
   "function rankSince(address) view returns (uint256)",
   "function lastBonusAt(address) view returns (uint256)",
   "function bonusPaidTotal(address) view returns (uint256)",
-  "function tiers(uint256) view returns (uint256 directsNeeded, uint256 stakeNeeded, uint256 monthlyPayout)",
+  "function tiers(uint256) view returns (uint256 directsNeeded, uint256 selfStakeNeeded, uint256 stakeNeeded, uint256 monthlyPayout, uint256 selfStakeUsd, uint256 stakeUsdNeeded)",
   "function RANK_HOLD() view returns (uint256)",
   "function BONUS_PERIOD() view returns (uint256)",
 
   /* ---- wiring ---- */
-  "function isWiredForReferral() view returns (bool)",
+
   "function stakeSourceCount() view returns (uint256)",
   "function paused() view returns (bool)",
   "function version() pure returns (string)",
@@ -664,7 +664,7 @@ export const REFERRAL_V42_ABI = [
   /* ---- writes ---- */
   "function register(address referrer)",
   "function claimMyReferral()",
-  "function claimTeamBonus(address[] directs)",
+  "function accrueRankBonus(address user, address[] directs)",   "function claimBonusOwed()",
   "function refreshRank(address user, address[] directs)",
   "function syncDirect(address user)",
 
