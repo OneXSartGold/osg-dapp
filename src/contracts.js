@@ -88,7 +88,7 @@ const ALCHEMY = import.meta.env.VITE_ALCHEMY_RPC;
 export const RPC_URLS = [
   ...(ALCHEMY ? [ALCHEMY] : []),
  "https://polygon-bor-rpc.publicnode.com",
-  "https://polygon.drpc.org",
+  
     
   "https://rpc.ankr.com/polygon",
 ];
