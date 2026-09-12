@@ -3785,7 +3785,7 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t, poo
    if (!p2pProviderRef.current) {
     p2pProviderRef.current = new FallbackProvider(
       RPC_URLS.map(function (u) {
-        return { provider: new JsonRpcProvider(u, 137), priority: 1, stallTimeout: 2000 };
+        return { provider: new JsonRpcProvider(u, 137, { staticNetwork: true }), priority: 1, stallTimeout: 2000 };
       }),
       137,
       { quorum: 1 },
@@ -4959,7 +4959,7 @@ function Earn({ wallet, ensureReady, showToast }) {
   if (!earnProviderRef.current) {
     earnProviderRef.current = new FallbackProvider(
       RPC_URLS.map((u, i) => ({
-        provider: new JsonRpcProvider(u, 137),
+        provider: new JsonRpcProvider(u, 137, { staticNetwork: true }),
         priority: i + 1,
         weight: 1,
         stallTimeout: 900,
@@ -5760,7 +5760,7 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
   if (!miningProviderRef.current) {
     miningProviderRef.current = new FallbackProvider(
       RPC_URLS.map((u, i) => ({
-        provider: new JsonRpcProvider(u, 137),
+        provider: new JsonRpcProvider(u, 137, { staticNetwork: true }),
         priority: i + 1,
         weight: 1,
         stallTimeout: 900,
@@ -9696,7 +9696,7 @@ export default function App() {
     if (!readProviderRef.current) {
       var list = RPC_URLS.map(function (u, i) {
         return {
-          provider: new JsonRpcProvider(u, 137),
+          provider: new JsonRpcProvider(u, 137, { staticNetwork: true }),
           priority: i + 1,
           weight: 1,
           stallTimeout: 900,
@@ -10429,7 +10429,7 @@ function LegacyMining({ wallet, ensureReady, showToast }) {
   if (!legacyProviderRef.current) {
     legacyProviderRef.current = new FallbackProvider(
       RPC_URLS.map((u, i) => ({
-        provider: new JsonRpcProvider(u, 137),
+        provider: new JsonRpcProvider(u, 137, { staticNetwork: true }),
         priority: i + 1,
         weight: 1,
         stallTimeout: 900,
@@ -10681,7 +10681,7 @@ function YourOrders({ wallet, ensureReady, showToast, poolRate, polUsd }) {
   if (!ordProviderRef.current) {
     ordProviderRef.current = new FallbackProvider(
       RPC_URLS.map((u, i) => ({
-        provider: new JsonRpcProvider(u, 137),
+        provider: new JsonRpcProvider(u, 137, { staticNetwork: true }),
         priority: i + 1,
         weight: 1,
         stallTimeout: 900,
