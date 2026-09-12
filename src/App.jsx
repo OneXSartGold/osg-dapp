@@ -2701,16 +2701,7 @@ function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvid
       <TeamJoin wallet={wallet} refParam={refParam} getReadProvider={getProvider} ensureReady={ensureReady} showToast={showToast} />
       <PoolCards getProvider={getProvider} wallet={wallet} oldStaked={data.staked} setTab={setTab} />
       
-      <div style={{ marginTop: 14 }}>
-        <P2PPanel
-          wallet={wallet}
-          network={network}
-          getProvider={getProvider}
-          ensureReady={ensureReady}
-          showToast={showToast}
-          t={t} poolRate={data && data.osgPerPol ? Number(data.osgPerPol) : 0} polUsd={polUsd}
-        />
-      </div>
+      
     </div>
   );
 }
