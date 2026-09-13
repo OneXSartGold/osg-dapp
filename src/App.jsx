@@ -3685,7 +3685,7 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
           })}
       </div>
       <div className="card" style={{ marginTop: 14 }}>
-        <div className="sec">{t.yourReferrer}</div>
+        <div className="sec">{t.yourTeam || "Your Team"}</div>
         {levelStats && (
           <div className="card" style={{ marginTop: 14 }}>
             <div className="sec">{t.teamSummary || "Team Summary"}</div>
