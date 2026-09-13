@@ -3449,7 +3449,7 @@ function Staking({
   );
 }
 
-function Referral({ wallet, data, showToast, getProvider, t }) {
+function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const refLink = wallet ? `${origin}/?ref=${wallet}` : "—";
   const [copied, setCopied] = useState(false);
@@ -10289,6 +10289,7 @@ export default function App() {
               data={data}
               showToast={showToast}
               getProvider={getProvider}
+              ensureReady={ensureReady}
               t={t}
             />
           )}
