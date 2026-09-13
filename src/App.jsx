@@ -3591,7 +3591,7 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
             </div>
             <div className="mini">
               <div className="k">Volume introduced</div>
-              <div className="vv">{fmt(card.volume, 2)}</div>
+              <div className="vv">{fmt(f18(card.volume), 2)}</div>
             </div>
           </div>
           {Number(card.levelsOpen) < 15 && (
