@@ -5814,35 +5814,7 @@ function Earn({ wallet, ensureReady, showToast }) {
               your levels for good.
             </div>
           </div>
-
-          <div className="card" style={{ marginBottom: 12 }}>
-            <div className="sec">Commission</div>
-            <div className="mini-grid">
-              <div className="mini">
-                <div className="k">Waiting</div>
-                <div className="vv" style={{ color: C.green }}>
-                  {fmt(team.owed, 4)}
-                </div>
-              </div>
-              <div className="mini">
-                <div className="k">Already taken</div>
-                <div className="vv">{fmt(team.paid, 4)}</div>
-              </div>
-            </div>
-            <button
-              className="btn-gold"
-              style={{ marginTop: 12 }}
-              disabled={Number(team.owed) <= 0 || busy.ref}
-              onClick={claimReferral}
-            >
-              {busy.ref ? "Working…" : "Claim commission"}
-            </button>
-            <div style={{ fontSize: 11.5, color: C.txt3, marginTop: 10, lineHeight: 1.6 }}>
-              Commission comes from the referral budget, not from what your
-              downline earns. Their amount is untouched.
-            </div>
-          </div>
-
+          
           <div className="card">
             <div className="sec">15 levels</div>
             {team.lvBps.map((b, i) => {
