@@ -3738,7 +3738,7 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
                 <div className="sec" style={{ color: colors[i] }}>
                   {labels[i]}
                  <span style={{ float: "right", fontWeight: 400, letterSpacing: 0, textTransform: "none", color: lvl.open ? C.gold1 : C.txt3 }}>
-                    {(lvl.bps / 100).toFixed(1)} %{lvl.open ? "" : " · locked"}
+                    {(lvl.bps / 100).toFixed(1)} %{lvl.open ? "" : " · locked"} {openLvl === i ? "🔼" : "🔽"}
                   </span>
                 </div>
                 <div
