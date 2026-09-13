@@ -5739,7 +5739,7 @@ function Earn({ wallet, ensureReady, showToast }) {
                     {lv}
                   </div>
                   <div className="ad" style={{ fontSize: 12 }}>
-                    {open ? "open" : "needs " + team.lvCond[i] + " directs"}
+                    {open ? "open" : "needs " + team.lvCond[i] + (team.lvCond[i] === 1 ? " direct" : " directs")}
                   </div>
                   <div
                     style={{
