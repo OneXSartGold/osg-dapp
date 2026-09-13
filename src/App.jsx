@@ -3539,7 +3539,7 @@ function Referral({ wallet, data, showToast, getProvider, t }) {
       cancelled = true;
     };
   }, [wallet, getProvider, data.directReferrals]);
-  const r = data.referralInfo;
+  
   // Prefer the lens, which reads both trees. Fall back to the old five-slot
   // chain only while the lens call is still in flight or has failed.
   const chain = chainRows
@@ -3559,32 +3559,7 @@ function Referral({ wallet, data, showToast, getProvider, t }) {
       <div className="page-head">
         <h1>{t.referral}</h1>
       </div>
-      <div className="stat-grid">
-        <Stat
-          label={t.refEarned}
-          value={fmt(r.totalReferralEarned, 4)}
-          sub={t.osgTotal}
-          accent={C.gold2}
-        />
-        <Stat
-          label={t.totalRefs}
-          value={fmt(r.totalReferrals, 0)}
-          sub={t.directTeam}
-          accent={C.green}
-        />
-        <Stat
-          label={t.pendingRef}
-          value={fmt(r.pendingReferral, 4)}
-          sub="OSG"
-          accent={C.blue}
-        />
-        <Stat
-          label={t.teamBonus}
-          value={fmt(r.teamBonusEarned, 4)}
-          sub="OSG"
-          accent={C.purple}
-        />
-      </div>
+      
       <div className="card" style={{ marginTop: 14 }}>
         <div className="sec">{t.yourRefLink}</div>
         <div className="ref-link">
