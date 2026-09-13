@@ -3638,10 +3638,7 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
                     background: colors[i] + "18",
                   }}
                 >
-                  {labels[i]}
-                  <span style={{ float: "right", fontWeight: 400, letterSpacing: 0, textTransform: "none", color: lvl.open ? C.gold1 : C.txt3 }}>
-                    {(lvl.bps / 100).toFixed(1)} %{lvl.open ? "" : " · locked"}
-                  </span>
+                  {labels[i]}                  
                 </div>
                 <span
                   className="ad"
@@ -3699,6 +3696,9 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
               <div className="card" style={{ marginTop: 14 }} key={"lvl" + i}>
                 <div className="sec" style={{ color: colors[i] }}>
                   {labels[i]}
+                 <span style={{ float: "right", fontWeight: 400, letterSpacing: 0, textTransform: "none", color: lvl.open ? C.gold1 : C.txt3 }}>
+                    {(lvl.bps / 100).toFixed(1)} %{lvl.open ? "" : " · locked"}
+                  </span>
                 </div>
                 <div
                   className="stat-grid"
