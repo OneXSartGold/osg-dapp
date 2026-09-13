@@ -5504,9 +5504,7 @@ function Earn({ wallet, ensureReady, showToast }) {
       {/* ---------- tabs ---------- */}
       <div className="tabs2">
         {[
-          ["stake", "Stake"],
-          ["team", "Team"],
-          ["facts", "Facts"],
+          ["stake", "Stake"],         
         ].map(([k, label]) => (
           <button
             key={k}
