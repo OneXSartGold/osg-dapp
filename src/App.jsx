@@ -5499,22 +5499,7 @@ function Earn({ wallet, ensureReady, showToast }) {
             <span>Payouts are paused right now — {pool.reason}</span>
           </div>
         )}
-      </div>
-
-      {/* ---------- tabs ---------- */}
-      <div className="tabs2">
-        {[
-          ["stake", "Stake"],         
-        ].map(([k, label]) => (
-          <button
-            key={k}
-            className={"tab2 " + (tab === k ? "on" : "")}
-            onClick={() => setTab2(k)}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      </div>      
 
       {/* =================== STAKE =================== */}
       {tab === "stake" && (
