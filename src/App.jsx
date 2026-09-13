@@ -3497,7 +3497,7 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
         // the old loop could only do for the first tree it was given.
         const lens = new Contract(ADDRESSES.referralLens, REFERRAL_LENS_ABI, p);
         const [res, up, dir, wc] = await Promise.all([
-          lens.levelSummary(wallet, 300),
+          lens.levelSummary(wallet, 3000),
           lens.uplineView(wallet),
           lens.directsView(wallet),
           lens.walletCard(wallet),
@@ -3560,7 +3560,7 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
       try {
         const p = getProvider();
         const lens = new Contract(ADDRESSES.referralLens, REFERRAL_LENS_ABI, p);
-        const res = await lens.downlineAtLevel(wallet, openLvl + 1, 0, 50, 300);
+        const res = await lens.downlineAtLevel(wallet, openLvl + 1, 0, 50, 3000);
         if (!cancelled) {
           setLvlRows(
             res.page.map(function (m) {
@@ -5087,7 +5087,7 @@ function Earn({ wallet, ensureReady, showToast }) {
           // A zero address is a valid argument: the walk finds no children
           // and the rows still carry the rate and the condition for every
           // level, which is all this call is used for here.
-          lens.levelSummary(wallet || ZERO, 300),
+          lens.levelSummary(wallet || ZERO, 3000),
         ]);
 
       const refBud = stats.referralBudgetToday;
