@@ -3476,6 +3476,8 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
   const [chainRows, setChainRows] = useState(null);
   const [directRows, setDirectRows] = useState(null);
   const [card, setCard] = useState(null);
+  const [openLvl, setOpenLvl] = useState(null);
+  const [lvlRows, setLvlRows] = useState(null);
   useEffect(() => {
     let cancelled = false;
     async function loadLevels() {
@@ -3547,6 +3549,38 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
       cancelled = true;
     };
   }, [wallet, getProvider, data.directReferrals]);
+  
+  useEffect(() => {
+    let cancelled = false;
+    async function loadOne() {
+      if (openLvl === null || !wallet || !getProvider) {
+        setLvlRows(null);
+        return;
+      }
+      try {
+        const p = getProvider();
+        const lens = new Contract(ADDRESSES.referralLens, REFERRAL_LENS_ABI, p);
+        const res = await lens.downlineAtLevel(wallet, openLvl + 1, 0, 50, 300);
+        if (!cancelled) {
+          setLvlRows(
+            res.page.map(function (m) {
+              return {
+                addr: m.wallet,
+                stake: m.stake,
+                qualified: Boolean(m.qualified),
+              };
+            }),
+          );
+        }
+      } catch (e) {
+        if (!cancelled) setLvlRows([]);
+      }
+    }
+    loadOne();
+    return function () {
+      cancelled = true;
+    };
+  }, [openLvl, wallet, getProvider]);
   
   // Prefer the lens, which reads both trees. Fall back to the old five-slot
   // chain only while the lens call is still in flight or has failed.
@@ -3693,7 +3727,14 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
         {levelStats &&
           levelStats.map(function (lvl, i) {
             return (
-              <div className="card" style={{ marginTop: 14 }} key={"lvl" + i}>
+              <div
+                className="card"
+                style={{ marginTop: 14, cursor: "pointer" }}
+                key={"lvl" + i}
+                onClick={function () {
+                  setOpenLvl(openLvl === i ? null : i);
+                }}
+              >
                 <div className="sec" style={{ color: colors[i] }}>
                   {labels[i]}
                  <span style={{ float: "right", fontWeight: 400, letterSpacing: 0, textTransform: "none", color: lvl.open ? C.gold1 : C.txt3 }}>
@@ -3724,6 +3765,28 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
                                 {!lvl.open && (
                   <div style={{ fontSize: 12, color: C.txt3, marginTop: 10 }}>
                     🔒 {lvl.need} direct{lvl.need === 1 ? "" : "s"} needed to open this level
+                  </div>
+                )}
+                                {openLvl === i && (
+                  <div style={{ marginTop: 12, borderTop: "1px solid " + C.line, paddingTop: 10 }}>
+                    {lvlRows === null && (
+                      <div style={{ fontSize: 12, color: C.txt3 }}>Loading…</div>
+                    )}
+                    {lvlRows !== null && lvlRows.length === 0 && (
+                      <div style={{ fontSize: 12, color: C.txt3 }}>No one on this level yet</div>
+                    )}
+                    {lvlRows !== null &&
+                      lvlRows.map(function (m, k) {
+                        return (
+                          <div
+                            key={"m" + k}
+                            style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, padding: "6px 0", color: m.qualified ? C.txt : C.txt3 }}
+                          >
+                            <span>{short(m.addr)}</span>
+                            <span>{fmt(f18(m.stake), 2)} OSG{m.qualified ? "" : " · inactive"}</span>
+                          </div>
+                        );
+                      })}
                   </div>
                 )}
               </div>
