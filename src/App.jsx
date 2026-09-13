@@ -3637,6 +3637,51 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
           )}
         </div>
       )}
+            {card && (
+        <div className="card" style={{ marginTop: 14 }}>
+          <div className="sec">Rank</div>
+          <div className="mini-grid">
+            <div className="mini">
+              <div className="k">Current rank</div>
+              <div className="vv" style={{ color: C.gold1 }}>
+                {Number(card.rank) > 0 ? "R" + Number(card.rank) : "—"}
+              </div>
+            </div>
+            <div className="mini">
+              <div className="k">Bonus received</div>
+              <div className="vv">{fmt(f18(card.bonusPaidTotal), 2)}</div>
+            </div>
+            <div className="mini">
+              <div className="k">From your line</div>
+              <div className="vv">{String(card.registeredDirects)}</div>
+            </div>
+            <div className="mini">
+              <div className="k">Carried over</div>
+              <div className="vv">{String(card.legacyDirects)}</div>
+            </div>
+          </div>
+          {Number(card.rank) > 0 && Number(card.rankHoldRemaining) > 0 && (
+            <div style={{ fontSize: 12.5, color: C.txt2, marginTop: 12 }}>
+              ⏳ Rank has to be held for 24h before a bonus —{" "}
+              {Math.ceil(Number(card.rankHoldRemaining) / 3600)}h left
+            </div>
+          )}
+          {Number(card.rank) > 0 &&
+            Number(card.rankHoldRemaining) === 0 &&
+            Number(card.bonusCooldownRemaining) > 0 && (
+              <div style={{ fontSize: 12.5, color: C.txt2, marginTop: 12 }}>
+                📅 Next bonus in{" "}
+                {Math.ceil(Number(card.bonusCooldownRemaining) / 86400)} days
+              </div>
+            )}
+          <div style={{ fontSize: 11.5, color: C.txt3, marginTop: 10, lineHeight: 1.6 }}>
+            A rank is proved by submitting your own list of directs, and it is
+            re-proved when a bonus is taken. "Carried over" are directs counted
+            in the old Staking contract — they keep counting toward your levels
+            for good.
+          </div>
+        </div>
+      )}
       <div className="card" style={{ marginTop: 14 }}>
         <div className="sec">{t.yourRefLink}</div>
         <div className="ref-link">
