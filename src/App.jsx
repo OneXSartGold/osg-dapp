@@ -3475,6 +3475,7 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
   // level table above already counted them.
   const [chainRows, setChainRows] = useState(null);
   const [directRows, setDirectRows] = useState(null);
+  const [card, setCard] = useState(null);
   useEffect(() => {
     let cancelled = false;
     async function loadLevels() {
@@ -3482,6 +3483,7 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
         setLevelStats(null);
         setChainRows(null);
         setDirectRows(null);
+        setCard(null);
         return;
       }
       try {
@@ -3492,10 +3494,11 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
         // eth_call and merges the legacy children with the v4.2 ones, which
         // the old loop could only do for the first tree it was given.
         const lens = new Contract(ADDRESSES.referralLens, REFERRAL_LENS_ABI, p);
-        const [res, up, dir] = await Promise.all([
+        const [res, up, dir, wc] = await Promise.all([
           lens.levelSummary(wallet, 300),
           lens.uplineView(wallet),
           lens.directsView(wallet),
+          lens.walletCard(wallet),
         ]);
         const levels = res.rows.map(function (r) {
           return {
@@ -3509,8 +3512,9 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
           };
         });
         if (!cancelled) {
-          setLevelStats(levels);
+          setLevelStats(levels);          
           setLevelsTruncated(Boolean(res.truncated));
+          setCard(wc);
           setChainRows(
             up.map(function (e) {
               return { addr: e.wallet, earning: Boolean(e.earning) };
@@ -3531,6 +3535,7 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
           setLevelStats(null);
           setChainRows(null);
           setDirectRows(null);
+          setCard(null);
         }
       }
     }
@@ -3559,7 +3564,42 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
       <div className="page-head">
         <h1>{t.referral}</h1>
       </div>
-      
+
+            {card && (
+        <div className="card" style={{ marginTop: 14 }}>
+          <div className="sec">Your line</div>
+          <div className="mini-grid">
+            <div className="mini">
+              <div className="k">Direct referrals</div>
+              <div className="vv">{String(card.directsForLevels)}</div>
+            </div>
+            <div className="mini">
+              <div className="k">Levels open</div>
+              <div className="vv">
+                {String(card.levelsOpen)}
+                <span style={{ fontSize: 13, color: C.txt3 }}> of 15</span>
+              </div>
+            </div>
+            <div className="mini">
+              <div className="k">Your share</div>
+              <div className="vv" style={{ color: C.gold1 }}>
+                {(Number(card.activeBps) / 100).toFixed(1)} %
+              </div>
+            </div>
+            <div className="mini">
+              <div className="k">Volume introduced</div>
+              <div className="vv">{fmt(card.volume, 2)}</div>
+            </div>
+          </div>
+          {Number(card.levelsOpen) < 15 && (
+            <div style={{ fontSize: 12.5, color: C.txt2, marginTop: 12 }}>
+              🔓 {Number(card.levelsOpen) + 1 - Number(card.directsForLevels)} more
+              direct{Number(card.levelsOpen) + 1 - Number(card.directsForLevels) === 1 ? "" : "s"}
+              {" "}opens level {Number(card.levelsOpen) + 1}
+            </div>
+          )}
+        </div>
+      )}
       <div className="card" style={{ marginTop: 14 }}>
         <div className="sec">{t.yourRefLink}</div>
         <div className="ref-link">
