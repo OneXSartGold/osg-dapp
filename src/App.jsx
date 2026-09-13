@@ -5646,7 +5646,7 @@ function Earn({ wallet, ensureReady, showToast }) {
               <div className="mini">
                 <div className="k">Current rank</div>
                 <div className="vv">
-                  {team.rank > 0 ? "A" + team.rank : "—"}
+                  {team.rank > 0 ? "R" + team.rank : "—"}
                 </div>
               </div>
               <div className="mini">
@@ -8565,7 +8565,7 @@ function AIAssistant({ wallet, staked, liveData, holders, polUsd, getReadProvide
     try {
       var lens = new Contract(ADDRESSES.referralLens, REFERRAL_LENS_ABI, p);
       var c = await lens.walletCard(wallet);
-      var rankName = ["none", "A1", "A2", "A3"][Number(c.rank)] || "none";
+      var rankName = ["none", "R1", "R2", "R3", "R4", "R5"][Number(c.rank)] || "none";
       out.push(
         "Their referral standing: referrer " +
           (c.hasUpline ? String(c.referrer) : "none set") +
