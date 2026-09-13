@@ -3686,6 +3686,35 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
       )}
             {card && (
         <div className="card" style={{ marginTop: 14 }}>
+          <div className="sec">Commission</div>
+          <div className="mini-grid">
+            <div className="mini">
+              <div className="k">Waiting</div>
+              <div className="vv" style={{ color: C.green }}>
+                {fmt(f18(card.owed), 4)}
+              </div>
+            </div>
+            <div className="mini">
+              <div className="k">Already taken</div>
+              <div className="vv">{fmt(f18(card.paid), 4)}</div>
+            </div>
+          </div>
+          <button
+            className="btn-gold"
+            style={{ marginTop: 12 }}
+            disabled={Number(f18(card.owed)) <= 0 || claiming}
+            onClick={claimCommission}
+          >
+            {claiming ? "Working…" : "Claim commission"}
+          </button>
+          <div style={{ fontSize: 11.5, color: C.txt3, marginTop: 10, lineHeight: 1.6 }}>
+            Commission comes from the referral budget, not from what your
+            downline earns. Their amount is untouched.
+          </div>
+        </div>
+      )}
+            {card && (
+        <div className="card" style={{ marginTop: 14 }}>
           <div className="sec">Rank</div>
           <div className="mini-grid">
             <div className="mini">
