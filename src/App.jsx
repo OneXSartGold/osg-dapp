@@ -3509,6 +3509,9 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
             // all" test. Legacy members count permanently.
             active: Number(r.qualified),
             legacy: Number(r.legacyMembers),
+                        bps: Number(r.levelBps),
+            need: Number(r.directsNeeded),
+            open: Boolean(r.open),
           };
         });
         if (!cancelled) {
@@ -3636,6 +3639,9 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
                   }}
                 >
                   {labels[i]}
+                  <span style={{ float: "right", fontWeight: 400, letterSpacing: 0, textTransform: "none", color: lvl.open ? C.gold1 : C.txt3 }}>
+                    {(lvl.bps / 100).toFixed(1)} %{lvl.open ? "" : " · locked"}
+                  </span>
                 </div>
                 <span
                   className="ad"
@@ -3715,6 +3721,11 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
                     accent={C.green}
                   />
                 </div>
+                                {!lvl.open && (
+                  <div style={{ fontSize: 12, color: C.txt3, marginTop: 10 }}>
+                    🔒 {lvl.need} direct{lvl.need === 1 ? "" : "s"} needed to open this level
+                  </div>
+                )}
               </div>
             );
           })}
