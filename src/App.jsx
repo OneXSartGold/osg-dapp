@@ -5387,47 +5387,6 @@ function Earn({ wallet, ensureReady, showToast }) {
     setB(key, false);
   }
 
-  async function claimReferral() {
-    const signer = await ensureReady();
-    if (!signer) return;
-    setB("ref", true);
-    try {
-      showToast("Claiming commission…");
-      const ref = new Contract(ADDRESSES.referralV42, REFERRAL_V42_ABI, signer);
-            showToast("1/2 — Moving commission to pool…");
-      await (await ref.claimMyReferral()).wait();
-
-      const pf = await mintPreflight(signer, wallet);
-      if (pf.ok && pf.mintable <= 0) {
-        showToast("⏳ This hour's 500 OSG limit is used up. Your " + pf.owed.toFixed(2) + " OSG stays safe on-chain. Try again in about " + pf.waitMin + " min.");
-        await loadRead();
-        setB("ref", false);
-        return;
-      }
-
-      showToast("2/2 — Minting OSG to wallet…");
-      const poolR = new Contract(ADDRESSES.pool, POOL_ABI, signer);
-      try {
-        await (await poolR.claim({ gasLimit: 600000, type: 0 })).wait();
-      } catch (e2) {
-        var m2 = (e2 && (e2.shortMessage || e2.reason || e2.message)) || "";
-        if (m2.toLowerCase().indexOf("no reward") !== -1) {
-          showToast("ℹ️ Commission moved to storage. Nothing to mint right now.");
-        } else {
-          showToast("⏳ Could not mint just now. Your commission stays safe on-chain. Up to 500 OSG mints per hour across everyone, so try again in about an hour.");
-        }
-        await loadRead();
-        setB("ref", false);
-        return;
-      }
-      showToast("💰 Commission received");
-      await loadRead();
-    } catch (e) {
-      showToast("❌ " + (e.shortMessage || "Transaction failed"));
-    }
-    setB("ref", false);
-  }
-
   /* ---------------- derived ---------------- */
   const stakeClaimable = rows.reduce((s, r) => s + r.pend, 0);
   const totalClaimable = stakeClaimable;
