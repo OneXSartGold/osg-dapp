@@ -3408,6 +3408,90 @@ function Staking({
   );
 }
 
+/* Five rank crests. Each tier keeps the same silhouette and gains one
+   more piece of ornament, so a higher rank reads as bigger at a glance
+   without anyone having to compare the numbers. */
+const RANK_META = [
+  { nm: "Bronze",   c1: "#FFE6C0", c2: "#CE8C45", c3: "#84501B", c4: "#4A2B0C", d1: "#3E2410", d2: "#1E1208", ink: "#2E1B06", lau: 0, cro: 0 },
+  { nm: "Silver",   c1: "#FFFFFF", c2: "#C9CFD8", c3: "#767F8C", c4: "#3F4652", d1: "#1B2130", d2: "#0C111C", ink: "#1B2029", lau: 0, cro: 0 },
+  { nm: "Gold",     c1: "#FFF3C2", c2: "#F2C64E", c3: "#AA7C1E", c4: "#5E420C", d1: "#3C2C08", d2: "#1C1404", ink: "#2A1E04", lau: 1, cro: 0 },
+  { nm: "Diamond",  c1: "#EDF9FF", c2: "#6FC8FF", c3: "#1E76C6", c4: "#0E3C6B", d1: "#0A2A4A", d2: "#05172B", ink: "#04283F", lau: 1, cro: 1 },
+  { nm: "Platinum", c1: "#F6EAFF", c2: "#C79BEF", c3: "#7A46B8", c4: "#43206E", d1: "#2A1240", d2: "#160724", ink: "#230C39", lau: 1, cro: 1 },
+];
+
+function RankBadge({ rank, size, lit }) {
+  var i = Math.max(1, Math.min(5, Number(rank) || 1));
+  var m = RANK_META[i - 1];
+  var on = lit !== false;
+  var u = "rk" + i + (on ? "a" : "b");
+  return (
+    <div
+      style={{
+        width: size, height: size, flex: "none", position: "relative",
+        opacity: on ? 1 : 0.3, filter: on ? "none" : "grayscale(1)",
+      }}
+    >
+      <svg viewBox="0 0 104 104" style={{ width: "100%", height: "100%", display: "block", overflow: "visible" }}>
+        <defs>
+          <linearGradient id={"mt" + u} x1=".1" y1="0" x2=".9" y2="1">
+            <stop offset="0%" stopColor={m.c1} /><stop offset="22%" stopColor={m.c2} />
+            <stop offset="52%" stopColor={m.c1} /><stop offset="78%" stopColor={m.c3} />
+            <stop offset="100%" stopColor={m.c4} />
+          </linearGradient>
+          <radialGradient id={"dk" + u} cx="50%" cy="30%" r="78%">
+            <stop offset="0%" stopColor={m.d1} /><stop offset="100%" stopColor={m.d2} />
+          </radialGradient>
+          <linearGradient id={"rd" + u} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#E03A34" /><stop offset="100%" stopColor="#8C1111" />
+          </linearGradient>
+        </defs>
+        <path d="M20 70 4 78l12 5-4 8 24-9z" fill={"url(#rd" + u + ")"} />
+        <path d="M84 70 100 78l-12 5 4 8-24-9z" fill={"url(#rd" + u + ")"} />
+        <circle cx="52" cy="50" r="40" fill="none" stroke={"url(#mt" + u + ")"} strokeWidth="8" />
+        <circle cx="52" cy="50" r="35.5" fill={"url(#dk" + u + ")"} />
+        <path d="M16 42a37 37 0 0 1 26-26" fill="none" stroke="#fff" strokeOpacity=".5" strokeWidth="2.4" strokeLinecap="round" />
+        {m.lau === 1 && (
+          <g fill={"url(#mt" + u + ")"}>
+            <ellipse cx="24" cy="44" rx="4" ry="2" transform="rotate(-38 24 44)" />
+            <ellipse cx="23" cy="53" rx="4" ry="2" transform="rotate(-16 23 53)" />
+            <ellipse cx="25" cy="62" rx="4" ry="2" transform="rotate(8 25 62)" />
+            <ellipse cx="80" cy="44" rx="4" ry="2" transform="rotate(38 80 44)" />
+            <ellipse cx="81" cy="53" rx="4" ry="2" transform="rotate(16 81 53)" />
+            <ellipse cx="79" cy="62" rx="4" ry="2" transform="rotate(-8 79 62)" />
+          </g>
+        )}
+        {m.cro === 1 && (
+          <g fill={"url(#mt" + u + ")"} transform="translate(52,14) scale(.9)">
+            <path d="M-10.5 6 -6.2-3.2l4.6 5.4L0-6.3l1.6 8.5L6.2-3.2 10.5 6v2h-21z" />
+            <circle cx="-6.2" cy="-4.9" r="1.6" /><circle cx="0" cy="-7.9" r="1.8" /><circle cx="6.2" cy="-4.9" r="1.6" />
+          </g>
+        )}
+        <g transform="translate(52,44) scale(.052)">
+          <path d="M-300-190h600l-90-120h-420z" fill={m.c1} />
+          <path d="M-300-190 0 300-390-190z" fill={m.c2} />
+          <path d="M300-190 0 300 390-190z" fill={m.c3} />
+          <path d="M-300-190h600L0 300z" fill={m.c2} />
+          <path d="M-390-190h90l-90 0z" fill={m.c3} />
+          <path d="M-300-190 0 300 0-190z" fill={m.c1} opacity=".55" />
+        </g>
+        <path d="M12 66h80l-6 10 6 10H12l6-10z" fill={"url(#mt" + u + ")"} />
+        <path d="M12 66h80l-6 10H18z" fill="#fff" opacity=".2" />
+        <text x="52" y="79" textAnchor="middle" fontFamily="'Bricolage Grotesque',sans-serif"
+          fontSize="12.5" fontWeight="800" fill={m.ink}>{m.nm.toUpperCase()}</text>
+      </svg>
+      <div
+        style={{
+          position: "absolute", left: 0, right: 0, top: size * 0.50,
+          textAlign: "center", fontFamily: "'JetBrains Mono',monospace",
+          fontWeight: 700, fontSize: size * 0.105, letterSpacing: ".1em",
+          color: "rgba(255,255,255,.92)", textShadow: "0 1px 3px rgba(0,0,0,.8)",
+        }}
+      >
+        R{i}
+      </div>
+    </div>
+  );
+}
 function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const refLink = wallet ? `${origin}/?ref=${wallet}` : "—";
