@@ -666,6 +666,7 @@ export const REFERRAL_V42_ABI = [
   "function claimMyReferral()",
   "function accrueRankBonus(address user, address[] directs)",   "function claimBonusOwed()",
   "function refreshRank(address user, address[] directs)",
+  "function bonusOwed(address) view returns (uint256)",
   "function syncDirect(address user)",
 
   /* ---- events ---- */
