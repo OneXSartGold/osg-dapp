@@ -3455,11 +3455,14 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
         // eth_call and merges the legacy children with the v4.2 ones, which
         // the old loop could only do for the first tree it was given.
         const lens = new Contract(ADDRESSES.referralLens, REFERRAL_LENS_ABI, p);
-        const [res, up, dir, wc] = await Promise.all([
+        const ref = new Contract(ADDRESSES.referralV42, REFERRAL_V42_ABI, p);
+        const [res, up, dir, wc, bOwed, t1, t2, t3, t4, t5] = await Promise.all([
           lens.levelSummary(wallet, 3000),
           lens.uplineView(wallet),
           lens.directsView(wallet),
           lens.walletCard(wallet),
+          ref.bonusOwed(wallet),
+          ref.tiers(1), ref.tiers(2), ref.tiers(3), ref.tiers(4), ref.tiers(5),
         ]);
         const levels = res.rows.map(function (r) {
           return {
@@ -3478,7 +3481,8 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
         if (!cancelled) {
           setLevelStats(levels);          
           setLevelsTruncated(Boolean(res.truncated));
-          setCard(wc);
+          setBonus(bOwed);
+          setTiers([t1, t2, t3, t4, t5]);
           setChainRows(
             up.map(function (e) {
               return { addr: e.wallet, earning: Boolean(e.earning) };
@@ -3556,6 +3560,8 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
   const labels = ["L1","L2","L3","L4","L5","L6","L7","L8","L9","L10","L11","L12","L13","L14","L15"],
     colors = [C.gold1,"#C0C0C0","#CD7F32",C.green,C.blue,C.gold1,"#C0C0C0","#CD7F32",C.green,C.blue,C.gold1,"#C0C0C0","#CD7F32",C.green,C.blue];
     const [claiming, setClaiming] = useState(false);
+  const [bonus, setBonus] = useState(null);
+  const [tiers, setTiers] = useState(null);
   async function refreshCard() {
     try {
       const p = getProvider();
