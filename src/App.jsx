@@ -3654,6 +3654,57 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
       setCard(await lens.walletCard(wallet));
     } catch {}
   }
+    // step 6 -- engine only, no button yet.
+  // refreshRank(user, directs) does not look the list up; the caller supplies
+  // it. _verifiedDirectVolume reverts unless the list is strictly ascending
+  // with no duplicates, every entry really is a direct of `user`, and there
+  // are at most MAX_DIRECTS_PER_CALL = 50. Only directs with
+  // stake >= minDirectStake count, so the same 100 filter the card's bars use.
+  const [proving, setProving] = useState(false);
+  async function proveRank() {
+    const signer = await ensureReady();
+    if (!signer) return;
+    setProving(true);
+    try {
+      var ok = (directRows || []).filter(function (d) {
+        return Number(f18(d.stake)) >= 100;
+      });
+      // Over 50 the contract reverts TooManyAtOnce. Keep the fifty largest so
+      // the volume proved is the highest this wallet can reach in one call.
+      if (ok.length > 50) {
+        ok = ok
+          .slice()
+          .sort(function (a, b) {
+            return Number(f18(b.stake)) - Number(f18(a.stake));
+          })
+          .slice(0, 50);
+      }
+      // Default sort() compares text, so 0xF8.. would land before 0xa1.. and
+      // the contract would revert ListMustAscendNoDuplicates. Compare BigInt.
+      var list = ok
+        .map(function (d) { return d.addr; })
+        .sort(function (a, b) {
+          var x = BigInt(a), y = BigInt(b);
+          return x < y ? -1 : x > y ? 1 : 0;
+        })
+        .filter(function (a, i, arr) {
+          return i === 0 || BigInt(a) !== BigInt(arr[i - 1]);
+        });
+      if (!list.length) {
+        showToast("⚠️ No direct holds 100 OSG yet, so there is nothing to prove.");
+        setProving(false);
+        return;
+      }
+      const ref = new Contract(ADDRESSES.referralV42, REFERRAL_V42_ABI, signer);
+      showToast("Proving your rank with " + list.length + " directs…");
+      await (await ref.refreshRank(wallet, list)).wait();
+      showToast("🏅 Rank updated");
+      await refreshCard();
+    } catch (e) {
+      showToast("❌ " + (e.shortMessage || e.reason || "Transaction failed"));
+    }
+    setProving(false);
+  }
   async function claimCommission() {
     const signer = await ensureReady();
     if (!signer) return;
