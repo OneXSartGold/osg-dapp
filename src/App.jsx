@@ -3428,7 +3428,7 @@ function RankBadge({ rank, size, lit }) {
     <div
       style={{
         width: size, height: size, flex: "none", position: "relative",
-        opacity: on ? 1 : 0.3, filter: on ? "none" : "grayscale(1)",
+         opacity: on ? 1 : 0.55, filter: on ? "none" : "grayscale(.85)",
       }}
     >
       <svg viewBox="0 0 104 104" style={{ width: "100%", height: "100%", display: "block", overflow: "visible" }}>
@@ -3785,7 +3785,7 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
           <div className="card" style={{ marginTop: 14 }}>
             <div className="sec">Rank</div>
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <RankBadge rank={have || 1} size={72} lit={have > 0} />
+              <RankBadge rank={have || 1} size={96} lit={have > 0} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 15.5, fontWeight: 800, color: have > 0 ? C.gold1 : C.txt2 }}>
                   {have > 0 ? "Rank " + have + " · " + RANK_META[have - 1].nm : "No rank yet"}
@@ -3801,7 +3801,7 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
             {t && (
               <div style={{ marginTop: 14 }}>
                 <div style={{ fontSize: 12.5, color: C.txt2, marginBottom: 2 }}>
-                  Next — <b style={{ color: C.gold1 }}>{RANK_META[nx - 1].nm}</b>
+                  {bars.every(function (x) { return x.a >= x.b; }) ? "Ready for " : "Next — "}<b style={{ color: C.gold1 }}>{RANK_META[nx - 1].nm}</b>
                   {", " + fmt(f18(t[3]), 0) + " OSG / month"}
                 </div>
                 {bars.map(function (x, k) {
