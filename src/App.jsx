@@ -3763,51 +3763,74 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
           </div>
         </div>
       )}
-            {card && (
-        <div className="card" style={{ marginTop: 14 }}>
-          <div className="sec">Rank</div>
-          <div className="mini-grid">
-            <div className="mini">
-              <div className="k">Current rank</div>
-              <div className="vv" style={{ color: C.gold1 }}>
-                {Number(card.rank) > 0 ? "R" + Number(card.rank) : "—"}
+                 {card && tiers && (function () {
+        var bar = 100;
+        var ok = (directRows || []).filter(function (d) {
+          return Number(f18(d.stake)) >= bar;
+        });
+        var nDir = ok.length;
+        var teamSt = ok.reduce(function (s, d) { return s + Number(f18(d.stake)); }, 0);
+        var selfSt = Number(f18(card.stake));
+        var have = Number(card.rank);
+        var nx = have < 5 ? have + 1 : 0;
+        var t = nx ? tiers[nx - 1] : null;
+        var bars = t
+          ? [
+              { k: "Directs", a: nDir, b: Number(t[0]) },
+              { k: "Your stake", a: selfSt, b: Number(f18(t[1])) },
+              { k: "Direct stake", a: teamSt, b: Number(f18(t[2])) },
+            ]
+          : [];
+        return (
+          <div className="card" style={{ marginTop: 14 }}>
+            <div className="sec">Rank</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <RankBadge rank={have || 1} size={72} lit={have > 0} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 15.5, fontWeight: 800, color: have > 0 ? C.gold1 : C.txt2 }}>
+                  {have > 0 ? "Rank " + have + " · " + RANK_META[have - 1].nm : "No rank yet"}
+                </div>
+                <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: C.txt3, marginTop: 3 }}>
+                  {have > 0
+                    ? fmt(f18(tiers[have - 1][3]), 0) + " OSG / month"
+                    : "the first crest opens at Bronze"}
+                </div>
               </div>
             </div>
-            <div className="mini">
-              <div className="k">Bonus received</div>
-              <div className="vv">{fmt(f18(card.bonusPaidTotal), 2)}</div>
-            </div>
-            <div className="mini">
-              <div className="k">From your line</div>
-              <div className="vv">{String(card.registeredDirects)}</div>
-            </div>
-            <div className="mini">
-              <div className="k">Carried over</div>
-              <div className="vv">{String(card.legacyDirects)}</div>
-            </div>
-          </div>
-          {Number(card.rank) > 0 && Number(card.rankHoldRemaining) > 0 && (
-            <div style={{ fontSize: 12.5, color: C.txt2, marginTop: 12 }}>
-              ⏳ Rank has to be held for 24h before a bonus —{" "}
-              {Math.ceil(Number(card.rankHoldRemaining) / 3600)}h left
-            </div>
-          )}
-          {Number(card.rank) > 0 &&
-            Number(card.rankHoldRemaining) === 0 &&
-            Number(card.bonusCooldownRemaining) > 0 && (
-              <div style={{ fontSize: 12.5, color: C.txt2, marginTop: 12 }}>
-                📅 Next bonus in{" "}
-                {Math.ceil(Number(card.bonusCooldownRemaining) / 86400)} days
+
+            {t && (
+              <div style={{ marginTop: 14 }}>
+                <div style={{ fontSize: 12.5, color: C.txt2, marginBottom: 2 }}>
+                  Next — <b style={{ color: C.gold1 }}>{RANK_META[nx - 1].nm}</b>
+                  {", " + fmt(f18(t[3]), 0) + " OSG / month"}
+                </div>
+                {bars.map(function (x, k) {
+                  var pc = x.b > 0 ? Math.min(100, (x.a / x.b) * 100) : 100;
+                  return (
+                    <div key={k} style={{ marginTop: 11 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontFamily: "'JetBrains Mono',monospace", fontSize: 10.5 }}>
+                        <span style={{ color: C.txt3 }}>{x.k}</span>
+                        <span style={{ color: C.txt }}>
+                          {fmt(x.a, 0)} <span style={{ color: C.txt3 }}>/ {fmt(x.b, 0)}</span>
+                        </span>
+                      </div>
+                      <div style={{ height: 6, background: "rgba(255,255,255,.06)", borderRadius: 99, overflow: "hidden", marginTop: 5 }}>
+                        <div style={{ height: "100%", width: pc + "%", borderRadius: 99, background: pc >= 100 ? C.green : C.gold1 }} />
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
-          <div style={{ fontSize: 11.5, color: C.txt3, marginTop: 10, lineHeight: 1.6 }}>
-            A rank is proved by submitting your own list of directs, and it is
-            re-proved when a bonus is taken. "Carried over" are directs counted
-            in the old Staking contract — they keep counting toward your levels
-            for good.
+
+            <div style={{ fontSize: 11.5, color: C.txt3, marginTop: 12, lineHeight: 1.6 }}>
+              Only directs holding at least {bar} OSG count, and only their own
+              stake counts toward the rank — the rest of your team does not.
+              Proving a rank means submitting your own list of directs.
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
       <div className="card" style={{ marginTop: 14 }}>
         <div className="sec">{t.yourRefLink}</div>
         <div className="ref-link">
