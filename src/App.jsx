@@ -1921,48 +1921,7 @@ function PoolCards({ getProvider, wallet, oldStaked, setTab }) {
         edge2: "rgba(167,139,250,.32)",
         you: "Being designed now",
         chip: "Soon",
-      })}
-
-      {Number(oldStaked) > 0 && (
-        <div
-          onClick={() => setTab("staking")}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-            cursor: "pointer",
-            marginTop: 2,
-            padding: "13px 15px",
-            borderRadius: 15,
-            background: "rgba(255,255,255,.014)",
-            border: "1px solid " + C.line,
-          }}
-        >
-          <svg
-            viewBox="0 0 24 24"
-            width="19"
-            height="19"
-            fill="none"
-            stroke={C.txt3}
-            strokeWidth="1.6"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            {ICO.old}
-          </svg>
-          <span
-            style={{
-              flex: 1,
-              fontSize: 13,
-              fontWeight: 600,
-              color: C.txt2,
-            }}
-          >
-            Old Stake
-          </span>
-          <span style={{ color: C.txt3, fontSize: 15 }}>→</span>
-        </div>
-      )}
+      })}      
     </div>
   );
 }
