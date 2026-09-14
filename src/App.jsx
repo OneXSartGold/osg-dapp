@@ -5430,7 +5430,7 @@ function Earn({ wallet, ensureReady, showToast }) {
 
   /* ---------------- derived ---------------- */
   const stakeClaimable = rows.reduce((s, r) => s + r.pend, 0);
-  const totalClaimable = stakeClaimable + Number(team.owed);
+  const totalClaimable = stakeClaimable;
   const nextLv = team.levels + 1;
   const needMore =
     nextLv <= 15 && team.lvCond.length
@@ -5483,16 +5483,7 @@ function Earn({ wallet, ensureReady, showToast }) {
           {fmt(totalClaimable, 3)}{" "}
           <span style={{ fontSize: 13, color: C.txt3 }}>OSG</span>
         </div>
-        <div className="mini-grid" style={{ marginTop: 12 }}>
-          <div className="mini">
-            <div className="k">Staking</div>
-            <div className="vv">{fmt(stakeClaimable, 3)}</div>
-          </div>
-          <div className="mini">
-            <div className="k">Team</div>
-            <div className="vv">{fmt(team.owed, 3)}</div>
-          </div>
-        </div>
+        
         {!pool.healthy && (
           <div className="note" style={{ marginTop: 12 }}>
             <span>⏳</span>
