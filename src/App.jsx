@@ -3874,6 +3874,16 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
               </div>
             )}
 
+            {t && bars.every(function (x) { return x.a >= x.b; }) && (
+              <button
+                className="btn-gold"
+                style={{ marginTop: 14 }}
+                disabled={proving}
+                onClick={proveRank}
+              >
+                {proving ? "Working…" : "Prove rank — claim " + RANK_META[nx - 1].nm}
+              </button>
+            )}
             <div style={{ fontSize: 11.5, color: C.txt3, marginTop: 12, lineHeight: 1.6 }}>
               Only directs holding at least {bar} OSG count, and only their own
               stake counts toward the rank — the rest of your team does not.
