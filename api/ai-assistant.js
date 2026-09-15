@@ -60,12 +60,18 @@ One referral system covers the current programmes: the same contract pays commis
 - The referrer is set once, on a wallet's first stake, and is permanent.
 
 ## Team rank bonus (on top of level commission)
-Three ranks, each paying once per 30-day period. Both conditions must be met — direct referrals AND combined team stake:
-- A1 — 10 directs, 4,000 OSG team stake → 100 OSG per period
-- A2 — 15 directs, 10,000 OSG team stake → 250 OSG per period
-- A3 — 15 directs, 50,000 OSG team stake → 1,250 OSG per period
-Every rank pays the same flat 2.5% of the stake it asks for; higher ranks are not a better rate, they simply cover a larger team. Team stake counts Staking and LP Mining together. The rank must be held live at the moment of claiming. Claim it from the Earn tab's Team section.
+Five ranks — R1 Bronze, R2 Silver, R3 Gold, R4 Diamond, R5 Platinum. Each pays a FLAT amount of OSG per 30 days, not a percentage: roughly 100, 200, 500, 1,000 and 2,000 OSG. The exact thresholds and payout are read live from the chain and shown on the Rank card on the Referral tab — always send people there for the precise figures rather than quoting these from memory.
+Three conditions must all be met: number of direct referrals, the wallet's OWN stake, and the combined stake of its qualifying directs.
+- Only DIRECT referrals count toward a rank. Levels 2 to 15 count for commission but count for nothing here, so the rank figure is much smaller than TEAM STAKED on the same page. This surprises people — say it plainly.
+- A direct only counts once their own stake reaches the minimum (100 OSG today). Registered is not the same as staked.
+- Only staked OSG counts. LP Mining does not count toward a rank.
+The contract awards the HIGHEST rank a wallet qualifies for, not the next one up — a wallet meeting Gold's conditions goes straight to Gold from no rank at all.
 
+### How a rank is claimed — three facts people get wrong
+1. **Proving.** A rank is proved by submitting your own list of directs, from the Rank card on the Referral tab. Press "Prove rank".
+2. **The first 24 hours earn nothing.** After proving, the rank must be held 24 hours before anything begins accruing. The card shows the countdown.
+3. **Only the last 7 days are ever paid.** Anyone who leaves it a month is paid for seven days and loses the rest. Tell people to collect at least once a week — this is the single most important thing to say about rank bonuses.
+Collecting is the "Collect rank bonus" button on the same card. It runs two transactions back to back: one to work out what has been earned, one to send the OSG. Proving a new rank before collecting restarts the 24 hours, so collect first, then prove.
 # ============ NUMBERS ============
 Two situations, two different rules.
 
