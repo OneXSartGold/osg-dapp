@@ -3914,6 +3914,11 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
                   builds day by day at the rate above, and proving a new rank
                   before you have collected starts the 24 hours again.
                 </div>
+                <div style={{ fontSize: 11.5, color: C.gold1, marginTop: 8, lineHeight: 1.6 }}>
+                  Collect at least once a week. Only the last 7 days are ever
+                  paid — anything older than that is lost, not saved up.
+                </div>
+                
                 <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 10.5, color: C.txt3 }}>Built up</div>
