@@ -3823,7 +3823,7 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
         var teamSt = ok.reduce(function (s, d) { return s + Number(f18(d.stake)); }, 0);
         var selfSt = Number(f18(card.stake));
         var have = Number(card.rank);
-        var nx = have < 5 ? have + 1 : 0;
+        var qual = 0; for (var r = 5; r > 0; r--) { var q = tiers[r - 1]; if (!q || Number(f18(q[3])) <= 0) continue; if (nDir >= Number(q[0]) && selfSt >= Number(f18(q[1])) && teamSt >= Number(f18(q[2]))) { qual = r; break; } } var nx = qual > have ? qual : have < 5 ? have + 1 : 0;
         var t = nx ? tiers[nx - 1] : null;
         var bars = t
           ? [
