@@ -3849,6 +3849,37 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
               </div>
             </div>
 
+                        {have > 0 && (
+              <div style={{ marginTop: 14, padding: "12px 14px", borderRadius: 12, background: "rgba(255,255,255,0.035)" }}>
+                <div style={{ fontSize: 12.5, color: C.txt2 }}>
+                  {Number(card.rankHoldRemaining) > 0
+                    ? "Earning starts in " + (function (s) {
+                        var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+                        return h ? h + "h " + m + "m" : m + "m";
+                      })(Number(card.rankHoldRemaining))
+                    : "Earning now"}
+                </div>
+                <div style={{ fontSize: 11.5, color: C.txt3, marginTop: 6, lineHeight: 1.6 }}>
+                  A rank earns nothing for its first 24 hours. After that it
+                  builds day by day at the rate above, and proving a new rank
+                  before you have collected starts the 24 hours again.
+                </div>
+                <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 10.5, color: C.txt3 }}>Built up</div>
+                    <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 13.5, color: C.gold1 }}>
+                      {bonus === null ? "—" : fmt(f18(bonus), 2)}
+                    </div>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 10.5, color: C.txt3 }}>Collected so far</div>
+                    <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 13.5, color: C.txt2 }}>
+                      {fmt(f18(card.bonusPaidTotal), 2)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
             {t && (
               <div style={{ marginTop: 14 }}>
                 <div style={{ fontSize: 12.5, color: C.txt2, marginBottom: 2 }}>
