@@ -3970,6 +3970,13 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
               </div>
             )}
 
+                        {have > 0 && Number(card.rankHoldRemaining) === 0 && t &&
+              bars.every(function (x) { return x.a >= x.b; }) && (
+              <div style={{ fontSize: 11.5, color: C.gold1, marginTop: 12, lineHeight: 1.6 }}>
+                Collect your bonus first. Proving a new rank now starts the 24
+                hours again, and whatever has built up since is given up.
+              </div>
+            )}
             {t && bars.every(function (x) { return x.a >= x.b; }) && (
               <button
                 className="btn-gold"
