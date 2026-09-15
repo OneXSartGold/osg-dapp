@@ -10621,7 +10621,7 @@ export default function App() {
         )}
         {/* SCREEN */}
         <main className="screen" onClick={() => setLangOpen(false)}>
-          <NewsPopup logo={LOGO} />{" "}
+          
          {tab === "dashboard" && (
     <Dashboard
     refParam={refParam}
