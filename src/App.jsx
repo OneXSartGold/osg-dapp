@@ -3711,6 +3711,50 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
     }
     setProving(false);
   }
+    // Collecting is TWO transactions, not one. accrueRankBonus only writes
+  // the earned amount into the ledger; claimBonusOwed is what actually
+  // moves OSG. Same shape as claimCommission's 1/2 and 2/2.
+  const [collecting, setCollecting] = useState(false);
+  async function collectBonus() {
+    const signer = await ensureReady();
+    if (!signer) return;
+    if (Number(card.rankHoldRemaining) > 0) {
+      showToast("⏳ The rank has not been held for 24 hours yet.");
+      return;
+    }
+    setCollecting(true);
+    try {
+      var list = rankDirects();
+      if (!list.length) {
+        showToast("⚠️ No direct holds 100 OSG yet, so the rank cannot be proved.");
+        setCollecting(false);
+        return;
+      }
+      const ref = new Contract(ADDRESSES.referralV42, REFERRAL_V42_ABI, signer);
+      var accrued = true;
+      try {
+        showToast("1/2 — Working out what the rank has earned…");
+        await (await ref.accrueRankBonus(wallet, list)).wait();
+      } catch (e1) {
+        // Nothing new to add is not a failure when an earlier amount is
+        // still sitting unpaid — go on and collect that instead.
+        accrued = false;
+        if (!(bonus && bonus > 0n)) {
+          showToast("❌ " + (e1.shortMessage || e1.reason || "Nothing to collect yet"));
+          setCollecting(false);
+          return;
+        }
+      }
+      showToast("2/2 — Sending your OSG…");
+      await (await ref.claimBonusOwed()).wait();
+      showToast(accrued ? "🏅 Rank bonus collected" : "🏅 Collected what was owed");
+      setBonus(await ref.bonusOwed(wallet));
+      await refreshCard();
+    } catch (e) {
+      showToast("❌ " + (e.shortMessage || e.reason || "Transaction failed"));
+    }
+    setCollecting(false);
+  }
   async function claimCommission() {
     const signer = await ensureReady();
     if (!signer) return;
