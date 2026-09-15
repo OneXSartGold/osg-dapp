@@ -8862,7 +8862,7 @@ function AIAssistant({ wallet, staked, liveData, holders, polUsd, getReadProvide
               ? "The rank IS already proved, so do NOT tell them to prove it again. The 24-hour hold still has " +
                 Math.ceil(Number(c.rankHoldRemaining) / 3600) +
                 " hours left, so collecting is NOT open yet. The Collect button is visible but disabled and shows this countdown"
-              : "The rank IS already proved and the 24-hour hold is finished, so collecting is open right now"
+              : "The rank IS already proved and the 24-hour hold is finished, so collecting is open right now"),
       );
     } catch (e) {
       out.push("Their referral standing could not be read just now");
