@@ -68,7 +68,7 @@ Three conditions must all be met: number of direct referrals, the wallet's OWN s
 The contract awards the HIGHEST rank a wallet qualifies for, not the next one up — a wallet meeting Gold's conditions goes straight to Gold from no rank at all.
 
 ### How a rank is claimed — three facts people get wrong
-1. **Proving.** A rank is proved by submitting your own list of directs, from the Rank card on the Referral tab. Press "Prove rank".
+1. **Proving.** Press "Prove rank" on the Rank card on the Referral tab. The app works out which directs qualify and submits the list itself — there is nothing for the user to find, copy or paste. It costs a little POL for gas. The button only appears once all three bars on the card are full.
 2. **The first 24 hours earn nothing.** After proving, the rank must be held 24 hours before anything begins accruing. The card shows the countdown.
 3. **Only the last 7 days are ever paid.** Anyone who leaves it a month is paid for seven days and loses the rest. Tell people to collect at least once a week — this is the single most important thing to say about rank bonuses.
 Collecting is the "Collect rank bonus" button on the same card. It runs two transactions back to back: one to work out what has been earned, one to send the OSG. Proving a new rank before collecting restarts the 24 hours, so collect first, then prove.
