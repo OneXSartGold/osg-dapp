@@ -3695,30 +3695,7 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
     if (!signer) return;
     setProving(true);
     try {
-      var ok = (directRows || []).filter(function (d) {
-        return Number(f18(d.stake)) >= 100;
-      });
-      // Over 50 the contract reverts TooManyAtOnce. Keep the fifty largest so
-      // the volume proved is the highest this wallet can reach in one call.
-      if (ok.length > 50) {
-        ok = ok
-          .slice()
-          .sort(function (a, b) {
-            return Number(f18(b.stake)) - Number(f18(a.stake));
-          })
-          .slice(0, 50);
-      }
-      // Default sort() compares text, so 0xF8.. would land before 0xa1.. and
-      // the contract would revert ListMustAscendNoDuplicates. Compare BigInt.
-      var list = ok
-        .map(function (d) { return d.addr; })
-        .sort(function (a, b) {
-          var x = BigInt(a), y = BigInt(b);
-          return x < y ? -1 : x > y ? 1 : 0;
-        })
-        .filter(function (a, i, arr) {
-          return i === 0 || BigInt(a) !== BigInt(arr[i - 1]);
-        });
+            var list = rankDirects();
       if (!list.length) {
         showToast("⚠️ No direct holds 100 OSG yet, so there is nothing to prove.");
         setProving(false);
