@@ -8849,14 +8849,20 @@ function AIAssistant({ wallet, staked, liveData, holders, polUsd, getReadProvide
           Number(f18(c.paid)).toFixed(2) +
           " OSG, team volume " +
           Number(f18(c.volume)).toFixed(2) +
-          " OSG, team rank " +
+          " OSG, qualifying directs, meaning those staking at least 100 OSG, which is the number that counts toward a RANK: " +
+          Number(c.qualifiedDirects) +
+          ", team rank " +
           rankName +
-          ", rank bonus paid so far " +
+          ", rank bonus collected so far " +
           Number(f18(c.bonusPaidTotal)).toFixed(2) +
-          " OSG, next rank bonus " +
-          (Number(c.bonusCooldownRemaining) > 0
-            ? "in " + Math.ceil(Number(c.bonusCooldownRemaining) / DAY) + " days"
-            : "claimable now"),
+          " OSG. " +
+          (Number(c.rank) === 0
+            ? "No rank is proved yet, so nothing is accruing and Prove rank is the first step"
+            : Number(c.rankHoldRemaining) > 0
+              ? "The rank IS already proved, so do NOT tell them to prove it again. The 24-hour hold still has " +
+                Math.ceil(Number(c.rankHoldRemaining) / 3600) +
+                " hours left, so collecting is NOT open yet. The Collect button is visible but disabled and shows this countdown"
+              : "The rank IS already proved and the 24-hour hold is finished, so collecting is open right now"
       );
     } catch (e) {
       out.push("Their referral standing could not be read just now");
