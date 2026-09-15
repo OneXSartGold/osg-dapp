@@ -43,7 +43,7 @@ import {
   decryptMessage,
   MAX_PLAINTEXT_CHARS,
 } from "./crypto.js";
-import NewsPopup from "./NewsPopup.jsx";
+
 
 // ══════════════════════════════════════════════════════════
 //  OSG logo (base64). Replace this string anytime with your
