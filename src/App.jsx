@@ -3928,6 +3928,21 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
                     </div>
                   </div>
                 </div>
+                              <button
+                  className="btn-gold"
+                  style={{ marginTop: 12 }}
+                  disabled={collecting || Number(card.rankHoldRemaining) > 0}
+                  onClick={collectBonus}
+                >
+                  {collecting
+                    ? "Working…"
+                    : Number(card.rankHoldRemaining) > 0
+                    ? "Collect — opens in " + (function (s) {
+                        var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+                        return h ? h + "h " + m + "m" : m + "m";
+                      })(Number(card.rankHoldRemaining))
+                    : "Collect rank bonus"}
+                </button>
               </div>
             )}
             {t && (
