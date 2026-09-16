@@ -3588,7 +3588,7 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
           setLevelStats(null);
           setChainRows(null);
           setDirectRows(null);
-          setCard(null);
+          setCard(null);           showToast("⚠️ Could not reach the network. Reload the page to try again.");
         }
       }
     }
