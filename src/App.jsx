@@ -3745,9 +3745,9 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
           return;
         }
       }
-      showToast("2/2 — Sending your OSG…");
+      showToast("2/2 — Moving it to your secured rewards…");
       await (await ref.claimBonusOwed()).wait();
-      showToast(accrued ? "🏅 Rank bonus collected" : "🏅 Collected what was owed");
+      showToast(accrued ? "🏅 Secured — now claim it on Home" : "🏅 Secured — now claim it on Home");
       setBonus(await ref.bonusOwed(wallet));
       await refreshCard();
     } catch (e) {
@@ -3863,7 +3863,7 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
                     </div>
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 10.5, color: C.txt3 }}>Collected so far</div>
+                    <div style={{ fontSize: 10.5, color: C.txt3 }}>Secured so far</div>
                     <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 13.5, color: C.txt2 }}>
                       {fmt(f18(card.bonusPaidTotal), 2)}
                     </div>
