@@ -3541,7 +3541,7 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
         const lens = new Contract(ADDRESSES.referralLens, REFERRAL_LENS_ABI, p);
         const ref = new Contract(ADDRESSES.referralV42, REFERRAL_V42_ABI, p);
         const [res, up, dir, wc, bOwed, t1, t2, t3, t4, t5] = await Promise.all([
-          lens.levelSummary(wallet, 3000),
+          lens.levelSummary(wallet, 3000).catch(function () { return null; }),
           lens.uplineView(wallet),
           lens.directsView(wallet),
           lens.walletCard(wallet),
