@@ -3933,6 +3933,59 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
                 {proving ? "Working…" : "Prove rank — claim " + RANK_META[nx - 1].nm}
               </button>
             )}
+                        <div style={{ marginTop: 16, borderTop: "1px solid rgba(255,255,255,.07)", paddingTop: 13 }}>
+              <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, letterSpacing: 2.2, color: C.txt3, marginBottom: 4 }}>
+                THE LADDER
+              </div>
+              {RANK_META.map(function (m, i) {
+                var r = i + 1;
+                var q = tiers[i];
+                if (!q || Number(f18(q[3])) <= 0) return null;
+                var open = openRank === r;
+                var done = have >= r;
+                var rows = [
+                  { k: "Directs", a: nDir, b: Number(q[0]) },
+                  { k: "Your stake", a: selfSt, b: Number(f18(q[1])) },
+                  { k: "Direct stake", a: teamSt, b: Number(f18(q[2])) },
+                ];
+                return (
+                  <div key={r} style={{ borderTop: i ? "1px solid rgba(255,255,255,.05)" : "none" }}>
+                    <div
+                      onClick={function () { setOpenRank(open ? 0 : r); }}
+                      style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", cursor: "pointer" }}
+                    >
+                      <RankBadge rank={r} size={30} lit={done} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12.5, fontWeight: 700, color: done ? C.gold1 : C.txt2 }}>
+                          {"R" + r + " · " + m.nm}
+                        </div>
+                        <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: C.txt3 }}>
+                          {fmt(f18(q[3]), 0) + " OSG / month"}
+                        </div>
+                      </div>
+                      <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: have === r ? C.gold1 : done ? C.green : C.txt3 }}>
+                        {have === r ? "now" : done ? "held" : open ? "▾" : "▸"}
+                      </span>
+                    </div>
+                    {open && (
+                      <div style={{ paddingBottom: 11 }}>
+                        {rows.map(function (x, k) {
+                          return (
+                            <div key={k} style={{ display: "flex", justifyContent: "space-between", fontFamily: "'JetBrains Mono',monospace", fontSize: 10.5, marginTop: 4 }}>
+                              <span style={{ color: C.txt3 }}>{x.k}</span>
+                              <span style={{ color: x.a >= x.b ? C.green : C.txt2 }}>
+                                {fmt(x.a, 0)} <span style={{ color: C.txt3 }}>/ {fmt(x.b, 0)}</span>
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            
             <div style={{ fontSize: 11.5, color: C.txt3, marginTop: 12, lineHeight: 1.6 }}>
               Only directs holding at least {bar} OSG count, and only their own
               stake counts toward the rank — the rest of your team does not.
