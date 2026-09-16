@@ -3714,6 +3714,7 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
     // Collecting is TWO transactions, not one. accrueRankBonus only writes
   // the earned amount into the ledger; claimBonusOwed is what actually
   // moves OSG. Same shape as claimCommission's 1/2 and 2/2.
+    const [openRank, setOpenRank] = useState(0);
   const [collecting, setCollecting] = useState(false);
   async function collectBonus() {
     const signer = await ensureReady();
