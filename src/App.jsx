@@ -3548,7 +3548,7 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
           ref.bonusOwed(wallet),
           ref.tiers(1), ref.tiers(2), ref.tiers(3), ref.tiers(4), ref.tiers(5),
         ]);
-        const levels = res.rows.map(function (r) {
+        const levels = (res ? res.rows : []).map(function (r) {
           return {
             count: Number(r.members),
             staked: r.totalStake,
