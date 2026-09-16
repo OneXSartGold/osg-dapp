@@ -3854,7 +3854,11 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
                   Collect at least once a week. Only the last 7 days are ever
                   paid — anything older than that is lost, not saved up.
                 </div>
-                
+                <div style={{ fontSize: 11.5, color: C.txt3, marginTop: 8, lineHeight: 1.6 }}>
+                  Collecting moves the OSG into your secured rewards, not
+                  straight to your wallet. Press Claim on the Home tab to bring
+                  it across — it arrives in full, up to 500 OSG an hour.
+                </div>                
                 <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 10.5, color: C.txt3 }}>Built up</div>
