@@ -3563,7 +3563,7 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
           };
         });
         if (!cancelled) {
-          setLevelStats(levels);          
+          setLevelStats(res ? levels : null);          
           setLevelsTruncated(Boolean(res.truncated));
           setCard(wc);
           setBonus(bOwed);
