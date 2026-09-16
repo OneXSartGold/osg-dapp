@@ -3564,7 +3564,7 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
         });
         if (!cancelled) {
           setLevelStats(res ? levels : null);          
-          setLevelsTruncated(Boolean(res.truncated));
+          setLevelsTruncated(Boolean(res && res.truncated));
           setCard(wc);
           setBonus(bOwed);
           setTiers([t1, t2, t3, t4, t5]);
