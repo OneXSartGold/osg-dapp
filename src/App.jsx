@@ -10597,6 +10597,28 @@ export default function App() {
               </div>
             </div>
             <div className="top-right">
+              {myRank > 0 && (
+                <button
+                  onClick={() => setTab("referral")}
+                  aria-label={"Rank " + Math.min(5, myRank) + " " + RANK_META[Math.min(5, myRank) - 1].nm}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 7, height: 42,
+                    padding: "0 11px 0 4px", borderRadius: 13, cursor: "pointer",
+                    border: "1px solid rgba(233,185,73,.25)", background: "#121118",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  <RankBadge rank={Math.min(5, myRank)} size={36} lit={true} />
+                  <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.15 }}>
+                    <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 9, letterSpacing: ".14em", color: C.txt2 }}>
+                      {"RANK " + Math.min(5, myRank)}
+                    </span>
+                    <span style={{ fontFamily: "'Bricolage Grotesque',sans-serif", fontSize: 14, fontWeight: 800, color: C.gold1 }}>
+                      {RANK_META[Math.min(5, myRank) - 1].nm}
+                    </span>
+                  </span>
+                </button>
+              )}
               <div className="lang">
                 <button
                   className="lang-btn"
