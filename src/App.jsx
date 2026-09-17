@@ -3477,7 +3477,7 @@ function RankBadge({ rank, size, lit }) {
         <path d="M12 66h80l-6 10 6 10H12l6-10z" fill={"url(#mt" + u + ")"} />
         <path d="M12 66h80l-6 10H18z" fill="#fff" opacity=".2" />
         <text x="52" y="79" textAnchor="middle" fontFamily="'Bricolage Grotesque',sans-serif"
-          fontSize="12.5" fontWeight="800" fill={m.ink}>{m.nm.toUpperCase()}</text>
+          fontSize="12.5" fontWeight="800" fill={m.ink}>{size < 60 ? "" : m.nm.toUpperCase()}</text>
       </svg>
       <div
         style={{
