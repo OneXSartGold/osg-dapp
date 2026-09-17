@@ -10028,6 +10028,21 @@ export default function App() {
   const [chg24, setChg24] = useState(null);
   const providerRef = useRef(null);
   const t = I18N[lang] || I18N.en;
+    // Header crest: the connected wallet's rank, read again on wallet or tab
+  // change. No wallet, rank 0, or a failed read shows nothing.
+  const [myRank, setMyRank] = useState(0);
+  useEffect(() => {
+    if (!wallet) { setMyRank(0); return; }
+    var off = false;
+    (async function () {
+      try {
+        var lens = new Contract(ADDRESSES.referralLens, REFERRAL_LENS_ABI, getReadProvider());
+        var c = await lens.walletCard(wallet);
+        if (!off) setMyRank(Number(c.rank) || 0);
+      } catch (e) {}
+    })();
+    return function () { off = true; };
+  }, [wallet, tab]);
 
   const showToast = useCallback((msg) => {
     setToast(msg);
