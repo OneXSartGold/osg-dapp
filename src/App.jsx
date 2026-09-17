@@ -3487,7 +3487,7 @@ function RankBadge({ rank, size, lit }) {
           color: "rgba(255,255,255,.92)", textShadow: "0 1px 3px rgba(0,0,0,.8)",
         }}
       >
-        R{i}
+        {size < 60 ? "" : "R" + i}
       </div>
     </div>
   );
