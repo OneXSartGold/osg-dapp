@@ -3647,6 +3647,21 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
     const [claiming, setClaiming] = useState(false);
   const [bonus, setBonus] = useState(null);
   const [tiers, setTiers] = useState(null);
+    // minDirectStake from chain, so the card's bars and the Prove list use the
+  // same bar the contract does. 100 until read, and if the read fails.
+  const [minDirect, setMinDirect] = useState(100);
+  useEffect(() => {
+    if (!wallet || !getProvider) return;
+    var off = false;
+    (async function () {
+      try {
+        var ref = new Contract(ADDRESSES.referralV42, REFERRAL_V42_ABI, getProvider());
+        var v = Number(f18(await ref.minDirectStake()));
+        if (!off && v > 0) setMinDirect(v);
+      } catch (e) {}
+    })();
+    return function () { off = true; };
+  }, [wallet]);
   async function refreshCard() {
     try {
       const p = getProvider();
