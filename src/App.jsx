@@ -10619,46 +10619,7 @@ export default function App() {
                   </span>
                 </button>
               )}
-              <div className="lang">
-                <button
-                  className="lang-btn"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setLangOpen((o) => !o);
-                  }}
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <circle cx="12" cy="12" r="10" />
-                    <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-                  </svg>
-                  {t.lbl}
-                </button>
-                {langOpen && (
-                  <div
-                    className="lang-menu"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {LANGS.map((L) => (
-                      <button
-                        key={L.id}
-                        className={lang === L.id ? "sel" : ""}
-                        onClick={() => {
-                          setLang(L.id);
-                          setLangOpen(false);
-                        }}
-                      >
-                        <span>{L.fl}</span> {L.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
+             
               {wallet ? (
                 <div
                   className="wallet-pill"
