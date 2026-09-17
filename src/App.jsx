@@ -3817,7 +3817,7 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
       </div>
 
       {card && tiers && (function () {
-        var bar = 100;
+        var bar = minDirect;
         var ok = (directRows || []).filter(function (d) {
           return Number(f18(d.stake)) >= bar;
         });
