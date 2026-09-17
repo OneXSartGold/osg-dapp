@@ -3681,7 +3681,7 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
   // never quietly drift apart.
   function rankDirects() {
     var ok = (directRows || []).filter(function (d) {
-      return Number(f18(d.stake)) >= 100;
+      return Number(f18(d.stake)) >= minDirect;
     });
     // Over 50 the contract reverts TooManyAtOnce. Keep the fifty largest so
     // the volume proved is the highest this wallet can reach in one call.
