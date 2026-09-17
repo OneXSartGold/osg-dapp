@@ -3963,7 +3963,7 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
                           {fmt(f18(q[3]), 0) + " OSG / month"}
                         </div>
                       </div>
-                      <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: have === r ? C.gold1 : done ? C.green : C.txt3 }}>
+                      <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: done ? 10 : 16, lineHeight: 1, color: have === r ? C.gold1 : done ? C.txt3 : C.txt2 }}>
                         {have === r ? "now" : done ? "held" : open ? "▾" : "▸"}
                       </span>
                     </div>
