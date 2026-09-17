@@ -3712,7 +3712,7 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
     try {
             var list = rankDirects();
       if (!list.length) {
-        showToast("⚠️ No direct holds 100 OSG yet, so there is nothing to prove.");
+        showToast("⚠️ No direct holds " + minDirect + " OSG yet, so there is nothing to prove.");
         setProving(false);
         return;
       }
