@@ -3964,7 +3964,7 @@ function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
                         </div>
                       </div>
                       <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: done ? 10 : 16, lineHeight: 1, color: have === r ? C.gold1 : done ? C.txt3 : C.txt2 }}>
-                        {have === r ? "now" : done ? "held" : open ? "▾" : "▸"}
+                        {have === r ? "now" : done ? "passed" : open ? "▾" : "▸"}
                       </span>
                     </div>
                     {open && (
