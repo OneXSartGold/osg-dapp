@@ -3606,7 +3606,7 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
         return;
       }
       try {
-        const p = getProvider();
+        const p = getReadProvider ? getReadProvider() : getProvider();
         const lens = new Contract(ADDRESSES.referralLens, REFERRAL_LENS_ABI, p);
         const res = await lens.downlineAtLevel(wallet, openLvl + 1, 0, 50, 3000);
         if (!cancelled) {
