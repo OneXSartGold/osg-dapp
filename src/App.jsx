@@ -3492,7 +3492,7 @@ function RankBadge({ rank, size, lit }) {
     </div>
   );
 }
-function Referral({ wallet, data, showToast, getProvider, ensureReady, t }) {
+function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensureReady, t }) {
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const refLink = wallet ? `${origin}/?ref=${wallet}` : "—";
   const [copied, setCopied] = useState(false);
