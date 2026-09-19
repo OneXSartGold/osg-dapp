@@ -10749,6 +10749,7 @@ export default function App() {
               data={data}
               showToast={showToast}
               getProvider={getProvider}
+              getReadProvider={getReadProvider}
               ensureReady={ensureReady}
               t={t}
             />
