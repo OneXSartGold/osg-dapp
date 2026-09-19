@@ -3532,7 +3532,7 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
         return;
       }
       try {
-        const p = getProvider();
+        const p = getReadProvider ? getReadProvider() : getProvider();
         // This used to be fifteen serial rounds of getDirectReferrals plus a
         // stakeOf for every member, so a team of N cost roughly 2N calls and
         // fifteen round trips. levelSummary walks the whole tree inside one
