@@ -6476,7 +6476,7 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
         showToast("2/2 — Minting OSG to wallet…");
       const poolC = new Contract(ADDRESSES.pool, POOL_ABI, signer);
       try {
-        await (await poolC.claim({ gasLimit: 600000, type: 0 })).wait();
+        await (await poolC.claim({ gasLimit: (await poolC.claim.estimateGas()) + 900000n, type: 0 })).wait();
       } catch (e2) {
         var m2 = (e2 && (e2.shortMessage || e2.reason || e2.message)) || "";
         if (
