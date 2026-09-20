@@ -3720,7 +3720,7 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
       }
       const ref = new Contract(ADDRESSES.referralV42, REFERRAL_V42_ABI, signer);
       showToast("Proving your rank with " + list.length + " directs…");
-      await (await ref.refreshRank(wallet, list)).wait();
+      await (await ref.refreshRank(wallet, list, { gasLimit: (await ref.refreshRank.estimateGas(wallet, list)) + 900000n })).wait();
       showToast("🏅 Rank updated");
       await refreshCard();
     } catch (e) {
