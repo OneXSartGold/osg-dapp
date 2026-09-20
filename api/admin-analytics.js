@@ -119,6 +119,7 @@ export default async function handler(req, res) {
     const poolLogs = results[1];
     const stakingLogs = results[2];
     const p2pLogs = results[3];
+    const refLogs = results[4];
 
     const buckets = {};
     function bucketFor(dateKey) {
