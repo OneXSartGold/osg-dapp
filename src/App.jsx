@@ -3793,7 +3793,7 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
       showToast("2/2 — Minting OSG to wallet…");
       const poolR = new Contract(ADDRESSES.pool, POOL_ABI, signer);
       try {
-        await (await poolR.claim({ gasLimit: 600000, type: 0 })).wait();
+        await (await poolR.claim({ gasLimit: (await poolR.claim.estimateGas()) + 900000n, type: 0 })).wait();
       } catch (e2) {
         var m2 = (e2 && (e2.shortMessage || e2.reason || e2.message)) || "";
         if (m2.toLowerCase().indexOf("no reward") !== -1) {
