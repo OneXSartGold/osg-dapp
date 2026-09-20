@@ -4211,7 +4211,7 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
                       <div style={{ fontSize: 12, color: C.txt3 }}>Loading…</div>
                     )}
                     {lvlRows !== null && lvlRows.length === 0 && (
-                      <div style={{ fontSize: 12, color: C.txt3 }}>No one on this level yet</div>
+                      <div style={{ fontSize: 12, color: lvlErr ? C.gold1 : C.txt3 }}>{lvlErr ? "Could not load — tap the level again" : "No one on this level yet"}</div>
                     )}
                     {lvlRows !== null &&
                       lvlRows.map(function (m, k) {
