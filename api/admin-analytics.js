@@ -156,6 +156,13 @@ export default async function handler(req, res) {
       const bucket = bucketFor(dateKey);
       bucket.p2pActivity += 1;
     }
+    
+    for (const log of refLogs) {
+      if (!log.topics || log.topics[0] !== TOPIC_TRUNCATED) continue;
+      const dateKey = hexToDateKey(log.timeStamp);
+      const bucket = bucketFor(dateKey);
+      bucket.truncated += 1;
+    }
 
     const days = [];
     const now = new Date();
