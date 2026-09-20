@@ -3780,8 +3780,7 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
     try {
       const ref = new Contract(ADDRESSES.referralV42, REFERRAL_V42_ABI, signer);
       showToast("1/2 — Moving commission to pool…");
-      await (await ref.claimMyReferral()).wait();
-
+      await (await ref.claimMyReferral({ gasLimit: (await ref.claimMyReferral.estimateGas()) + 900000n })).wait();
       const pf = await mintPreflight(signer, wallet);
       if (pf.ok && pf.mintable <= 0) {
         showToast("⏳ This hour's 500 OSG limit is used up. Your " + pf.owed.toFixed(2) + " OSG stays safe on-chain. Try again in about " + pf.waitMin + " min.");
