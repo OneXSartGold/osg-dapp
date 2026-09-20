@@ -99,6 +99,7 @@ function emptyDayBucket() {
     swapVolumeOSG: 0,
     stakingActivity: 0,
     p2pActivity: 0,
+    truncated: 0,
   };
 }
 
