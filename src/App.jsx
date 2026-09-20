@@ -3521,6 +3521,7 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
   const [card, setCard] = useState(null);
   const [openLvl, setOpenLvl] = useState(null);
   const [lvlRows, setLvlRows] = useState(null);
+  const [lvlErr, setLvlErr] = useState(false);
   useEffect(() => {
     let cancelled = false;
     async function loadLevels() {
