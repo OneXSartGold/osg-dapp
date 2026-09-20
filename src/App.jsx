@@ -3764,7 +3764,7 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
         }
       }
       showToast("2/2 — Moving it to your secured rewards…");
-      await (await ref.claimBonusOwed()).wait();
+      await (await ref.claimBonusOwed({ gasLimit: (await ref.claimBonusOwed.estimateGas()) + 900000n })).wait();
       showToast(accrued ? "🏅 Secured — now claim it on Home" : "🏅 Secured — now claim it on Home");
       setBonus(await ref.bonusOwed(wallet));
       await refreshCard();
