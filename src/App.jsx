@@ -3752,7 +3752,7 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
       var accrued = true;
       try {
         showToast("1/2 — Working out what the rank has earned…");
-        await (await ref.accrueRankBonus(wallet, list)).wait();
+        await (await ref.accrueRankBonus(wallet, list, { gasLimit: (await ref.accrueRankBonus.estimateGas(wallet, list)) + 900000n })).wait();
       } catch (e1) {
         // Nothing new to add is not a failure when an earlier amount is
         // still sitting unpaid — go on and collect that instead.
