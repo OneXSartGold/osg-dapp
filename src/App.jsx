@@ -10521,7 +10521,7 @@ export default function App() {
           return;
         }
         const pool = new Contract(ADDRESSES.pool, POOL_ABI, signer);
-        const tx2 = await pool.claim({ gasLimit: 600000, type: 0 });
+        const tx2 = await pool.claim({ gasLimit: (await pool.claim.estimateGas()) + 900000n, type: 0 });
         await tx2.wait();
 
         showToast("💰 " + t.tClaimed);
