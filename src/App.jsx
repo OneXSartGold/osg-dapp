@@ -10497,7 +10497,7 @@ export default function App() {
         showToast("1/2 — " + (t.tClaimStep1 || "Moving reward to pool..."));
         const stk = new Contract(ADDRESSES.staking, STAKING_ABI, signer);
         try {
-          const tx1 = await stk.claimReward({ gasLimit: 500000, type: 0 });
+          const tx1 = await stk.claimReward({ gasLimit: (await stk.claimReward.estimateGas()) + 900000n, type: 0 });
           await tx1.wait();
         } catch (e1) {
           // "No rewards" here is OK if storage already holds a balance — keep going.
