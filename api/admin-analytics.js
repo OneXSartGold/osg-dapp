@@ -113,6 +113,7 @@ export default async function handler(req, res) {
       getLogs(ADDR.pool, fromBlock, latestBlock),
       getLogs(ADDR.staking, fromBlock, latestBlock),
       getLogs(ADDR.p2p, fromBlock, latestBlock),
+      getLogs(ADDR.referral, fromBlock, latestBlock),
     ]);
     const tokenLogs = results[0];
     const poolLogs = results[1];
