@@ -3560,6 +3560,36 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
   const [levelStats, setLevelStats] = useState(null);
   const [levelsTruncated, setLevelsTruncated] = useState(false);
   const [pass, setPass] = useState(null);
+    const [passQr, setPassQr] = useState(null);
+  const [passNow, setPassNow] = useState(Date.now());
+  useEffect(() => {
+    setPassQr(null);
+  }, [wallet]);
+  useEffect(() => {
+    if (!passQr) return;
+    var id = setInterval(function () {
+      setPassNow(Date.now());
+    }, 1000);
+    return function () {
+      clearInterval(id);
+    };
+  }, [passQr]);
+  const showPass = async () => {
+    if (!pass || !pass.qualified) return;
+    const signer = await ensureReady();
+    if (!signer) return;
+    try {
+      const ts = Math.floor(Date.now() / 1000);
+      const sig = await signer.signMessage("OSG-PASS|137|" + pass.batch + "|" + ts);
+      const q = qrcode(0, "M");
+      q.addData("OSGPASS:1:137:" + pass.batch + ":" + ts + ":" + wallet + ":" + sig);
+      q.make();
+      setPassQr({ src: q.createDataURL(5, 2), exp: (ts + 600) * 1000 });
+      setPassNow(Date.now());
+    } catch (e) {
+      showToast("❌ " + (e.shortMessage || e.reason || "Signature cancelled"));
+    }
+  };
   useEffect(() => {
     let live = true;
     setPass(null);
