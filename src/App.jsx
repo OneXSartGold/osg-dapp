@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import qrcode from "qrcode-generator";
 import {
   BrowserProvider,
   JsonRpcProvider,
