@@ -4120,6 +4120,22 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
           <div style={{ fontSize: 13, color: pass.qualified ? C.txt : C.gold1 }}>
             {pass.qualified ? "Your pass is ready" : fmt(f18(pass.left), 2) + " OSG to go"}
           </div>
+          {pass.qualified && (!passQr || passNow >= passQr.exp) && (
+            <button className="btn-gold" onClick={showPass} style={{ width: "100%", marginTop: 12 }}>
+              {passQr ? "Refresh pass" : "Show pass"}
+            </button>
+          )}
+          {pass.qualified && passQr && passNow < passQr.exp && (
+            <div style={{ textAlign: "center", marginTop: 12 }}>
+              <div style={{ background: "#fff", borderRadius: 12, padding: 10, display: "inline-block" }}>
+                <img src={passQr.src} alt="Event pass QR" style={{ width: 220, height: 220, display: "block", imageRendering: "pixelated" }} />
+              </div>
+              <div style={{ fontSize: 13, color: C.txt2, marginTop: 8 }}>Show this QR at entry</div>
+              <div style={{ fontSize: 13, color: C.gold1, marginTop: 4 }}>
+                {"Valid for " + Math.floor((passQr.exp - passNow) / 60000) + ":" + String(Math.floor(((passQr.exp - passNow) % 60000) / 1000)).padStart(2, "0")}
+              </div>
+            </div>
+          )}
           <div style={{ fontSize: 11.5, color: C.txt3, marginTop: 8 }}>Counts new stake by your directs</div>
         </div>
       )}
