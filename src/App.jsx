@@ -3558,6 +3558,18 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
   };
   const [levelStats, setLevelStats] = useState(null);
   const [levelsTruncated, setLevelsTruncated] = useState(false);
+  const [pass, setPass] = useState(null);
+  useEffect(() => {
+    let live = true;
+    setPass(null);
+    if (!wallet) return;
+    eventPassCheck(getReadProvider(), wallet).then(function (r) {
+      if (live) setPass(r);
+    });
+    return function () {
+      live = false;
+    };
+  }, [wallet]);
   // The upline and the direct list both used to come from old Staking, which
   // only knows the wallets bonded THERE. A member who registers in v4.2 has no
   // referrer in old Staking by construction -- register() refuses a wallet
