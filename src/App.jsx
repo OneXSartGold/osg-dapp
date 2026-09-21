@@ -3581,8 +3581,8 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
     try {
       const ts = Math.floor(Date.now() / 1000);
       const sig = await signer.signMessage("OSG-PASS|137|" + pass.batch + "|" + ts);
-      const q = qrcode(0, "M");
-      q.addData("OSGPASS:1:137:" + pass.batch + ":" + ts + ":" + wallet + ":" + sig);
+      const q = qrcode(0, "L");
+      q.addData(("OSGPASS:2:137:" + pass.batch + ":" + ts + ":" + sig.slice(2)).toUpperCase(), "Alphanumeric");
       q.make();
       setPassQr({ src: q.createDataURL(5, 2), exp: (ts + 600) * 1000 });
       setPassNow(Date.now());
