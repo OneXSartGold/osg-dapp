@@ -1100,6 +1100,54 @@ async function mintPreflight(runner, who) {
   }
 }
 
+// Event pass. The rule lives in /event-pass.json, so the window and the
+// amount can change without touching this file. Sums NEW stake by the
+// wallet's directs inside the window -- Term + LP, open positions only.
+// Returns the first open batch with the running total, or null. Never throws.
+async function eventPassCheck(runner, who) {
+  try {
+    const res = await fetch("/event-pass.json?t=" + Date.now());
+    const cfg = await res.json();
+    const lens = new Contract(ADDRESSES.referralLens, REFERRAL_LENS_ABI, runner);
+    const term = new Contract(ADDRESSES.termStaking, TERM_STAKING_ABI, runner);
+    const lp = new Contract(ADDRESSES.lpMining, LP_MINING_ABI, runner);
+    const directs = await lens.directsView(who);
+    for (const b of cfg.batches || []) {
+      if (!b.open) continue;
+      const s = Math.floor(Date.parse(b.start) / 1000);
+      const e = Math.floor(Date.parse(b.end) / 1000);
+      const need = parseUnits(String(b.minNew), 18);
+      let total = 0n;
+      for (const d of directs) {
+        for (const p of await term.getPositions(d.wallet)) {
+          const t = Number(p.startTime);
+          if (!p.closed && t >= s && t < e) total += p.amount;
+        }
+        const n = Number(await lp.positionCount(d.wallet));
+        for (let i = 0; i < n; i++) {
+          const p = await lp.positions(d.wallet, i);
+          const t = Number(p.startTime);
+          if (!p.closed && t >= s && t < e) total += p.osgValue;
+        }
+      }
+      const now = Math.floor(Date.now() / 1000);
+      return {
+        batch: b.id,
+        total: total,
+        need: need,
+        left: total >= need ? 0n : need - total,
+        qualified: total >= need,
+        started: now >= s,
+        closed: now >= e,
+        endsAt: e,
+      };
+    }
+    return null;
+  } catch (err) {
+    return null;
+  }
+}
+
 function EmissionHero({ getProvider }) {
   const EMISSION_SUPPLY = 22540000;
 
