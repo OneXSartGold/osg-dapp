@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Entry scanner</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.2/ethers.umd.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #08080B; color: #F4F4F5; font-family: system-ui, -apple-system, sans-serif; }
+  .wrap { max-width: 480px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 18px; margin: 4px 0 14px; color: #F7D27A; letter-spacing: .04em; }
+  .card { background: #15151E; border: 1px solid rgba(255,255,255,.08); border-radius: 16px; padding: 14px; margin-bottom: 12px; }
+  button { width: 100%; padding: 14px; border: none; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; }
+  .gold { background: #E9B949; color: #1b1406; }
+  .ghost { background: #1B1B26; color: #F4F4F5; border: 1px solid rgba(255,255,255,.12); margin-top: 8px; }
+  #reader { width: 100%; border-radius: 12px; overflow: hidden; }
+  #result { text-align: center; padding: 18px 14px; border-radius: 16px; margin-bottom: 12px; display: none; }
+  .ok { background: #12261c; border: 1px solid #46D08A; }
+  .bad { background: #2a1414; border: 1px solid #F2675C; }
+  .big { font-size: 22px; font-weight: 700; margin: 4px 0; }
+  .mono { font-family: ui-monospace, monospace; font-size: 13px; color: #9A9AA8; word-break: break-all; }
+  .row { display: flex; justify-content: space-between; font-size: 14px; color: #9A9AA8; padding: 4px 0; }
+  .row b { color: #F4F4F5; }
+  textarea { width: 100%; min-height: 70px; background: #0E0E14; color: #F4F4F5; border: 1px solid rgba(255,255,255,.12); border-radius: 10px; padding: 8px; font-size: 12px; }
+  details summary { color: #9A9AA8; font-size: 13px; cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>ENTRY SCANNER</h1>
+
+  <div id="result"></div>
+
+  <div class="card">
+    <div id="reader"></div>
+    <button class="gold" id="startBtn">Start camera</button>
+  </div>
+
+  <div class="card">
+    <div class="row"><span>Today</span><b id="today">-</b></div>
+    <div class="row"><span>Entries today</span><b id="countToday">0</b></div>
+    <div class="row"><span>All entries</span><b id="countAll">0</b></div>
+    <button class="ghost" id="csvBtn">Export CSV</button>
+    <button class="ghost" id="clearBtn">Clear all entries</button>
+  </div>
+
+  <div class="card">
+    <details>
+      <summary>Paste QR text (testing)</summary>
+      <textarea id="manual" placeholder="OSGPASS:1:137:..."></textarea>
+      <button class="ghost" id="manualBtn">Check</button>
+    </details>
+  </div>
+</div>
+
+<script>
+var E = ethers;
+var RPCS = ["https://polygon-bor-rpc.publicnode.com", "https://rpc.ankr.com/polygon"];
+var LENS = "0xdF9462D08CDcB70BCFc56579faC863F128B7Ff27";
+var TERM = "0xb3DE3956DF62a069c9AC428Ec58120b3d9CD7cCc";
+var LPM = "0x1F04F1441208ee8dDD3a124DEfc4a493d768d0fC";
+var LENS_ABI = ["function directsView(address user) view returns (tuple(uint8 level, address wallet, uint256 stake, uint256 qualifyingStake, bool qualified, bool isLegacy, address referrer, uint256 joinedAt)[] list)"];
+var TERM_ABI = ["function getPositions(address user) view returns (tuple(uint256 amount, uint256 cap, uint256 rewardDebt, uint256 rewardPaid, uint256 unpaid, uint256 startTime, bool capped, bool closed)[])"];
+var LP_ABI = ["function positionCount(address user) view returns (uint256)", "function positions(address, uint256) view returns (uint256 lpAmount, uint256 osgValue, uint256 rewardDebt, uint256 rewardPaid, uint256 unpaid, uint256 startTime, bool closed)"];
+var VALID_SEC = 600;
+var SKEW_SEC = 120;
+var KEY_ENTRIES = "osgscan:entries";
+var KEY_OK = "osgscan:qualified";
+
+var provider = null;
+function getProvider() {
+  if (!provider) {
+    var list = RPCS.map(function (u, i) {
+      return { provider: new E.JsonRpcProvider(u, 137, { staticNetwork: true }), priority: i + 1, weight: 1, stallTimeout: 1200 };
+    });
+    provider = new E.FallbackProvider(list, 137, { quorum: 1 });
+  }
+  return provider;
+}
+
+function load(key, dflt) {
+  try { var v = localStorage.getItem(key); return v ? JSON.parse(v) : dflt; } catch (e) { return dflt; }
+}
+function save(key, v) {
+  try { localStorage.setItem(key, JSON.stringify(v)); } catch (e) {}
+}
+function dayKey(d) {
+  var ist = new Date(d.getTime() + 330 * 60000);
+  return ist.toISOString().slice(0, 10);
+}
+function timeIST(d) {
+  var ist = new Date(d.getTime() + 330 * 60000);
+  return ist.toISOString().slice(11, 16);
+}
+function short(a) { return a.slice(0, 6) + "..." + a.slice(-4); }
+
+var cfgCache = null;
+async function getCfg() {
+  try {
+    var r = await fetch("/event-pass.json?t=" + Date.now());
+    cfgCache = await r.json();
+  } catch (e) {}
+  return cfgCache;
+}
+
+async function isQualified(addr, batchId) {
+  var okMap = load(KEY_OK, {});
+  var k = batchId + ":" + addr;
+  if (okMap[k]) return { ok: true, cached: true };
+  var cfg = await getCfg();
+  if (!cfg) return { ok: false, why: "Rules file not reachable" };
+  var b = (cfg.batches || []).filter(function (x) { return x.id === batchId; })[0];
+  if (!b) return { ok: false, why: "Unknown batch" };
+  var s = Math.floor(Date.parse(b.start) / 1000);
+  var e = Math.floor(Date.parse(b.end) / 1000);
+  var need = E.parseUnits(String(b.minNew), 18);
+  var pv = getProvider();
+  var lens = new E.Contract(LENS, LENS_ABI, pv);
+  var term = new E.Contract(TERM, TERM_ABI, pv);
+  var lp = new E.Contract(LPM, LP_ABI, pv);
+  var directs = await lens.directsView(addr);
+  var total = 0n;
+  for (var i = 0; i < directs.length; i++) {
+    var w = directs[i].wallet;
+    var tp = await term.getPositions(w);
+    for (var j = 0; j < tp.length; j++) {
+      var t1 = Number(tp[j].startTime);
+      if (!tp[j].closed && t1 >= s && t1 < e) total += tp[j].amount;
+    }
+    var n = Number(await lp.positionCount(w));
+    for (var m = 0; m < n; m++) {
+      var p = await lp.positions(w, m);
+      var t2 = Number(p.startTime);
+      if (!p.closed && t2 >= s && t2 < e) total += p.osgValue;
+    }
+    if (total >= need) break;
+  }
+  if (total >= need) {
+    okMap[k] = true;
+    save(KEY_OK, okMap);
+    return { ok: true };
+  }
+  return { ok: false, why: "Not qualified (" + Number(E.formatUnits(total, 18)).toFixed(0) + " / " + b.minNew + ")" };
+}
+
+async function checkPayload(text) {
+  var p = String(text || "").trim().split(":");
+  if (p.length !== 7 || p[0] !== "OSGPASS" || p[1] !== "1" || p[2] !== "137") return { ok: false, why: "Not an OSG pass" };
+  var batch = p[3];
+  var ts = Number(p[4]);
+  var addr = p[5];
+  var sig = p[6];
+  var now = Math.floor(Date.now() / 1000);
+  if (!(ts > 0)) return { ok: false, why: "Bad time" };
+  if (now - ts > VALID_SEC) return { ok: false, why: "QR expired. Ask them to tap Refresh pass", addr: addr };
+  if (ts - now > SKEW_SEC) return { ok: false, why: "QR time is in the future", addr: addr };
+  var rec;
+  try { rec = E.verifyMessage("OSG-PASS|" + p[2] + "|" + batch + "|" + ts, sig); } catch (e) { return { ok: false, why: "Bad signature" }; }
+  if (rec.toLowerCase() !== addr.toLowerCase()) return { ok: false, why: "Signature does not match wallet" };
+  var who = rec.toLowerCase();
+  var today = dayKey(new Date());
+  var entries = load(KEY_ENTRIES, []);
+  var dup = entries.filter(function (x) { return x.addr === who && x.day === today; })[0];
+  if (dup) return { ok: false, why: "Already entered today at " + dup.time, addr: who };
+  var q;
+  try { q = await isQualified(who, batch); } catch (e) { return { ok: false, why: "Network problem, try again", addr: who }; }
+  if (!q.ok) return { ok: false, why: q.why, addr: who };
+  var d = new Date();
+  entries.push({ addr: who, batch: batch, day: today, time: timeIST(d), type: "member" });
+  save(KEY_ENTRIES, entries);
+  return { ok: true, addr: who, time: timeIST(d) };
+}
+
+function show(r) {
+  var el = document.getElementById("result");
+  el.style.display = "block";
+  el.className = r.ok ? "ok" : "bad";
+  el.innerHTML = r.ok
+    ? '<div class="big" style="color:#46D08A">Entry recorded</div><div class="mono">' + short(r.addr) + " · " + r.time + "</div>"
+    : '<div class="big" style="color:#F2675C">Not allowed</div><div style="font-size:15px;margin:6px 0">' + r.why + "</div>" + (r.addr ? '<div class="mono">' + short(r.addr) + "</div>" : "");
+  if (navigator.vibrate) navigator.vibrate(r.ok ? 80 : [60, 60, 60]);
+  refreshCounts();
+}
+
+function refreshCounts() {
+  var entries = load(KEY_ENTRIES, []);
+  var today = dayKey(new Date());
+  document.getElementById("today").textContent = today;
+  document.getElementById("countToday").textContent = entries.filter(function (x) { return x.day === today; }).length;
+  document.getElementById("countAll").textContent = entries.length;
+}
+
+var busy = false;
+var lastText = "";
+var lastAt = 0;
+async function onScan(text) {
+  var now = Date.now();
+  if (busy) return;
+  if (text === lastText && now - lastAt < 4000) return;
+  lastText = text;
+  lastAt = now;
+  busy = true;
+  var el = document.getElementById("result");
+  el.style.display = "block";
+  el.className = "";
+  el.innerHTML = '<div style="color:#9A9AA8">Checking...</div>';
+  try { show(await checkPayload(text)); } catch (e) { show({ ok: false, why: "Error: " + (e.message || e) }); }
+  busy = false;
+}
+
+document.getElementById("startBtn").onclick = function () {
+  var btn = this;
+  btn.disabled = true;
+  btn.textContent = "Starting...";
+  var scanner = new Html5Qrcode("reader");
+  scanner.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, onScan, function () {})
+    .then(function () { btn.style.display = "none"; })
+    .catch(function (e) { btn.disabled = false; btn.textContent = "Start camera"; show({ ok: false, why: "Camera not available: " + e }); });
+};
+
+document.getElementById("manualBtn").onclick = function () {
+  lastText = "";
+  onScan(document.getElementById("manual").value);
+};
+
+document.getElementById("csvBtn").onclick = function () {
+  var entries = load(KEY_ENTRIES, []);
+  var rows = ["day,time,wallet,batch,type"].concat(entries.map(function (x) { return [x.day, x.time, x.addr, x.batch, x.type].join(","); }));
+  var blob = new Blob([rows.join("\n")], { type: "text/csv" });
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "entries-" + dayKey(new Date()) + ".csv";
+  a.click();
+};
+
+document.getElementById("clearBtn").onclick = function () {
+  if (!confirm("Delete every entry on this phone? Export CSV first if you need it.")) return;
+  save(KEY_ENTRIES, []);
+  save(KEY_OK, {});
+  document.getElementById("result").style.display = "none";
+  refreshCounts();
+};
+
+refreshCounts();
+getCfg();
+</script>
+</body>
+</html>
