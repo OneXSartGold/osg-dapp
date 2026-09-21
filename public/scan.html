@@ -50,7 +50,7 @@
   <div class="card">
     <details>
       <summary>Paste QR text (testing)</summary>
-      <textarea id="manual" placeholder="OSGPASS:1:137:..."></textarea>
+      <textarea id="manual" placeholder="OSGPASS:2:137:..."></textarea>
       <button class="ghost" id="manualBtn">Check</button>
     </details>
   </div>
@@ -148,18 +148,18 @@ async function isQualified(addr, batchId) {
 
 async function checkPayload(text) {
   var p = String(text || "").trim().split(":");
-  if (p.length !== 7 || p[0] !== "OSGPASS" || p[1] !== "1" || p[2] !== "137") return { ok: false, why: "Not an OSG pass" };
-  var batch = p[3];
-  var ts = Number(p[4]);
-  var addr = p[5];
-  var sig = p[6];
-  var now = Math.floor(Date.now() / 1000);
+  if (p[0] !== "OSGPASS" || p[2] !== "137") return { ok: false, why: "Not an OSG pass" };
+  var batch, ts, addr, sig;
+  if (p[1] === "1" && p.length === 7) { batch = p[3]; ts = Number(p[4]); addr = p[5]; sig = p[6]; }
+  else if (p[1] === "2" && p.length === 6) { batch = p[3].toLowerCase(); ts = Number(p[4]); addr = null; sig = "0x" + p[5].toLowerCase(); }
+  else return { ok: false, why: "Not an OSG pass" };
   if (!(ts > 0)) return { ok: false, why: "Bad time" };
-  if (now - ts > VALID_SEC) return { ok: false, why: "QR expired. Ask them to tap Refresh pass", addr: addr };
-  if (ts - now > SKEW_SEC) return { ok: false, why: "QR time is in the future", addr: addr };
   var rec;
-  try { rec = E.verifyMessage("OSG-PASS|" + p[2] + "|" + batch + "|" + ts, sig); } catch (e) { return { ok: false, why: "Bad signature" }; }
-  if (rec.toLowerCase() !== addr.toLowerCase()) return { ok: false, why: "Signature does not match wallet" };
+  try { rec = E.verifyMessage("OSG-PASS|137|" + batch + "|" + ts, sig); } catch (e) { return { ok: false, why: "Bad signature" }; }
+  if (addr && rec.toLowerCase() !== addr.toLowerCase()) return { ok: false, why: "Signature does not match wallet" };
+  var now = Math.floor(Date.now() / 1000);
+  if (now - ts > VALID_SEC) return { ok: false, why: "QR expired. Ask them to tap Refresh pass", addr: rec };
+  if (ts - now > SKEW_SEC) return { ok: false, why: "QR time is in the future", addr: rec };
   var who = rec.toLowerCase();
   var today = dayKey(new Date());
   var entries = load(KEY_ENTRIES, []);
@@ -215,8 +215,8 @@ document.getElementById("startBtn").onclick = function () {
   var btn = this;
   btn.disabled = true;
   btn.textContent = "Starting...";
-  var scanner = new Html5Qrcode("reader");
-  scanner.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, onScan, function () {})
+  var scanner = new Html5Qrcode("reader", { experimentalFeatures: { useBarCodeDetectorIfSupported: true } });
+  scanner.start({ facingMode: "environment" }, { fps: 15, qrbox: function (w, h) { var s = Math.floor(Math.min(w, h) * 0.9); return { width: s, height: s }; }, videoConstraints: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } } }, onScan, function () {})
     .then(function () { btn.style.display = "none"; })
     .catch(function (e) { btn.disabled = false; btn.textContent = "Start camera"; show({ ok: false, why: "Camera not available: " + e }); });
 };
