@@ -4128,7 +4128,7 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
           {pass.qualified && passQr && passNow < passQr.exp && (
             <div style={{ textAlign: "center", marginTop: 12 }}>
               <div style={{ background: "#fff", borderRadius: 12, padding: 10, display: "inline-block" }}>
-                <img src={passQr.src} alt="Event pass QR" style={{ width: 220, height: 220, display: "block", imageRendering: "pixelated" }} />
+                <img src={passQr.src} alt="Event pass QR" style={{ width: 260, height: 260, display: "block", imageRendering: "pixelated" }} />
               </div>
               <div style={{ fontSize: 13, color: C.txt2, marginTop: 8 }}>Show this QR at entry</div>
               <div style={{ fontSize: 13, color: C.gold1, marginTop: 4 }}>
