@@ -4070,6 +4070,28 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
           </div>
         );
       })()}
+      {pass && pass.started && !(pass.closed && !pass.qualified) && (
+        <div className="card" style={{ marginTop: 14, border: "1px solid " + (pass.qualified ? C.gold2 : C.line2) }}>
+          <div className="sec" style={{ color: pass.qualified ? C.gold1 : undefined }}>Event pass</div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontSize: 13, color: C.txt2 }}>
+            <span>New team stake</span>
+            <span style={{ fontSize: 12, color: pass.qualified ? C.green : C.txt2 }}>
+              {pass.qualified ? "✓ Done" : Math.max(0, Math.ceil((pass.endsAt - Date.now() / 1000) / 86400)) + " days left"}
+            </span>
+          </div>
+          <div style={{ fontSize: 22, fontWeight: 600, color: C.txt, marginTop: 4 }}>
+            {fmt(f18(pass.total), 2)}{" "}
+            <span style={{ fontSize: 14, color: C.txt3 }}>/ {fmt(f18(pass.need), 0)} OSG</span>
+          </div>
+          <div style={{ height: 8, background: C.line2, borderRadius: 4, overflow: "hidden", margin: "10px 0 8px" }}>
+            <div style={{ height: "100%", width: Math.min(100, (Number(f18(pass.total)) / Number(f18(pass.need))) * 100) + "%", background: pass.qualified ? C.green : C.gold2 }} />
+          </div>
+          <div style={{ fontSize: 13, color: pass.qualified ? C.txt : C.gold1 }}>
+            {pass.qualified ? "Your pass is ready" : fmt(f18(pass.left), 2) + " OSG to go"}
+          </div>
+          <div style={{ fontSize: 11.5, color: C.txt3, marginTop: 8 }}>Counts new stake by your directs</div>
+        </div>
+      )}
             {card && (
         <div className="card" style={{ marginTop: 14 }}>
           <div className="sec">Your line</div>
