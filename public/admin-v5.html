@@ -63,6 +63,7 @@
       <h2>Wallet lookup</h2>
       <div style="display:flex;gap:8px"><input id="lookAddr" placeholder="0x..."><button class="gold" id="lookBtn">Check</button></div>
       <div class="grid" id="look" style="margin-top:10px"></div>
+      <div id="lookTeam"></div>
     </div>
 
     <div class="card">
@@ -71,11 +72,12 @@
       <div class="bar">
         <button class="ghost" id="earnBtn">Load next 25</button>
         <button class="ghost" id="earnAllBtn">Load all</button>
-        <select id="earnSort"><option value="">Order joined</option><option value="owed">Owed</option><option value="paid">Paid</option><option value="volume">Volume</option><option value="stake">Own stake</option><option value="directs">Directs</option></select>
+        <select id="earnSort"><option value="">Order joined</option><option value="owed">Owed</option><option value="paid">Paid</option><option value="volume">Volume</option><option value="stake">Own stake</option><option value="directs">Directs</option><option value="team">Team</option><option value="elig">Eligible rank</option></select>
         <label class="muted"><input type="checkbox" id="earnOwed" style="width:auto"> Only owed &gt; 0</label>
+        <button class="ghost" id="earnTeamBtn">Add team + eligible rank</button>
         <button class="ghost" id="earnCsv">Export CSV</button>
       </div>
-      <div class="scroll"><table><thead><tr><th>#</th><th>Wallet</th><th>Upline</th><th class="num">Own stake</th><th class="num">Directs</th><th class="num">Levels</th><th class="num">Volume</th><th class="num">Owed</th><th class="num">Paid</th><th>Rank</th></tr></thead><tbody id="earnRows"></tbody></table></div>
+      <div class="scroll"><table><thead><tr><th>#</th><th>Wallet</th><th>Upline</th><th class="num">Own stake</th><th class="num">Directs</th><th class="num">Levels open</th><th class="num">Volume</th><th class="num">Owed</th><th class="num">Paid</th><th>Rank proven</th><th>Eligible</th><th class="num">Team</th></tr></thead><tbody id="earnRows"></tbody></table></div>
       <div class="muted" style="margin-top:8px">Tap a row to open the full detail in Wallet lookup.</div>
     </div>
   </div>
@@ -96,14 +98,16 @@ var A = {
 var RPCS = ["https://polygon-bor-rpc.publicnode.com", "https://rpc.ankr.com/polygon"];
 var ABI = {
   token: ["function paused() view returns (bool)", "function totalSupply() view returns (uint256)", "function mintedThisHour() view returns (uint256)", "function dailyMinted() view returns (uint256)", "function owner() view returns (address)", "function governance() view returns (address)"],
-  referral: ["function usersLength() view returns (uint256)", "function allUsers(uint256) view returns (address)", "function airdropPaused() view returns (bool)", "function airdropPaySource() view returns (uint8)", "function totalAirdropAssigned() view returns (uint256)", "function totalAirdropPaid() view returns (uint256)", "function taskBoard() view returns (address)"],
-  lens: ["function walletCard(address user) view returns (tuple(address referrer, bool hasUpline, bool uplineIsLegacy, uint256 legacyDirects, uint256 registeredDirects, uint256 qualifiedDirects, uint256 directsForLevels, uint256 levelsOpen, uint256 activeBps, uint256 stake, uint256 qualifyingStake, bool countsAsDirect, uint256 owed, uint256 paid, uint256 volume, uint8 rank, uint256 rankHoldRemaining, uint256 bonusCooldownRemaining, uint256 bonusPaidTotal) card)", "function directsView(address user) view returns (tuple(uint8 level, address wallet, uint256 stake, uint256 qualifyingStake, bool qualified, bool isLegacy, address referrer, uint256 joinedAt)[] list)"],
+  referral: ["function usersLength() view returns (uint256)", "function allUsers(uint256) view returns (address)", "function airdropPaused() view returns (bool)", "function airdropPaySource() view returns (uint8)", "function totalAirdropAssigned() view returns (uint256)", "function totalAirdropPaid() view returns (uint256)", "function taskBoard() view returns (address)", "function currentRank(address user, address[] directs) view returns (uint8)"],
+  lens: ["function walletCard(address user) view returns (tuple(address referrer, bool hasUpline, bool uplineIsLegacy, uint256 legacyDirects, uint256 registeredDirects, uint256 qualifiedDirects, uint256 directsForLevels, uint256 levelsOpen, uint256 activeBps, uint256 stake, uint256 qualifyingStake, bool countsAsDirect, uint256 owed, uint256 paid, uint256 volume, uint8 rank, uint256 rankHoldRemaining, uint256 bonusCooldownRemaining, uint256 bonusPaidTotal) card)", "function directsView(address user) view returns (tuple(uint8 level, address wallet, uint256 stake, uint256 qualifyingStake, bool qualified, bool isLegacy, address referrer, uint256 joinedAt)[] list)", "function levelSummary(address user, uint256 maxNodes) view returns (tuple(uint8 level, uint256 members, uint256 legacyMembers, uint256 qualified, uint256 totalStake, uint256 levelBps, uint256 directsNeeded, bool open)[] rows, uint256 totalMembers, bool truncated)"],
   health: ["function programmeStats() view returns (uint256 totalLevelBps, uint256 referralBudgetToday, uint256 minDirectStake, uint256 minReferrerStake, uint256 sourceCount, bool wired, bool paused, bool seedOpen)"],
   treasury: ["function airdropPool() view returns (uint256)", "function teamBonusPool() view returns (uint256)", "function endsAt() view returns (uint256)", "function monthlyCap() view returns (uint256)", "function isSpender(address) view returns (bool)"],
   term: ["function getPositions(address user) view returns (tuple(uint256 amount, uint256 cap, uint256 rewardDebt, uint256 rewardPaid, uint256 unpaid, uint256 startTime, bool capped, bool closed)[])"],
   lp: ["function positionCount(address user) view returns (uint256)", "function positions(address, uint256) view returns (uint256 lpAmount, uint256 osgValue, uint256 rewardDebt, uint256 rewardPaid, uint256 unpaid, uint256 startTime, bool closed)"]
 };
 var RANKS = ["-", "Bronze", "Silver", "Gold", "Diamond", "Platinum"];
+var MIN_DIRECT = 100;
+var TEAM_CAP = 3000;
 
 var provider = null;
 function pv() {
@@ -127,6 +131,7 @@ async function loadProgramme() {
     var s = await C("health").programmeStats();
     var r = C("referral");
     var n = await r.usersLength();
+    MIN_DIRECT = Number(E.formatUnits(s.minDirectStake, 18));
     fill("prog",
       stat("Wired", s.wired ? "Yes" : "No", s.wired ? "good" : "bad") +
       stat("Paused", s.paused ? "Yes" : "No", s.paused ? "bad" : "good") +
@@ -194,9 +199,28 @@ async function passTotal(who) {
   return { batch: b.id, total: total, need: E.parseUnits(String(b.minNew), 18) };
 }
 
+async function eligibleRank(who) {
+  var d = await C("lens").directsView(who);
+  var min = E.parseUnits(String(MIN_DIRECT), 18);
+  var ok = [];
+  for (var i = 0; i < d.length; i++) if (d[i].stake >= min) ok.push({ a: d[i].wallet, s: d[i].stake });
+  if (ok.length > 50) ok = ok.sort(function (x, y) { return y.s > x.s ? 1 : y.s < x.s ? -1 : 0; }).slice(0, 50);
+  var list = ok.map(function (x) { return x.a; }).sort(function (a, b) { var x = BigInt(a), y = BigInt(b); return x < y ? -1 : x > y ? 1 : 0; })
+    .filter(function (a, i, arr) { return i === 0 || a.toLowerCase() !== arr[i - 1].toLowerCase(); });
+  var r = await C("referral").currentRank(who, list);
+  return Number(r);
+}
+async function teamOf(who) {
+  var t = await C("lens").levelSummary(who, TEAM_CAP);
+  var stake = 0n;
+  for (var i = 0; i < t.rows.length; i++) stake += t.rows[i].totalStake;
+  return { rows: t.rows, members: Number(t.totalMembers), cut: t.truncated, stake: stake };
+}
+
 async function lookup() {
   var addr = document.getElementById("lookAddr").value.trim();
   if (!E.isAddress(addr)) { fill("look", stat("Error", "Not a valid address", "bad")); return; }
+  document.getElementById("lookTeam").innerHTML = "";
   fill("look", '<div class="muted">Reading...</div>');
   try {
     var c = await C("lens").walletCard(addr);
@@ -218,6 +242,30 @@ async function lookup() {
     var ok = ps.total >= ps.need;
     el.innerHTML = '<div class="k">Event pass (' + esc(ps.batch) + ')</div><div class="v ' + (ok ? "good" : "") + '">' + osg(ps.total) + " / " + osg(ps.need, 0) + (ok ? " ✓" : "") + "</div>";
   } catch (e) { fail("look", e); }
+  lookupTeam(addr);
+}
+async function lookupTeam(addr) {
+  var box = document.getElementById("lookTeam");
+  box.innerHTML = '<div class="muted">Reading team...</div>';
+  try {
+    var er = await eligibleRank(addr);
+    var t = await teamOf(addr);
+    var rows = "";
+    for (var i = 0; i < t.rows.length; i++) {
+      var r = t.rows[i];
+      if (Number(r.members) === 0 && i > 0 && Number(t.rows[i - 1].members) === 0) continue;
+      rows += "<tr><td>L" + r.level + '</td><td class="num">' + r.members.toString() + '</td><td class="num">' + r.qualified.toString() + '</td><td class="num">' + osg(r.totalStake) +
+        '</td><td class="' + (r.open ? "good" : "muted") + '">' + (r.open ? "Open" : "Needs " + r.directsNeeded.toString() + " directs") + "</td></tr>";
+    }
+    box.innerHTML = '<div class="grid" style="margin:10px 0">' +
+      stat("Eligible rank now", RANKS[er] || String(er), er > 0 ? "good" : "") +
+      stat("Team (15 levels)", t.members + (t.cut ? "+" : "")) +
+      stat("Team stake", osg(t.stake) + " OSG") + "</div>" +
+      '<div class="scroll"><table><thead><tr><th>Level</th><th class="num">Members</th><th class="num">Counting</th><th class="num">Stake</th><th>Commission level</th></tr></thead><tbody>' + rows + "</tbody></table></div>" +
+      (t.cut ? '<div class="muted" style="margin-top:6px">Team is larger than ' + TEAM_CAP + " - counts stop there.</div>" : "");
+  } catch (e) {
+    box.innerHTML = '<div class="muted">Team could not be read: ' + esc((e && (e.shortMessage || e.message)) || e) + "</div>";
+  }
 }
 
 var earnNext = 0;
@@ -239,14 +287,14 @@ function renderEarners() {
   var key = document.getElementById("earnSort").value;
   var only = document.getElementById("earnOwed").checked;
   var rows = earnData.filter(function (r) { return !only || r.owed > 0; });
-  if (key) rows = rows.slice().sort(function (a, b) { return b[key] - a[key]; });
+  if (key) rows = rows.slice().sort(function (a, b) { return (b[key] || 0) - (a[key] || 0); });
   var body = document.getElementById("earnRows");
   body.innerHTML = "";
   rows.forEach(function (r) {
     var tr = document.createElement("tr");
     tr.innerHTML = "<td>" + r.i + '</td><td class="mono" title="' + r.w + '">' + short(r.w) + '</td><td class="mono">' + (r.up ? short(r.up) : "-") +
       '</td><td class="num">' + f2(r.stake) + '</td><td class="num">' + r.directs + " (" + r.qual + ')</td><td class="num">' + r.levels +
-      '</td><td class="num">' + f2(r.volume) + '</td><td class="num ' + (r.owed > 0 ? "warn" : "") + '">' + f2(r.owed) + '</td><td class="num">' + f2(r.paid) + "</td><td>" + esc(r.rank) + "</td>";
+      '</td><td class="num">' + f2(r.volume) + '</td><td class="num ' + (r.owed > 0 ? "warn" : "") + '">' + f2(r.owed) + '</td><td class="num">' + f2(r.paid) + "</td><td>" + esc(r.rank) + "</td><td>" + (r.elig === undefined ? '<span class="muted">-</span>' : esc(RANKS[r.elig] || r.elig)) + '</td><td class="num">' + (r.team === undefined ? '<span class="muted">-</span>' : r.team) + "</td>";
     tr.style.cursor = "pointer";
     tr.onclick = function () { document.getElementById("lookAddr").value = r.w; lookup(); window.scrollTo(0, 0); };
     body.appendChild(tr);
@@ -278,9 +326,32 @@ async function loadEarners(all) {
   }
   b1.disabled = false; b2.disabled = false;
 }
+async function earnTeam() {
+  var btn = document.getElementById("earnTeamBtn");
+  btn.disabled = true;
+  var only = document.getElementById("earnOwed").checked;
+  var todo = earnData.filter(function (r) { return r.team === undefined && (!only || r.owed > 0); });
+  var done = 0;
+  try {
+    for (var k = 0; k < todo.length; k += 4) {
+      await Promise.all(todo.slice(k, k + 4).map(async function (r) {
+        var t = await teamOf(r.w);
+        r.team = t.members;
+        r.elig = r.directs > 0 ? await eligibleRank(r.w) : 0;
+        done++;
+      }));
+      document.getElementById("earnMeta").textContent = "Team + rank: " + done + " of " + todo.length + "...";
+      renderEarners();
+    }
+    renderEarners();
+  } catch (e) {
+    document.getElementById("earnMeta").textContent = "Error: " + ((e && (e.shortMessage || e.message)) || e) + " - tap again to continue.";
+  }
+  btn.disabled = false;
+}
 function earnCsv() {
-  var head = "n,wallet,upline,own_stake,directs,qualified_directs,levels,volume,owed,paid,rank";
-  var lines = earnData.map(function (r) { return [r.i, r.w, r.up, r.stake, r.directs, r.qual, r.levels, r.volume, r.owed, r.paid, r.rank].join(","); });
+  var head = "n,wallet,upline,own_stake,directs,qualified_directs,levels_open,volume,owed,paid,rank_proven,rank_eligible,team";
+  var lines = earnData.map(function (r) { return [r.i, r.w, r.up, r.stake, r.directs, r.qual, r.levels, r.volume, r.owed, r.paid, r.rank, r.elig === undefined ? "" : (RANKS[r.elig] || r.elig), r.team === undefined ? "" : r.team].join(","); });
   var blob = new Blob([[head].concat(lines).join("\n")], { type: "text/csv" });
   var a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
@@ -310,6 +381,7 @@ document.getElementById("earnAllBtn").onclick = function () { loadEarners(true);
 document.getElementById("earnSort").onchange = renderEarners;
 document.getElementById("earnOwed").onchange = renderEarners;
 document.getElementById("earnCsv").onclick = earnCsv;
+document.getElementById("earnTeamBtn").onclick = earnTeam;
 </script>
 </body>
 </html>
