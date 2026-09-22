@@ -226,9 +226,9 @@ async function lookup() {
     var c = await C("lens").walletCard(addr);
     var html =
       stat("Upline", c.hasUpline ? short(c.referrer) : "None") +
-      stat("Own stake", osg(c.stake) + " OSG") +
+      stat("Own stake", osg(c.stake) + " OSG") + stat("Counting stake", osg(c.qualifyingStake) + " OSG", c.qualifyingStake > 0n ? "" : "warn") +
       stat("Counts as direct", c.countsAsDirect ? "Yes" : "No", c.countsAsDirect ? "good" : "") +
-      stat("Directs (qualified)", c.registeredDirects.toString() + " (" + c.qualifiedDirects.toString() + ")") +
+      stat("Directs (qualified)", c.directsForLevels.toString() + " (" + c.qualifiedDirects.toString() + ")") +
       stat("Levels open", c.levelsOpen.toString() + " of 15") +
       stat("Owed", osg(c.owed) + " OSG", c.owed > 0n ? "warn" : "") +
       stat("Paid", osg(c.paid) + " OSG") +
@@ -277,7 +277,7 @@ async function fetchEarner(i) {
   var c = await C("lens").walletCard(w);
   return {
     i: i + 1, w: w, up: c.hasUpline ? c.referrer : "",
-    stake: num(c.stake), directs: Number(c.registeredDirects), qual: Number(c.qualifiedDirects),
+    stake: num(c.stake), qstake: num(c.qualifyingStake), directs: Number(c.directsForLevels), qual: Number(c.qualifiedDirects),
     levels: Number(c.levelsOpen), volume: num(c.volume), owed: num(c.owed), paid: num(c.paid),
     rank: RANKS[Number(c.rank)] || String(c.rank)
   };
