@@ -72,7 +72,7 @@
       <div class="bar">
         <button class="ghost" id="earnBtn">Load next 25</button>
         <button class="ghost" id="earnAllBtn">Load all</button>
-        <select id="earnSort"><option value="">Order joined</option><option value="owed">Owed</option><option value="paid">Paid</option><option value="volume">Volume</option><option value="stake">Own stake</option><option value="directs">Directs</option><option value="team">Team</option><option value="elig">Eligible rank</option></select>
+        <select id="earnSort"><option value="">Order joined</option><option value="owed">Owed</option><option value="paid">Paid</option><option value="volume">Volume</option><option value="stake">Own stake</option><option value="directs">Directs</option><option value="team">Team</option><option value="rnum">Rank proven</option><option value="elig">Eligible rank</option></select>
         <label class="muted"><input type="checkbox" id="earnOwed" style="width:auto"> Only owed &gt; 0</label>
         <button class="ghost" id="earnTeamBtn">Add team + eligible rank</button>
         <button class="ghost" id="earnCsv">Export CSV</button>
@@ -279,7 +279,7 @@ async function fetchEarner(i) {
     i: i + 1, w: w, up: c.hasUpline ? c.referrer : "",
     stake: num(c.stake), qstake: num(c.qualifyingStake), directs: Number(c.directsForLevels), qual: Number(c.qualifiedDirects),
     levels: Number(c.levelsOpen), volume: num(c.volume), owed: num(c.owed), paid: num(c.paid),
-    rank: RANKS[Number(c.rank)] || String(c.rank)
+    rank: RANKS[Number(c.rank)] || String(c.rank), rnum: Number(c.rank)
   };
 }
 function f2(x) { return x.toLocaleString("en-US", { maximumFractionDigits: 2 }); }
