@@ -16,7 +16,7 @@
   .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
   .stat { background: #1B1B26; border-radius: 10px; padding: 10px; }
   .stat .k { font-size: 11px; color: #9A9AA8; }
-  .stat .v { font-size: 17px; font-weight: 600; margin-top: 3px; word-break: break-all; }
+  .stat .v { font-size: 17px; font-weight: 600; margin-top: 3px; overflow-wrap: anywhere; }
   .good { color: #46D08A; } .bad { color: #F2675C; } .warn { color: #F7D27A; }
   button { padding: 11px 14px; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; }
   .gold { background: #E9B949; color: #1b1406; }
@@ -29,6 +29,9 @@
   .muted { color: #9A9AA8; font-size: 12.5px; }
   .scroll { overflow-x: auto; }
   #app { display: none; }
+  select { padding: 9px; background: #0E0E14; color: #F4F4F5; border: 1px solid rgba(255,255,255,.12); border-radius: 10px; font-size: 13px; }
+  .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0; }
+  th.num, td.num { text-align: right; }
 </style>
 </head>
 <body>
@@ -65,8 +68,15 @@
     <div class="card">
       <h2>Commission earners</h2>
       <div class="muted" id="earnMeta">Wallets that have earned commission at least once. Not every member is here - use Wallet lookup for anyone else.</div>
-      <div style="margin:10px 0"><button class="ghost" id="earnBtn">Load next 25</button></div>
-      <div class="scroll"><table><thead><tr><th>#</th><th>Wallet</th><th>Owed</th><th>Paid</th><th>Rank</th><th>Levels</th></tr></thead><tbody id="earnRows"></tbody></table></div>
+      <div class="bar">
+        <button class="ghost" id="earnBtn">Load next 25</button>
+        <button class="ghost" id="earnAllBtn">Load all</button>
+        <select id="earnSort"><option value="">Order joined</option><option value="owed">Owed</option><option value="paid">Paid</option><option value="volume">Volume</option><option value="stake">Own stake</option><option value="directs">Directs</option></select>
+        <label class="muted"><input type="checkbox" id="earnOwed" style="width:auto"> Only owed &gt; 0</label>
+        <button class="ghost" id="earnCsv">Export CSV</button>
+      </div>
+      <div class="scroll"><table><thead><tr><th>#</th><th>Wallet</th><th>Upline</th><th class="num">Own stake</th><th class="num">Directs</th><th class="num">Levels</th><th class="num">Volume</th><th class="num">Owed</th><th class="num">Paid</th><th>Rank</th></tr></thead><tbody id="earnRows"></tbody></table></div>
+      <div class="muted" style="margin-top:8px">Tap a row to open the full detail in Wallet lookup.</div>
     </div>
   </div>
 </div>
@@ -206,37 +216,76 @@ async function lookup() {
     var el = document.getElementById("passStat");
     if (!ps) { el.innerHTML = '<div class="k">Event pass</div><div class="v muted">No open batch</div>'; return; }
     var ok = ps.total >= ps.need;
-    el.innerHTML = '<div class="k">Event pass (' + esc(ps.batch) + ')</div><div class="v ' + (ok ? "good" : "") + '">' + osg(ps.total) + " / " + osg(ps.need, 0) + (ok ? " - ready" : "") + "</div>";
+    el.innerHTML = '<div class="k">Event pass (' + esc(ps.batch) + ')</div><div class="v ' + (ok ? "good" : "") + '">' + osg(ps.total) + " / " + osg(ps.need, 0) + (ok ? " ✓" : "") + "</div>";
   } catch (e) { fail("look", e); }
 }
 
 var earnNext = 0;
 var earnTotal = null;
-async function loadEarners() {
-  var btn = document.getElementById("earnBtn");
-  btn.disabled = true;
+var earnData = [];
+function num(v) { return Number(E.formatUnits(v, 18)); }
+async function fetchEarner(i) {
+  var w = await C("referral").allUsers(i);
+  var c = await C("lens").walletCard(w);
+  return {
+    i: i + 1, w: w, up: c.hasUpline ? c.referrer : "",
+    stake: num(c.stake), directs: Number(c.registeredDirects), qual: Number(c.qualifiedDirects),
+    levels: Number(c.levelsOpen), volume: num(c.volume), owed: num(c.owed), paid: num(c.paid),
+    rank: RANKS[Number(c.rank)] || String(c.rank)
+  };
+}
+function f2(x) { return x.toLocaleString("en-US", { maximumFractionDigits: 2 }); }
+function renderEarners() {
+  var key = document.getElementById("earnSort").value;
+  var only = document.getElementById("earnOwed").checked;
+  var rows = earnData.filter(function (r) { return !only || r.owed > 0; });
+  if (key) rows = rows.slice().sort(function (a, b) { return b[key] - a[key]; });
+  var body = document.getElementById("earnRows");
+  body.innerHTML = "";
+  rows.forEach(function (r) {
+    var tr = document.createElement("tr");
+    tr.innerHTML = "<td>" + r.i + '</td><td class="mono" title="' + r.w + '">' + short(r.w) + '</td><td class="mono">' + (r.up ? short(r.up) : "-") +
+      '</td><td class="num">' + f2(r.stake) + '</td><td class="num">' + r.directs + " (" + r.qual + ')</td><td class="num">' + r.levels +
+      '</td><td class="num">' + f2(r.volume) + '</td><td class="num ' + (r.owed > 0 ? "warn" : "") + '">' + f2(r.owed) + '</td><td class="num">' + f2(r.paid) + "</td><td>" + esc(r.rank) + "</td>";
+    tr.style.cursor = "pointer";
+    tr.onclick = function () { document.getElementById("lookAddr").value = r.w; lookup(); window.scrollTo(0, 0); };
+    body.appendChild(tr);
+  });
+  var shown = rows.length;
+  document.getElementById("earnMeta").textContent = "Loaded " + earnData.length + " of " + earnTotal + " earners" + (only ? ", showing " + shown + " with owed > 0" : "") + ". Not every member is here - use Wallet lookup for anyone else.";
+}
+async function loadEarners(all) {
+  var b1 = document.getElementById("earnBtn");
+  var b2 = document.getElementById("earnAllBtn");
+  b1.disabled = true; b2.disabled = true;
   try {
-    var r = C("referral");
-    var lens = C("lens");
-    if (earnTotal === null) earnTotal = Number(await r.usersLength());
-    var end = Math.min(earnNext + 25, earnTotal);
-    var body = document.getElementById("earnRows");
-    for (var i = earnNext; i < end; i++) {
-      var w = await r.allUsers(i);
-      var c = await lens.walletCard(w);
-      var tr = document.createElement("tr");
-      tr.innerHTML = "<td>" + (i + 1) + '</td><td class="mono">' + short(w) + "</td><td>" + osg(c.owed) + "</td><td>" + osg(c.paid) + "</td><td>" + esc(RANKS[Number(c.rank)] || c.rank) + "</td><td>" + c.levelsOpen.toString() + "</td>";
-      tr.style.cursor = "pointer";
-      tr.onclick = (function (addr) { return function () { document.getElementById("lookAddr").value = addr; lookup(); window.scrollTo(0, 0); }; })(w);
-      body.appendChild(tr);
+    if (earnTotal === null) earnTotal = Number(await C("referral").usersLength());
+    var end = all ? earnTotal : Math.min(earnNext + 25, earnTotal);
+    while (earnNext < end) {
+      var stop = Math.min(earnNext + 8, end);
+      var jobs = [];
+      for (var i = earnNext; i < stop; i++) jobs.push(fetchEarner(i));
+      var got = await Promise.all(jobs);
+      earnData = earnData.concat(got);
+      earnNext = stop;
+      renderEarners();
+      if (all) document.getElementById("earnMeta").textContent = "Loading " + earnNext + " of " + earnTotal + "...";
     }
-    earnNext = end;
-    document.getElementById("earnMeta").textContent = "Showing " + end + " of " + earnTotal + " earners. Tap a row to open it in Wallet lookup. Not every member is here - use Wallet lookup for anyone else.";
-    btn.style.display = end >= earnTotal ? "none" : "";
+    renderEarners();
+    if (earnNext >= earnTotal) { b1.style.display = "none"; b2.style.display = "none"; }
   } catch (e) {
-    document.getElementById("earnMeta").textContent = "Error: " + ((e && (e.shortMessage || e.message)) || e);
+    document.getElementById("earnMeta").textContent = "Error: " + ((e && (e.shortMessage || e.message)) || e) + " - tap Load again to continue.";
   }
-  btn.disabled = false;
+  b1.disabled = false; b2.disabled = false;
+}
+function earnCsv() {
+  var head = "n,wallet,upline,own_stake,directs,qualified_directs,levels,volume,owed,paid,rank";
+  var lines = earnData.map(function (r) { return [r.i, r.w, r.up, r.stake, r.directs, r.qual, r.levels, r.volume, r.owed, r.paid, r.rank].join(","); });
+  var blob = new Blob([[head].concat(lines).join("\n")], { type: "text/csv" });
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "osg-earners.csv";
+  a.click();
 }
 
 document.getElementById("connectBtn").onclick = async function () {
@@ -252,11 +301,15 @@ document.getElementById("connectBtn").onclick = async function () {
     loadProgramme();
     loadToken();
     loadTreasury();
-    loadEarners();
+    loadEarners(false);
   } catch (e) { msg.textContent = "Connect failed: " + ((e && e.message) || e); }
 };
 document.getElementById("lookBtn").onclick = lookup;
-document.getElementById("earnBtn").onclick = loadEarners;
+document.getElementById("earnBtn").onclick = function () { loadEarners(false); };
+document.getElementById("earnAllBtn").onclick = function () { loadEarners(true); };
+document.getElementById("earnSort").onchange = renderEarners;
+document.getElementById("earnOwed").onchange = renderEarners;
+document.getElementById("earnCsv").onclick = earnCsv;
 </script>
 </body>
 </html>
