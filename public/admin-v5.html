@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>OSG Admin v5</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.2/ethers.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #08080B; color: #F4F4F5; font-family: system-ui, -apple-system, sans-serif; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 18px; margin: 4px 0 14px; color: #F7D27A; letter-spacing: .04em; }
+  h2 { font-size: 13px; margin: 0 0 10px; color: #9A9AA8; letter-spacing: .08em; text-transform: uppercase; }
+  .card { background: #15151E; border: 1px solid rgba(255,255,255,.08); border-radius: 16px; padding: 14px; margin-bottom: 12px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+  .stat { background: #1B1B26; border-radius: 10px; padding: 10px; }
+  .stat .k { font-size: 11px; color: #9A9AA8; }
+  .stat .v { font-size: 17px; font-weight: 600; margin-top: 3px; word-break: break-all; }
+  .good { color: #46D08A; } .bad { color: #F2675C; } .warn { color: #F7D27A; }
+  button { padding: 11px 14px; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .gold { background: #E9B949; color: #1b1406; }
+  .ghost { background: #1B1B26; color: #F4F4F5; border: 1px solid rgba(255,255,255,.12); }
+  input { width: 100%; padding: 10px; background: #0E0E14; color: #F4F4F5; border: 1px solid rgba(255,255,255,.12); border-radius: 10px; font-size: 13px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th, td { text-align: left; padding: 7px 6px; border-bottom: 1px solid rgba(255,255,255,.06); }
+  th { color: #9A9AA8; font-weight: 500; }
+  .mono { font-family: ui-monospace, monospace; }
+  .muted { color: #9A9AA8; font-size: 12.5px; }
+  .scroll { overflow-x: auto; }
+  #app { display: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>OSG ADMIN · v5</h1>
+
+  <div class="card" id="gate">
+    <div class="muted" id="gateMsg">Connect the owner wallet to continue.</div>
+    <div style="margin-top:10px"><button class="gold" id="connectBtn">Connect wallet</button></div>
+  </div>
+
+  <div id="app">
+    <div class="card">
+      <h2>Referral programme</h2>
+      <div class="grid" id="prog"></div>
+    </div>
+
+    <div class="card">
+      <h2>OSG token</h2>
+      <div class="grid" id="tok"></div>
+    </div>
+
+    <div class="card">
+      <h2>Treasury</h2>
+      <div class="grid" id="tre"></div>
+    </div>
+
+    <div class="card">
+      <h2>Wallet lookup</h2>
+      <div style="display:flex;gap:8px"><input id="lookAddr" placeholder="0x..."><button class="gold" id="lookBtn">Check</button></div>
+      <div class="grid" id="look" style="margin-top:10px"></div>
+    </div>
+
+    <div class="card">
+      <h2>Commission earners</h2>
+      <div class="muted" id="earnMeta">Wallets that have earned commission at least once. Not every member is here - use Wallet lookup for anyone else.</div>
+      <div style="margin:10px 0"><button class="ghost" id="earnBtn">Load next 25</button></div>
+      <div class="scroll"><table><thead><tr><th>#</th><th>Wallet</th><th>Owed</th><th>Paid</th><th>Rank</th><th>Levels</th></tr></thead><tbody id="earnRows"></tbody></table></div>
+    </div>
+  </div>
+</div>
+
+<script>
+var E = ethers;
+var OWNER = "0xF8acaA5617DfF6DB3d0cb44ca8de0E50A449BB83";
+var A = {
+  token: "0xba05176748347944CC26900c821AbFeBeBC57415",
+  referral: "0x58383A8171014a8008d28e7CbB509e21412ec52A",
+  lens: "0xdF9462D08CDcB70BCFc56579faC863F128B7Ff27",
+  health: "0x43dA472c78ed18fe5964C638B09F62a5bebf435C",
+  treasury: "0x4669b2d38098Ae28D0332F03D1630B334aDDDF50",
+  term: "0xb3DE3956DF62a069c9AC428Ec58120b3d9CD7cCc",
+  lp: "0x1F04F1441208ee8dDD3a124DEfc4a493d768d0fC"
+};
+var RPCS = ["https://polygon-bor-rpc.publicnode.com", "https://rpc.ankr.com/polygon"];
+var ABI = {
+  token: ["function paused() view returns (bool)", "function totalSupply() view returns (uint256)", "function mintedThisHour() view returns (uint256)", "function dailyMinted() view returns (uint256)", "function owner() view returns (address)", "function governance() view returns (address)"],
+  referral: ["function usersLength() view returns (uint256)", "function allUsers(uint256) view returns (address)", "function airdropPaused() view returns (bool)", "function airdropPaySource() view returns (uint8)", "function totalAirdropAssigned() view returns (uint256)", "function totalAirdropPaid() view returns (uint256)", "function taskBoard() view returns (address)"],
+  lens: ["function walletCard(address user) view returns (tuple(address referrer, bool hasUpline, bool uplineIsLegacy, uint256 legacyDirects, uint256 registeredDirects, uint256 qualifiedDirects, uint256 directsForLevels, uint256 levelsOpen, uint256 activeBps, uint256 stake, uint256 qualifyingStake, bool countsAsDirect, uint256 owed, uint256 paid, uint256 volume, uint8 rank, uint256 rankHoldRemaining, uint256 bonusCooldownRemaining, uint256 bonusPaidTotal) card)", "function directsView(address user) view returns (tuple(uint8 level, address wallet, uint256 stake, uint256 qualifyingStake, bool qualified, bool isLegacy, address referrer, uint256 joinedAt)[] list)"],
+  health: ["function programmeStats() view returns (uint256 totalLevelBps, uint256 referralBudgetToday, uint256 minDirectStake, uint256 minReferrerStake, uint256 sourceCount, bool wired, bool paused, bool seedOpen)"],
+  treasury: ["function airdropPool() view returns (uint256)", "function teamBonusPool() view returns (uint256)", "function endsAt() view returns (uint256)", "function monthlyCap() view returns (uint256)", "function isSpender(address) view returns (bool)"],
+  term: ["function getPositions(address user) view returns (tuple(uint256 amount, uint256 cap, uint256 rewardDebt, uint256 rewardPaid, uint256 unpaid, uint256 startTime, bool capped, bool closed)[])"],
+  lp: ["function positionCount(address user) view returns (uint256)", "function positions(address, uint256) view returns (uint256 lpAmount, uint256 osgValue, uint256 rewardDebt, uint256 rewardPaid, uint256 unpaid, uint256 startTime, bool closed)"]
+};
+var RANKS = ["-", "Bronze", "Silver", "Gold", "Diamond", "Platinum"];
+
+var provider = null;
+function pv() {
+  if (!provider) {
+    provider = new E.FallbackProvider(RPCS.map(function (u, i) {
+      return { provider: new E.JsonRpcProvider(u, 137, { staticNetwork: true }), priority: i + 1, weight: 1, stallTimeout: 1200 };
+    }), 137, { quorum: 1 });
+  }
+  return provider;
+}
+function C(name) { return new E.Contract(A[name], ABI[name], pv()); }
+function osg(v, d) { return Number(E.formatUnits(v, 18)).toLocaleString("en-US", { maximumFractionDigits: d === undefined ? 2 : d }); }
+function short(a) { return a.slice(0, 6) + "..." + a.slice(-4); }
+function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+function stat(k, v, cls) { return '<div class="stat"><div class="k">' + esc(k) + '</div><div class="v ' + (cls || "") + '">' + esc(v) + "</div></div>"; }
+function fill(id, html) { document.getElementById(id).innerHTML = html; }
+function fail(id, e) { fill(id, stat("Error", (e && (e.shortMessage || e.message)) || String(e), "bad")); }
+
+async function loadProgramme() {
+  try {
+    var s = await C("health").programmeStats();
+    var r = C("referral");
+    var n = await r.usersLength();
+    fill("prog",
+      stat("Wired", s.wired ? "Yes" : "No", s.wired ? "good" : "bad") +
+      stat("Paused", s.paused ? "Yes" : "No", s.paused ? "bad" : "good") +
+      stat("Budget today", osg(s.referralBudgetToday) + " OSG") +
+      stat("Min direct stake", osg(s.minDirectStake, 0) + " OSG") +
+      stat("Stake sources", s.sourceCount.toString()) +
+      stat("Commission earners", n.toString()));
+  } catch (e) { fail("prog", e); }
+}
+
+async function loadToken() {
+  try {
+    var t = C("token");
+    var res = await Promise.all([t.paused(), t.totalSupply(), t.mintedThisHour(), t.dailyMinted()]);
+    var hour = Number(E.formatUnits(res[2], 18));
+    var day = Number(E.formatUnits(res[3], 18));
+    fill("tok",
+      stat("Paused", res[0] ? "Yes" : "No", res[0] ? "bad" : "good") +
+      stat("Total supply", osg(res[1], 0) + " / 23,000,000") +
+      stat("Minted this hour", hour.toFixed(2) + " / 500", hour > 400 ? "warn" : "") +
+      stat("Minted today", day.toFixed(2) + " / 9,000", day > 7200 ? "warn" : ""));
+  } catch (e) { fail("tok", e); }
+}
+
+async function loadTreasury() {
+  try {
+    var tr = C("treasury");
+    var r = C("referral");
+    var res = await Promise.all([tr.airdropPool(), tr.teamBonusPool(), tr.endsAt(), tr.isSpender(A.referral), r.airdropPaused(), r.airdropPaySource()]);
+    var ends = new Date(Number(res[2]) * 1000).toISOString().slice(0, 10);
+    fill("tre",
+      stat("Airdrop pool", osg(res[0]) + " OSG", res[0] === 0n ? "warn" : "") +
+      stat("Team bonus pool", osg(res[1]) + " OSG", res[1] === 0n ? "warn" : "") +
+      stat("Season ends", ends) +
+      stat("v5 may spend", res[3] ? "Yes" : "No", res[3] ? "good" : "warn") +
+      stat("Airdrop paused", res[4] ? "Yes" : "No") +
+      stat("Airdrop paid from", Number(res[5]) === 1 ? "Treasury" : "Pool"));
+  } catch (e) { fail("tre", e); }
+}
+
+async function passTotal(who) {
+  var cfg = await (await fetch("/event-pass.json?t=" + Date.now())).json();
+  var b = (cfg.batches || []).filter(function (x) { return x.open && !x.only; })[0];
+  if (!b) return null;
+  var s = Math.floor(Date.parse(b.start) / 1000);
+  var e = Math.floor(Date.parse(b.end) / 1000);
+  var directs = await C("lens").directsView(who);
+  var term = C("term");
+  var lp = C("lp");
+  var total = 0n;
+  for (var i = 0; i < directs.length; i++) {
+    var w = directs[i].wallet;
+    var tp = await term.getPositions(w);
+    for (var j = 0; j < tp.length; j++) {
+      var t1 = Number(tp[j].startTime);
+      if (!tp[j].closed && t1 >= s && t1 < e) total += tp[j].amount;
+    }
+    var n = Number(await lp.positionCount(w));
+    for (var m = 0; m < n; m++) {
+      var p = await lp.positions(w, m);
+      var t2 = Number(p.startTime);
+      if (!p.closed && t2 >= s && t2 < e) total += p.osgValue;
+    }
+  }
+  return { batch: b.id, total: total, need: E.parseUnits(String(b.minNew), 18) };
+}
+
+async function lookup() {
+  var addr = document.getElementById("lookAddr").value.trim();
+  if (!E.isAddress(addr)) { fill("look", stat("Error", "Not a valid address", "bad")); return; }
+  fill("look", '<div class="muted">Reading...</div>');
+  try {
+    var c = await C("lens").walletCard(addr);
+    var html =
+      stat("Upline", c.hasUpline ? short(c.referrer) : "None") +
+      stat("Own stake", osg(c.stake) + " OSG") +
+      stat("Counts as direct", c.countsAsDirect ? "Yes" : "No", c.countsAsDirect ? "good" : "") +
+      stat("Directs (qualified)", c.registeredDirects.toString() + " (" + c.qualifiedDirects.toString() + ")") +
+      stat("Levels open", c.levelsOpen.toString() + " of 15") +
+      stat("Owed", osg(c.owed) + " OSG", c.owed > 0n ? "warn" : "") +
+      stat("Paid", osg(c.paid) + " OSG") +
+      stat("Volume", osg(c.volume)) +
+      stat("Rank", RANKS[Number(c.rank)] || String(c.rank)) +
+      stat("Rank bonus paid", osg(c.bonusPaidTotal) + " OSG");
+    fill("look", html + '<div class="stat" id="passStat"><div class="k">Event pass</div><div class="v muted">Counting...</div></div>');
+    var ps = await passTotal(addr);
+    var el = document.getElementById("passStat");
+    if (!ps) { el.innerHTML = '<div class="k">Event pass</div><div class="v muted">No open batch</div>'; return; }
+    var ok = ps.total >= ps.need;
+    el.innerHTML = '<div class="k">Event pass (' + esc(ps.batch) + ')</div><div class="v ' + (ok ? "good" : "") + '">' + osg(ps.total) + " / " + osg(ps.need, 0) + (ok ? " - ready" : "") + "</div>";
+  } catch (e) { fail("look", e); }
+}
+
+var earnNext = 0;
+var earnTotal = null;
+async function loadEarners() {
+  var btn = document.getElementById("earnBtn");
+  btn.disabled = true;
+  try {
+    var r = C("referral");
+    var lens = C("lens");
+    if (earnTotal === null) earnTotal = Number(await r.usersLength());
+    var end = Math.min(earnNext + 25, earnTotal);
+    var body = document.getElementById("earnRows");
+    for (var i = earnNext; i < end; i++) {
+      var w = await r.allUsers(i);
+      var c = await lens.walletCard(w);
+      var tr = document.createElement("tr");
+      tr.innerHTML = "<td>" + (i + 1) + '</td><td class="mono">' + short(w) + "</td><td>" + osg(c.owed) + "</td><td>" + osg(c.paid) + "</td><td>" + esc(RANKS[Number(c.rank)] || c.rank) + "</td><td>" + c.levelsOpen.toString() + "</td>";
+      tr.style.cursor = "pointer";
+      tr.onclick = (function (addr) { return function () { document.getElementById("lookAddr").value = addr; lookup(); window.scrollTo(0, 0); }; })(w);
+      body.appendChild(tr);
+    }
+    earnNext = end;
+    document.getElementById("earnMeta").textContent = "Showing " + end + " of " + earnTotal + " earners. Tap a row to open it in Wallet lookup. Not every member is here - use Wallet lookup for anyone else.";
+    btn.style.display = end >= earnTotal ? "none" : "";
+  } catch (e) {
+    document.getElementById("earnMeta").textContent = "Error: " + ((e && (e.shortMessage || e.message)) || e);
+  }
+  btn.disabled = false;
+}
+
+document.getElementById("connectBtn").onclick = async function () {
+  var msg = document.getElementById("gateMsg");
+  if (!window.ethereum) { msg.textContent = "No wallet found. Open this page in your wallet browser."; return; }
+  try {
+    var accts = await window.ethereum.request({ method: "eth_requestAccounts" });
+    var chain = await window.ethereum.request({ method: "eth_chainId" });
+    if (parseInt(chain, 16) !== 137) { msg.textContent = "Switch the wallet to Polygon and try again."; return; }
+    if (!accts[0] || accts[0].toLowerCase() !== OWNER.toLowerCase()) { msg.textContent = "This wallet is not the owner."; return; }
+    document.getElementById("gate").style.display = "none";
+    document.getElementById("app").style.display = "block";
+    loadProgramme();
+    loadToken();
+    loadTreasury();
+    loadEarners();
+  } catch (e) { msg.textContent = "Connect failed: " + ((e && e.message) || e); }
+};
+document.getElementById("lookBtn").onclick = lookup;
+document.getElementById("earnBtn").onclick = loadEarners;
+</script>
+</body>
+</html>
