@@ -172,6 +172,35 @@ async function loadTreasury() {
   } catch (e) { fail("tre", e); }
 }
 
+async function loadLpWeight() {
+  try {
+    var m = new E.Contract(A.lp, ["function lpToken() view returns (address)", "function lpWeight() view returns (uint256)", "function totalStakeValue() view returns (uint256)", "function maxRateBps() view returns (uint256)", "function effectiveRateBps() view returns (uint256)"], pv());
+    var a = await Promise.all([m.lpToken(), m.lpWeight(), m.totalStakeValue(), m.maxRateBps(), m.effectiveRateBps()]);
+    var p = new E.Contract(a[0], ["function getReserves() view returns (uint112, uint112, uint32)", "function token0() view returns (address)", "function token1() view returns (address)", "function totalSupply() view returns (uint256)"], pv());
+    var b = await Promise.all([p.getReserves(), p.token0(), p.token1(), p.totalSupply()]);
+    var osgRes;
+    if (b[1].toLowerCase() === A.token.toLowerCase()) osgRes = b[0][0];
+    else if (b[2].toLowerCase() === A.token.toLowerCase()) osgRes = b[0][1];
+    else throw new Error("LP pair does not hold OSG");
+    if (b[3] === 0n || osgRes === 0n) throw new Error("LP pair is empty");
+    var now = a[1];
+    var right = (2n * osgRes * 1000000000000000000n) / b[3];
+    var diff = Number(((now - right) * 10000n) / right) / 100;
+    var abs = Math.abs(diff);
+    var oneCall = right <= now * 2n && right * 2n >= now;
+    var rateNow = Number(a[4]) / 100;
+    var rateMax = Number(a[3]) / 100;
+    fill("lpw",
+      stat("Weight now", osg(now, 4) + " OSG per LP") +
+      stat("Correct weight", osg(right, 4) + " OSG per LP") +
+      stat("Difference", (diff > 0 ? "+" : "") + diff.toFixed(2) + "%", abs > 10 ? "bad" : abs > 3 ? "warn" : "good") +
+      stat("New deposits are", abs <= 3 ? "About right" : diff > 0 ? "Over-valued" : "Under-valued", abs > 3 ? "warn" : "good") +
+      stat("setLpWeight value", right.toString()) +
+      stat("Fits one call (2x rule)", oneCall ? "Yes" : "No", oneCall ? "good" : "bad") +
+      stat("Stake value", osg(a[2], 0) + " OSG") +
+      stat("Rate now", rateNow.toFixed(2) + "% / day (max " + rateMax.toFixed(2) + "%)", a[4] < a[3] ? "warn" : "good"));
+  } catch (e) { fail("lpw", e); }
+}
 async function passTotal(who) {
   var cfg = await (await fetch("/event-pass.json?t=" + Date.now())).json();
   var b = (cfg.batches || []).filter(function (x) { return x.open && !x.only; })[0];
