@@ -7638,7 +7638,7 @@ function Messenger({
         ref = inlineRef;
       } else {
         showToast("📤 " + (t.tUploading || "Encrypting & uploading…"));
-        const cid = await uploadToIpfs(blob);
+        const cid = await uploadToIpfsAuth(blob, signer, wallet);
         ref = "e2:" + cid;
       }
       var newEntry = {
