@@ -6932,6 +6932,43 @@ async function uploadToIpfs(content) {
   if (!data.cid) throw new Error("No CID returned");
   return data.cid;
 }
+// Upload pass: one wallet signature per day proves who is uploading.
+var uploadAuthCache = null;
+async function getUploadAuth(signer, wallet) {
+  var w = String(wallet).toLowerCase();
+  var now = Math.floor(Date.now() / 1000);
+  var key = "osgUploadAuth:" + w;
+  if (uploadAuthCache && uploadAuthCache.w === w && uploadAuthCache.exp > now + 300) return uploadAuthCache;
+  try {
+    var saved = JSON.parse(sessionStorage.getItem(key) || "null");
+    if (saved && saved.w === w && saved.exp > now + 300) { uploadAuthCache = saved; return saved; }
+  } catch (e) {}
+  var exp = now + 86400;
+  var sig = await signer.signMessage("OSG-UPLOAD|137|" + w + "|" + exp);
+  uploadAuthCache = { w: w, exp: exp, sig: sig };
+  try { sessionStorage.setItem(key, JSON.stringify(uploadAuthCache)); } catch (e) {}
+  return uploadAuthCache;
+}
+async function uploadToIpfsAuth(content, signer, wallet) {
+  var auth = await getUploadAuth(signer, wallet);
+  const r = await fetch("/api/pinata-upload", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content: content, auth: auth }),
+  });
+  if (r.status === 401) {
+    uploadAuthCache = null;
+    try { sessionStorage.removeItem("osgUploadAuth:" + auth.w); } catch (e) {}
+  }
+  if (!r.ok) {
+    var m = "";
+    try { m = (await r.json()).error || ""; } catch (e) {}
+    throw new Error("IPFS upload failed" + (m ? ": " + m : ""));
+  }
+  const data = await r.json();
+  if (!data.cid) throw new Error("No CID returned");
+  return data.cid;
+}
 async function fetchFromIpfs(cid) {
   const r = await fetch("/api/ipfs-fetch?cid=" + encodeURIComponent(cid));
   if (!r.ok) throw new Error("IPFS fetch failed");
