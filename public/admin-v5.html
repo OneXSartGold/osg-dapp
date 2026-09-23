@@ -452,7 +452,7 @@ document.getElementById("connectBtn").onclick = async function () {
     document.getElementById("app").style.display = "block";
     loadProgramme();
     loadToken();
-    loadTreasury(); loadLpWeight();
+    loadTreasury(); loadLpWeight(); loadDao();
     loadEarners(false);
   } catch (e) { msg.textContent = "Connect failed: " + ((e && e.message) || e); }
 };
