@@ -201,6 +201,58 @@ async function loadLpWeight() {
       stat("Rate now", rateNow.toFixed(2) + "% / day (max " + rateMax.toFixed(2) + "%)", a[4] < a[3] ? "warn" : "good"));
   } catch (e) { fail("lpw", e); }
 }
+async function loadDao() {
+  var DAO = "0xE2E82A8ACdd3Af7FA74Eacb3331231A769d80D4c";
+  var NAMES = { "0xba05176748347944cc26900c821abfebebc57415": "OSG token", "0xa0b2dcb18cf0bdf61bcb9d33f538167df501becb": "RewardStorage", "0xdc4fe983ed301ad42f4e4c43951aa07a7a182855": "RewardPool v2", "0xf8acaa5617dff6db3d0cb44ca8de0e50a449bb83": "OSG-MAIN", "0x58383a8171014a8008d28e7cbb509e21412ec52a": "Referral v5", "0x4669b2d38098ae28d0332f03d1630b334adddf50": "Treasury", "0x1f04f1441208ee8ddd3a124defc4a493d768d0fc": "LP Mining" };
+  function nm(a) { return NAMES[a.toLowerCase()] || short(a); }
+  function ist(t) { return new Date((Number(t) + 19800) * 1000).toISOString().slice(0, 16).replace("T", " ") + " IST"; }
+  try {
+    var iface = new E.Interface(["event Queued(bytes32 indexed id, address indexed target, uint256 value, uint256 executeAfter, bytes32 dataHash, string description)", "event Executed(bytes32 indexed id, address indexed target, uint256 value)", "event Cancelled(bytes32 indexed id)", "event TxExpired(bytes32 indexed id)"]);
+    var d = new E.Contract(DAO, ["function admin() view returns (address)", "function pendingAdmin() view returns (address)", "function getStats() view returns (uint256 queued, uint256 executed, uint256 cancelled, uint256 minDelay, bool isPaused)", "function getTx(bytes32 id) view returns (address target, uint256 value, bytes data, uint256 executeAfter, bool executed, bool isReady, bool isExpired, string description)"], pv());
+    var res = await Promise.all([fetch("/api/dao-logs?t=" + Date.now()).then(function (r) { return r.json(); }), d.admin(), d.pendingAdmin(), d.getStats(), pv().getBalance(DAO)]);
+    var j = res[0];
+    if (!j.ok) throw new Error(j.error || "dao-logs failed");
+    var list = [], byId = {}, ev = [];
+    j.logs.forEach(function (lg) {
+      var p = null;
+      try { p = iface.parseLog({ topics: lg.topics, data: lg.data }); } catch (e) { p = null; }
+      if (p) ev.push({ p: p, time: lg.time });
+    });
+    ev.forEach(function (x) {
+      if (x.p.name !== "Queued") return;
+      var a = x.p.args;
+      byId[a.id] = { id: a.id, target: a.target, value: a.value, after: a.executeAfter, desc: a.description, at: x.time, st: "" };
+      list.push(byId[a.id]);
+    });
+    ev.forEach(function (x) {
+      var r = byId[x.p.args.id];
+      if (!r || x.p.name === "Queued") return;
+      r.st = x.p.name === "Executed" ? "Executed" : x.p.name === "Cancelled" ? "Cancelled" : "Expired (removed)";
+    });
+    var open = list.filter(function (x) { return !x.st; });
+    await Promise.all(open.map(async function (x) {
+      var t = await d.getTx(x.id);
+      x.st = t.target === E.ZeroAddress ? "Removed" : t.executed ? "Executed" : t.isReady ? "Ready" : t.isExpired ? "Expired (still stored)" : "Waiting";
+    }));
+    var live = list.filter(function (x) { return x.st === "Ready" || x.st === "Waiting"; });
+    var s = res[3];
+    fill("dao",
+      stat("Admin", nm(res[1]), res[1].toLowerCase() === OWNER.toLowerCase() ? "good" : "warn") +
+      stat("Pending admin", res[2] === E.ZeroAddress ? "None" : nm(res[2]), res[2] === E.ZeroAddress ? "good" : "warn") +
+      stat("Paused", s.isPaused ? "Yes" : "No", s.isPaused ? "bad" : "good") +
+      stat("Queued / executed / cancelled", s.queued + " / " + s.executed + " / " + s.cancelled) +
+      stat("Can still execute", String(live.length), live.length ? "warn" : "good") +
+      stat("POL held by DAO", Number(E.formatEther(res[4])).toFixed(2) + " POL (cannot be spent)", res[4] > 0n ? "warn" : ""));
+    var rows = "";
+    list.slice().reverse().forEach(function (x) {
+      var cls = x.st === "Executed" ? "good" : x.st === "Ready" || x.st === "Waiting" ? "warn" : "muted";
+      var val = x.value > 0n ? Number(E.formatEther(x.value)).toFixed(2) + " POL" : "0";
+      var note = (x.st === "Ready" || x.st === "Waiting") && x.value > 0n ? '<div class="bad">Execute needs ' + val + " sent from your wallet. The DAO cannot use its own POL.</div>" : "";
+      rows += "<tr><td>" + ist(x.at) + "</td><td>" + esc(x.desc) + note + '</td><td class="mono" title="' + x.target + '">' + esc(nm(x.target)) + '</td><td class="num">' + val + "</td><td>" + ist(x.after) + '</td><td class="' + cls + '">' + x.st + '</td><td class="mono" title="' + x.id + '">' + x.id.slice(0, 10) + "</td></tr>";
+    });
+    fill("daoList", "<table><thead><tr><th>Queued</th><th>Description</th><th>Target</th><th class=\"num\">Value</th><th>Execute after</th><th>Status</th><th>Id</th></tr></thead><tbody>" + rows + "</tbody></table>");
+  } catch (e) { fail("dao", e); }
+}
 async function passTotal(who) {
   var cfg = await (await fetch("/event-pass.json?t=" + Date.now())).json();
   var b = (cfg.batches || []).filter(function (x) { return x.open && !x.only; })[0];
