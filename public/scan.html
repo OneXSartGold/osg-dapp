@@ -74,7 +74,7 @@ var provider = null;
 function getProvider() {
   if (!provider) {
     var list = RPCS.map(function (u, i) {
-      return { provider: new E.JsonRpcProvider(u, 137, { staticNetwork: true }), priority: i + 1, weight: 1, stallTimeout: 1200 };
+      return { provider: new E.JsonRpcProvider(u, 137, { staticNetwork: true, batchMaxCount: 3 }), priority: i + 1, weight: 1, stallTimeout: 1200 };
     });
     provider = new E.FallbackProvider(list, 137, { quorum: 1 });
   }
