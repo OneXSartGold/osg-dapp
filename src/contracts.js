@@ -85,11 +85,8 @@ export const POLYGON_PARAMS = {
 
 // -- Read RPCs (fallback order: first that responds wins) --
 const ALCHEMY = import.meta.env.VITE_ALCHEMY_RPC;
-export const RPC_URLS = [
-  ...(ALCHEMY ? [ALCHEMY] : []),
- "https://polygon-bor-rpc.publicnode.com",
-  
-    
+export const RPC_URLS = [  
+ "https://polygon-bor-rpc.publicnode.com",    
   "https://rpc.ankr.com/polygon",
 ];
 
