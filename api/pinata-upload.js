@@ -12,7 +12,7 @@
 
 import { verifyMessage, JsonRpcProvider, Contract } from "ethers";
 
-const RPCS = ["https://polygon-bor-rpc.publicnode.com", "https://rpc.ankr.com/polygon"];
+const RPCS = ["https://polygon-bor-rpc.publicnode.com", "https://polygon.drpc.org"];
 const TOKEN = "0xba05176748347944CC26900c821AbFeBeBC57415";
 const REFERRAL = "0x58383A8171014a8008d28e7CbB509e21412ec52A";
 const MIN_OSG = 100000000000000000n; // 0.1 OSG = the message fee
