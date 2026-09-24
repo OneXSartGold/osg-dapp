@@ -21,7 +21,7 @@ const MAX_LIFE = 90000; // an upload pass may not live longer than 25 hours
 async function isMember(w) {
   for (const url of RPCS) {
     try {
-      const p = new JsonRpcProvider(url, 137, { staticNetwork: true });
+      const p = new JsonRpcProvider(url, 137, { staticNetwork: true, batchMaxCount: 3 });
       const bal = await new Contract(TOKEN, ["function balanceOf(address) view returns (uint256)"], p).balanceOf(w);
       if (bal >= MIN_OSG) return true;
       const st = await new Contract(REFERRAL, ["function stakeOf(address) view returns (uint256)"], p).stakeOf(w);
