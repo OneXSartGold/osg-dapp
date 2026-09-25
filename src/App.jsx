@@ -6969,6 +6969,26 @@ async function uploadToIpfsAuth(content, signer, wallet) {
   if (!data.cid) throw new Error("No CID returned");
   return data.cid;
 }
+// OSG picture: same daily upload pass, then /api/ai-image (3 per wallet per hour).
+async function makeOsgImage(idea, wallet) {
+  if (!window.ethereum) throw new Error("Wallet not found");
+  var signer = await new BrowserProvider(window.ethereum).getSigner();
+  var auth = await getUploadAuth(signer, wallet);
+  var r = await fetch("/api/ai-image", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt: idea, auth: auth }),
+  });
+  if (r.status === 401) {
+    uploadAuthCache = null;
+    try { sessionStorage.removeItem("osgUploadAuth:" + auth.w); } catch (e) {}
+  }
+  var d = {};
+  try { d = await r.json(); } catch (e) {}
+  if (d.image) return { image: d.image };
+  if (d.refused) return { text: d.reason || "Only OSG-themed pictures can be made." };
+  return { text: d.error || "Could not make the picture right now. Please try again." };
+}
 async function fetchFromIpfs(cid) {
   const r = await fetch("/api/ipfs-fetch?cid=" + encodeURIComponent(cid));
   if (!r.ok) throw new Error("IPFS fetch failed");
