@@ -9269,7 +9269,7 @@ function AIAssistant({ wallet, staked, liveData, holders, polUsd, getReadProvide
     }
   };
   var send = function () {
-    ask(input);
+    if (/^\s*\/(img|image)\b/i.test(input)) draw(input); else ask(input);
   };
 
   return (
