@@ -7030,7 +7030,7 @@ async function makeOsgImage(idea, wallet) {
   }
   var d = {};
   try { d = await r.json(); } catch (e) {}
-  if (d.image) return { image: d.image };
+  if (d.image) return { image: await stampLogo(d.image) };
   if (d.refused) return { text: d.reason || "Only OSG-themed pictures can be made." };
   return { text: d.error || "Could not make the picture right now. Please try again." };
 }
