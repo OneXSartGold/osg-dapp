@@ -9458,7 +9458,7 @@ function AIAssistant({ wallet, staked, liveData, holders, polUsd, getReadProvide
                         fontWeight: m.role === "user" ? 600 : 400,
                       }}
                     >
-                      {m.content}
+                      {m.content}{m.image ? <img src={m.image} alt="OSG picture" style={{ display: "block", width: "100%", borderRadius: 12, marginTop: 8 }} /> : null}{m.image ? <a href={m.image} download="osg-picture.jpg" style={{ display: "inline-block", marginTop: 6, color: C.gold1, fontSize: 12 }}>Download</a> : null}
                     </div>
                   );
                 })
