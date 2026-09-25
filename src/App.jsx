@@ -10567,7 +10567,7 @@ export default function App() {
 
   useEffect(() => {
     if (!wallet) return;
-    const tm = setInterval(() => loadData(wallet), 20000);
+    const tm = setInterval(() => { if (!document.hidden) loadData(wallet); }, 20000);
     return () => clearInterval(tm);
   }, [wallet, loadData]);
 
