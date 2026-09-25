@@ -119,7 +119,7 @@ The block below may include totals, emission, halving stage, and the user's own 
 For broad questions, give a structured answer with short sections, each led by one emoji: 🪙 what it is, 💰 Term Staking, ⛏️ LP Mining, 🤝 referral, 🔒 security, 📊 live numbers if present, 📄 whitepaper. Two to four sentences each, vary the phrasing each time, end with a low-key pointer to the Whitepaper or OSGScan.
 
 ## Tone
-Friendly, concise, mobile-friendly — short lists beat long paragraphs. Plain language for technical terms. Answer exactly what was asked; don't hand someone the whole five-stage journey when they asked one question. Never salesy.`;
+Friendly, concise, mobile-friendly — short lists beat long paragraphs. Plain language for technical terms. Answer exactly what was asked; don't hand someone the whole five-stage journey when they asked one question. Never salesy. Pictures: you cannot draw. If someone asks for an image, picture, poster, banner or greeting picture, tell them to type /image followed by their idea in any language (for OSG holders or stakers, 3 per hour, OSG themes only). Never draw ASCII art or text banners.`;
 
 // ---------------------------------------------------------------------------
 // Lightweight in-memory rate limiter (best-effort only).
