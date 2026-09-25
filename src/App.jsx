@@ -6969,6 +6969,51 @@ async function uploadToIpfsAuth(content, signer, wallet) {
   if (!data.cid) throw new Error("No CID returned");
   return data.cid;
 }
+// Stamps the real OSG logo (LOGO) in the bottom-right corner of a generated picture.
+function stampLogo(src) {
+  return new Promise(function (resolve) {
+    var bg = new Image();
+    bg.onerror = function () { resolve(src); };
+    bg.onload = function () {
+      var lg = new Image();
+      lg.onerror = function () { resolve(src); };
+      lg.onload = function () {
+        try {
+          var c = document.createElement("canvas");
+          c.width = bg.naturalWidth;
+          c.height = bg.naturalHeight;
+          var x = c.getContext("2d");
+          x.drawImage(bg, 0, 0);
+          var s = Math.round(c.width * 0.16), m = Math.round(c.width * 0.03);
+          var px = c.width - s - m, py = c.height - s - m, r = Math.round(s * 0.22);
+          var box = function () {
+            x.beginPath();
+            x.moveTo(px + r, py);
+            x.arcTo(px + s, py, px + s, py + s, r);
+            x.arcTo(px + s, py + s, px, py + s, r);
+            x.arcTo(px, py + s, px, py, r);
+            x.arcTo(px, py, px + s, py, r);
+            x.closePath();
+          };
+          x.save();
+          box();
+          x.clip();
+          x.drawImage(lg, px, py, s, s);
+          x.restore();
+          x.lineWidth = Math.max(2, Math.round(s * 0.03));
+          x.strokeStyle = "#E9B949";
+          box();
+          x.stroke();
+          resolve(c.toDataURL("image/jpeg", 0.92));
+        } catch (e) {
+          resolve(src);
+        }
+      };
+      lg.src = LOGO;
+    };
+    bg.src = src;
+  });
+}
 // OSG picture: same daily upload pass, then /api/ai-image (3 per wallet per hour).
 async function makeOsgImage(idea, wallet) {
   if (!window.ethereum) throw new Error("Wallet not found");
