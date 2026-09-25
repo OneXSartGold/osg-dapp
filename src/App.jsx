@@ -10441,7 +10441,7 @@ export default function App() {
     } catch (e) {
       osgPerPol = 1;
     }
-    console.log("LP_DEBUG", {
+    if (false) console.log("LP_DEBUG", {
       resNull: !_lpRes,
       t0Null: !_lpT0,
       osgPerPol: osgPerPol,
