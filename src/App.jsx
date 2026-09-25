@@ -8955,7 +8955,7 @@ function AIAssistant({ wallet, staked, liveData, holders, polUsd, getReadProvide
     {
       role: "assistant",
       content:
-        "Hello! I'm OSG Assistant. Ask me anything about Staking, Referral, Swap, or Chat",
+        "Hello! I'm OSG Assistant. Ask me anything about Staking, Referral, Swap, or Chat. To make an OSG picture, type /image and your idea (3 per hour)",
     },
   ]);
   const [input, setInput] = useState("");
