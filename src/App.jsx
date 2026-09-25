@@ -9253,6 +9253,21 @@ function AIAssistant({ wallet, staked, liveData, holders, polUsd, getReadProvide
     }
   };
 
+    var draw = async function (text) {
+    var idea = text.replace(/^\s*\/(img|image)\s*/i, "").trim();
+    if (!wallet || !idea || sending) return;
+    setMsgs(function (m) { return m.concat([{ role: "user", content: text.trim() }]); });
+    setInput("");
+    setSending(true);
+    try {
+      var out = await makeOsgImage(idea, wallet);
+      setMsgs(function (m) { return m.concat([{ role: "assistant", content: out.image ? "Here is your OSG picture." : out.text, image: out.image || null }]); });
+    } catch (e) {
+      setMsgs(function (m) { return m.concat([{ role: "assistant", content: "The picture was not made: " + ((e && (e.shortMessage || e.message)) || "please try again") }]); });
+    } finally {
+      setSending(false);
+    }
+  };
   var send = function () {
     ask(input);
   };
