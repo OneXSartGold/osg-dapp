@@ -21,7 +21,7 @@ const REFERRAL = "0x58383A8171014a8008d28e7CbB509e21412ec52A";
 const MIN_OSG = 100000000000000000n; // 0.1 OSG, same rule as uploads
 const MAX_LIFE = 90000; // a pass may not live longer than 25 hours
 const WALLET_HOURLY = 3; // images per wallet per UTC hour
-const DAILY_CAP = 150; // images for everyone together per UTC day
+const DAILY_CAP = 100; // images for everyone together per UTC day
 const MODEL = "@cf/black-forest-labs/flux-1-schnell";
 
 const GUARD = [
