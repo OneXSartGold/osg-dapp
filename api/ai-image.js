@@ -195,7 +195,7 @@ export default async function handler(req, res) {
     const cf = await fetch("https://api.cloudflare.com/client/v4/accounts/" + acct + "/ai/run/" + MODEL, {
       method: "POST",
       headers: { Authorization: "Bearer " + cfToken, "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt: prompt, steps: 4 }),
+      body: JSON.stringify({ prompt: prompt + ". The only emblem is the golden OSG diamond. Background ornaments are plain shapes with no letters, numbers or symbols. Sharp, highly detailed, high resolution.", steps: 8 }),
     });
     if (!cf.ok) {
       const t = await cf.text();
