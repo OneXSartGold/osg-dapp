@@ -253,31 +253,64 @@ async function loadDao() {
     fill("daoList", "<table><thead><tr><th>Queued</th><th>Description</th><th>Target</th><th class=\"num\">Value</th><th>Execute after</th><th>Status</th><th>Id</th></tr></thead><tbody>" + rows + "</tbody></table>");
   } catch (e) { fail("dao", e); }
 }
+// Same three kinds of step as the app and the gate scanner: "self" = own new
+// stake in the window, "team" = directs' new stake in the window, "directs" =
+// at least minDirects directs who met one of the "of" steps. Term + LP, open
+// positions only. Returns the best step: the first one met, else the running one.
 async function passTotal(who) {
   var cfg = await (await fetch("/event-pass.json?t=" + Date.now())).json();
-  var b = (cfg.batches || []).filter(function (x) { return x.open && !x.only; })[0];
-  if (!b) return null;
-  var s = Math.floor(Date.parse(b.start) / 1000);
-  var e = Math.floor(Date.parse(b.end) / 1000);
-  var directs = await C("lens").directsView(who);
+  var open = (cfg.batches || []).filter(function (x) { return x.open && !x.only; });
+  if (!open.length) return null;
   var term = C("term");
   var lp = C("lp");
-  var total = 0n;
-  for (var i = 0; i < directs.length; i++) {
-    var w = directs[i].wallet;
+  var ONE = 10n ** 18n;
+  var seen = {};
+  async function posOf(w) {
+    var k = String(w).toLowerCase();
+    if (seen[k]) return seen[k];
+    var out = [];
     var tp = await term.getPositions(w);
-    for (var j = 0; j < tp.length; j++) {
-      var t1 = Number(tp[j].startTime);
-      if (!tp[j].closed && t1 >= s && t1 < e) total += tp[j].amount;
-    }
+    for (var j = 0; j < tp.length; j++) if (!tp[j].closed) out.push({ t: Number(tp[j].startTime), a: tp[j].amount });
     var n = Number(await lp.positionCount(w));
     for (var m = 0; m < n; m++) {
       var p = await lp.positions(w, m);
-      var t2 = Number(p.startTime);
-      if (!p.closed && t2 >= s && t2 < e) total += p.osgValue;
+      if (!p.closed) out.push({ t: Number(p.startTime), a: p.osgValue });
     }
+    seen[k] = out;
+    return out;
   }
-  return { batch: b.id, total: total, need: E.parseUnits(String(b.minNew), 18) };
+  function sumIn(list, s, e) { var t = 0n; for (var i = 0; i < list.length; i++) if (list[i].t >= s && list[i].t < e) t += list[i].a; return t; }
+  function win(b) { return [Math.floor(Date.parse(b.start) / 1000), Math.floor(Date.parse(b.end) / 1000)]; }
+  var directs = null;
+  async function dirs() { if (!directs) directs = await C("lens").directsView(who); return directs; }
+  var now = Math.floor(Date.now() / 1000);
+  var steps = [];
+  for (var i = 0; i < open.length; i++) {
+    var b = open[i], w = win(b), kind = b.type || "team", total = 0n, need = 0n;
+    if (kind === "self") {
+      need = E.parseUnits(String(b.minSelf), 18);
+      total = sumIn(await posOf(who), w[0], w[1]);
+    } else if (kind === "directs") {
+      need = BigInt(b.minDirects || 3) * ONE;
+      var refs = open.filter(function (x) { return (b.of || []).indexOf(x.id) >= 0 && x.type === "self"; });
+      var ds = await dirs();
+      for (var d = 0; d < ds.length && total < need; d++) {
+        var list = await posOf(ds[d].wallet);
+        for (var r = 0; r < refs.length; r++) {
+          var wr = win(refs[r]);
+          if (sumIn(list, wr[0], wr[1]) >= E.parseUnits(String(refs[r].minSelf), 18)) { total += ONE; break; }
+        }
+      }
+    } else {
+      need = E.parseUnits(String(b.minNew), 18);
+      var dl = await dirs();
+      for (var q = 0; q < dl.length; q++) total += sumIn(await posOf(dl[q].wallet), w[0], w[1]);
+    }
+    var label = kind === "self" ? "own new stake" : kind === "directs" ? "directs with a pass" : "team new stake";
+    steps.push({ batch: b.id + " · " + label, total: total, need: need, ok: total >= need, live: now >= w[0] && now < w[1] });
+  }
+  var best = steps.filter(function (x) { return x.ok; })[0] || steps.filter(function (x) { return x.live; })[0] || steps[0];
+  return { batch: best.batch, total: best.total, need: best.need };
 }
 
 async function eligibleRank(who) {
