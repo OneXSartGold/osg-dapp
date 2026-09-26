@@ -1101,10 +1101,13 @@ async function mintPreflight(runner, who) {
   }
 }
 
-// Event pass. The rule lives in /event-pass.json, so the window and the
-// amount can change without touching this file. Sums NEW stake by the
-// wallet's directs inside the window -- Term + LP, open positions only.
-// Returns the first open batch with the running total, or null. Never throws.
+// Event pass. The rules live in /event-pass.json, so windows and amounts can
+// change without touching this file. Three kinds of step, any one is enough:
+//   "self"    -- the wallet's OWN new stake inside the window (minSelf)
+//   "team"    -- new stake by the wallet's directs inside the window (minNew)
+//   "directs" -- at least minDirects directs who met one of the "of" steps
+// Term + LP, open positions only. Returns the best step plus every step in
+// .steps, or null. Never throws.
 async function eventPassCheck(runner, who) {
   try {
     const res = await fetch("/event-pass.json?t=" + Date.now());
@@ -1112,38 +1115,84 @@ async function eventPassCheck(runner, who) {
     const lens = new Contract(ADDRESSES.referralLens, REFERRAL_LENS_ABI, runner);
     const term = new Contract(ADDRESSES.termStaking, TERM_STAKING_ABI, runner);
     const lp = new Contract(ADDRESSES.lpMining, LP_MINING_ABI, runner);
-    const directs = await lens.directsView(who);
-    for (const b of cfg.batches || []) {
-      if (!b.open) continue;
-      const s = Math.floor(Date.parse(b.start) / 1000);
-      const e = Math.floor(Date.parse(b.end) / 1000);
-      const need = parseUnits(String(b.minNew), 18);
-      let total = 0n;
-      for (const d of directs) {
-        for (const p of await term.getPositions(d.wallet)) {
-          const t = Number(p.startTime);
-          if (!p.closed && t >= s && t < e) total += p.amount;
-        }
-        const n = Number(await lp.positionCount(d.wallet));
-        for (let i = 0; i < n; i++) {
-          const p = await lp.positions(d.wallet, i);
-          const t = Number(p.startTime);
-          if (!p.closed && t >= s && t < e) total += p.osgValue;
-        }
+    const ONE = 10n ** 18n;
+    const cache = {};
+    async function openPos(w) {
+      const k = String(w).toLowerCase();
+      if (cache[k]) return cache[k];
+      const out = [];
+      for (const p of await term.getPositions(w)) {
+        if (!p.closed) out.push({ t: Number(p.startTime), a: p.amount });
       }
-      const now = Math.floor(Date.now() / 1000);
-      return {
+      const n = Number(await lp.positionCount(w));
+      for (let i = 0; i < n; i++) {
+        const p = await lp.positions(w, i);
+        if (!p.closed) out.push({ t: Number(p.startTime), a: p.osgValue });
+      }
+      cache[k] = out;
+      return out;
+    }
+    function sumIn(list, s, e) {
+      let t = 0n;
+      for (const x of list) if (x.t >= s && x.t < e) t += x.a;
+      return t;
+    }
+    function win(b) {
+      return [Math.floor(Date.parse(b.start) / 1000), Math.floor(Date.parse(b.end) / 1000)];
+    }
+    const open = (cfg.batches || []).filter(function (b) { return b.open; });
+    let directs = null;
+    async function getDirects() {
+      if (!directs) directs = await lens.directsView(who);
+      return directs;
+    }
+    const now = Math.floor(Date.now() / 1000);
+    const steps = [];
+    for (const b of open) {
+      const [s, e] = win(b);
+      const kind = b.type || "team";
+      let total = 0n;
+      let need = 0n;
+      if (kind === "self") {
+        need = parseUnits(String(b.minSelf), 18);
+        total = sumIn(await openPos(who), s, e);
+      } else if (kind === "directs") {
+        need = BigInt(b.minDirects || 3) * ONE;
+        const refs = open.filter(function (x) { return (b.of || []).indexOf(x.id) >= 0 && x.type === "self"; });
+        let count = 0n;
+        for (const d of await getDirects()) {
+          const list = await openPos(d.wallet);
+          for (const r of refs) {
+            const [rs, re] = win(r);
+            if (sumIn(list, rs, re) >= parseUnits(String(r.minSelf), 18)) { count += 1n; break; }
+          }
+          if (count * ONE >= need) break;
+        }
+        total = count * ONE;
+      } else {
+        need = parseUnits(String(b.minNew), 18);
+        for (const d of await getDirects()) total += sumIn(await openPos(d.wallet), s, e);
+      }
+      steps.push({
         batch: b.id,
+        kind: kind,
         total: total,
         need: need,
         left: total >= need ? 0n : need - total,
         qualified: total >= need,
         started: now >= s,
         closed: now >= e,
+        startsAt: s,
         endsAt: e,
-      };
+      });
     }
-    return null;
+    if (!steps.length) return null;
+    const best =
+      steps.find(function (x) { return x.qualified; }) ||
+      steps.find(function (x) { return x.started && !x.closed; }) ||
+      steps.find(function (x) { return !x.started; }) ||
+      steps[steps.length - 1];
+    return Object.assign({}, best, { steps: steps });
   } catch (err) {
     return null;
   }
