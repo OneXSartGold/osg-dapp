@@ -9269,6 +9269,14 @@ function AIAssistant({ wallet, staked, liveData, holders, polUsd, getReadProvide
         d && d.reply
           ? d.reply
           : "Sorry, I couldn't get a response right now. Please try again.";
+      var imgM = /^\s*IMAGE:\s*([\s\S]+)/i.exec(reply);
+      if (imgM) {
+        var pic = null;
+        try { pic = await makeOsgImage(imgM[1].trim().slice(0, 300), wallet); }
+        catch (ie) { pic = { text: "The picture was not made: " + ((ie && (ie.shortMessage || ie.message)) || "please try again") }; }
+        setMsgs(function (m) { return m.concat([{ role: "assistant", content: pic.image ? "Here is your OSG picture." : pic.text, image: pic.image || null }]); });
+        return;
+      }
       var typeId = Date.now();
       setMsgs(function (m) {
         return m.concat([{ role: "assistant", content: "", typeId: typeId }]);
