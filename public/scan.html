@@ -106,44 +106,75 @@ async function getCfg() {
   return cfgCache;
 }
 
+// Same rules as the app: "self" = own new stake in the window, "team" = new
+// stake by directs in the window, "directs" = at least minDirects directs who
+// met one of the "of" steps. Term + LP, open positions only.
+async function openPositions(w, term, lp) {
+  var out = [];
+  var tp = await term.getPositions(w);
+  for (var j = 0; j < tp.length; j++) {
+    if (!tp[j].closed) out.push({ t: Number(tp[j].startTime), a: tp[j].amount });
+  }
+  var n = Number(await lp.positionCount(w));
+  for (var m = 0; m < n; m++) {
+    var p = await lp.positions(w, m);
+    if (!p.closed) out.push({ t: Number(p.startTime), a: p.osgValue });
+  }
+  return out;
+}
+function sumIn(list, s, e) {
+  var t = 0n;
+  for (var i = 0; i < list.length; i++) if (list[i].t >= s && list[i].t < e) t += list[i].a;
+  return t;
+}
+function winOf(b) { return [Math.floor(Date.parse(b.start) / 1000), Math.floor(Date.parse(b.end) / 1000)]; }
+
 async function isQualified(addr, batchId) {
   var okMap = load(KEY_OK, {});
   var k = batchId + ":" + addr;
   if (okMap[k]) return { ok: true, cached: true };
   var cfg = await getCfg();
   if (!cfg) return { ok: false, why: "Rules file not reachable" };
-  var b = (cfg.batches || []).filter(function (x) { return x.id === batchId; })[0];
+  var all = cfg.batches || [];
+  var b = all.filter(function (x) { return x.id === batchId; })[0];
   if (!b) return { ok: false, why: "Unknown batch" };
-  var s = Math.floor(Date.parse(b.start) / 1000);
-  var e = Math.floor(Date.parse(b.end) / 1000);
-  var need = E.parseUnits(String(b.minNew), 18);
+  var w0 = winOf(b);
+  var s = w0[0], e = w0[1];
+  var kind = b.type || "team";
   var pv = getProvider();
   var lens = new E.Contract(LENS, LENS_ABI, pv);
   var term = new E.Contract(TERM, TERM_ABI, pv);
   var lp = new E.Contract(LPM, LP_ABI, pv);
-  var directs = await lens.directsView(addr);
-  var total = 0n;
-  for (var i = 0; i < directs.length; i++) {
-    var w = directs[i].wallet;
-    var tp = await term.getPositions(w);
-    for (var j = 0; j < tp.length; j++) {
-      var t1 = Number(tp[j].startTime);
-      if (!tp[j].closed && t1 >= s && t1 < e) total += tp[j].amount;
+  var total = 0n, need = 0n, unit = " OSG";
+  if (kind === "self") {
+    need = E.parseUnits(String(b.minSelf), 18);
+    total = sumIn(await openPositions(addr, term, lp), s, e);
+  } else if (kind === "directs") {
+    unit = " directs";
+    need = BigInt(b.minDirects || 3);
+    var refs = all.filter(function (x) { return (b.of || []).indexOf(x.id) >= 0 && x.type === "self"; });
+    var ds = await lens.directsView(addr);
+    for (var i = 0; i < ds.length && total < need; i++) {
+      var list = await openPositions(ds[i].wallet, term, lp);
+      for (var r = 0; r < refs.length; r++) {
+        var wr = winOf(refs[r]);
+        if (sumIn(list, wr[0], wr[1]) >= E.parseUnits(String(refs[r].minSelf), 18)) { total += 1n; break; }
+      }
     }
-    var n = Number(await lp.positionCount(w));
-    for (var m = 0; m < n; m++) {
-      var p = await lp.positions(w, m);
-      var t2 = Number(p.startTime);
-      if (!p.closed && t2 >= s && t2 < e) total += p.osgValue;
+  } else {
+    need = E.parseUnits(String(b.minNew), 18);
+    var dl = await lens.directsView(addr);
+    for (var d = 0; d < dl.length && total < need; d++) {
+      total += sumIn(await openPositions(dl[d].wallet, term, lp), s, e);
     }
-    if (total >= need) break;
   }
   if (total >= need) {
     okMap[k] = true;
     save(KEY_OK, okMap);
     return { ok: true };
   }
-  return { ok: false, why: "Not qualified (" + Number(E.formatUnits(total, 18)).toFixed(0) + " / " + b.minNew + ")" };
+  var shown = unit === " OSG" ? Number(E.formatUnits(total, 18)).toFixed(0) + " / " + Number(E.formatUnits(need, 18)).toFixed(0) : String(total) + " / " + String(need);
+  return { ok: false, why: "Not qualified (" + shown + unit + ")" };
 }
 
 async function checkPayload(text) {
