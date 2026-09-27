@@ -56,7 +56,7 @@
 
     <div class="card">
       <h2>Treasury</h2>
-      <div class="grid" id="tre"></div></div><div class="card"><h2>LP mining weight</h2><div class="grid" id="lpw"></div></div><div class="card"><h2>DAO queue</h2><div class="grid" id="dao"></div><div class="scroll" id="daoList" style="margin-top:10px"></div>
+      <div class="grid" id="tre"></div></div><div class="card"><h2>LP mining weight</h2><div class="grid" id="lpw"></div></div><div class="card"><h2>Term staking</h2><div class="grid" id="term"></div></div><div class="card"><h2>DAO queue</h2><div class="grid" id="dao"></div><div class="scroll" id="daoList" style="margin-top:10px"></div>
     </div>
 
     <div class="card">
@@ -200,6 +200,31 @@ async function loadLpWeight() {
       stat("Stake value", osg(a[2], 0) + " OSG") +
       stat("Rate now", rateNow.toFixed(2) + "% / day (max " + rateMax.toFixed(2) + "%)", a[4] < a[3] ? "warn" : "good"));
   } catch (e) { fail("lpw", e); }
+}
+ async function loadTerm() {
+  try {
+    var t = new E.Contract(A.term, ["function maxRateBps() view returns (uint256)", "function effectiveRateBps() view returns (uint256)", "function miningShareBps() view returns (uint256)", "function maxShareBps() view returns (uint256)", "function totalStaked() view returns (uint256)", "function totalPrincipal() view returns (uint256)", "function capacity() view returns (uint256)", "function capacityLeft() view returns (uint256)", "function minDeposit() view returns (uint256)", "function depositDeadline() view returns (uint256)", "function getTermStakingDailyBudget() view returns (uint256)", "function paused() view returns (bool)", "function payoutHealth() view returns (bool canPayNow, string reason)"], pv());
+    var a = await Promise.all([t.maxRateBps(), t.effectiveRateBps(), t.miningShareBps(), t.maxShareBps(), t.totalStaked(), t.totalPrincipal(), t.capacity(), t.capacityLeft(), t.minDeposit(), t.depositDeadline(), t.getTermStakingDailyBudget(), t.paused(), t.payoutHealth()]);
+    var maxR = Number(a[0]) / 100, effR = Number(a[1]) / 100;
+    var budget = a[10];
+    var needAtMax = (a[4] * a[0]) / 10000n;
+    var fitsUpTo = a[0] > 0n ? (budget * 10000n) / a[0] : 0n;
+    var dl = Number(a[9]);
+    var used = a[6] > 0n ? Number((a[5] * 10000n) / a[6]) / 100 : 0;
+    fill("term",
+      stat("Rate now", effR.toFixed(2) + "% / day (max " + maxR.toFixed(2) + "%)", a[1] < a[0] ? "warn" : "good") +
+      stat("Earning stake", osg(a[4], 0) + " OSG") +
+      stat("Principal held", osg(a[5], 0) + " OSG") +
+      stat("Capacity used", osg(a[5], 0) + " / " + osg(a[6], 0) + " (" + used.toFixed(1) + "%)", used > 90 ? "warn" : "") +
+      stat("Daily budget", osg(budget) + " OSG") +
+      stat("Needed at max rate", osg(needAtMax) + " OSG / day", needAtMax > budget ? "warn" : "good") +
+      stat("Max rate fits up to", osg(fitsUpTo, 0) + " OSG earning stake") +
+      stat("Mining share", (Number(a[2]) / 100).toFixed(2) + "% (max " + (Number(a[3]) / 100).toFixed(2) + "%)") +
+      stat("Min deposit", osg(a[8], 0) + " OSG") +
+      stat("Deposit deadline", dl === 0 ? "None" : new Date((dl + 19800) * 1000).toISOString().slice(0, 16).replace("T", " ") + " IST") +
+      stat("Paused", a[11] ? "Yes" : "No", a[11] ? "bad" : "good") +
+      stat("Payouts", a[12][0] ? "Ready" : String(a[12][1]), a[12][0] ? "good" : "bad"));
+  } catch (e) { fail("term", e); }
 }
 async function loadDao() {
   var DAO = "0xE2E82A8ACdd3Af7FA74Eacb3331231A769d80D4c";
@@ -485,7 +510,7 @@ document.getElementById("connectBtn").onclick = async function () {
     document.getElementById("app").style.display = "block";
     loadProgramme();
     loadToken();
-    loadTreasury(); loadLpWeight(); loadDao();
+    loadTreasury(); loadLpWeight(); loadTerm(); loadDao();
     loadEarners(false);
   } catch (e) { msg.textContent = "Connect failed: " + ((e && e.message) || e); }
 };
