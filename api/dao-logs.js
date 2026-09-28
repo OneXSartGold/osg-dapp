@@ -50,7 +50,7 @@ export default async function handler(req, res) {
         time: parseInt(lg.timeStamp, 16),
         tx: lg.transactionHash,
       }));
-      res.setHeader("Cache-Control", "public, max-age=60");
+      res.setHeader("Cache-Control", "public, max-age=60, s-maxage=300");
       return res.status(200).json({ ok: true, count: logs.length, full: logs.length >= 1000, logs });
     }
 
