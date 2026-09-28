@@ -729,7 +729,12 @@ document.getElementById("connectBtn").onclick = async function () {
   try {
     var accts = await window.ethereum.request({ method: "eth_requestAccounts" });
     var chain = await window.ethereum.request({ method: "eth_chainId" });
-    if (parseInt(chain, 16) !== 137) { msg.textContent = "Switch the wallet to Polygon and try again."; return; }
+    if (parseInt(chain, 16) !== 137) { 
+      try { await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x89" }] }); }
+      catch (e) { msg.textContent = "Switch the wallet to Polygon and try again."; return; }
+      chain = await window.ethereum.request({ method: "eth_chainId" });
+      if (parseInt(chain, 16) !== 137) { msg.textContent = "Switch the wallet to Polygon and try again."; return; }
+    }
     var role = accts[0] ? await roleOf(accts[0]) : "";
     if (!role) { msg.textContent = "This wallet does not have admin access."; return; }
     IS_OWNER = role === "owner";
