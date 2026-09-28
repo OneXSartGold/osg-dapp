@@ -56,7 +56,7 @@
 
     <div class="card">
       <h2>Treasury</h2>
-      <div class="grid" id="tre"></div></div><div class="card"><h2>LP mining weight</h2><div class="grid" id="lpw"></div></div><div class="card"><h2>Term staking</h2><div class="grid" id="term"></div></div><div class="card"><h2>DAO queue</h2><div class="grid" id="dao"></div><div class="scroll" id="daoList" style="margin-top:10px"></div>
+      <div class="grid" id="tre"></div></div><div class="card"><h2>LP mining weight</h2><div class="grid" id="lpw"></div><div id="lpCtl" style="margin-top:10px"></div></div><div class="card"><h2>Term staking</h2><div class="grid" id="term"></div></div><div class="card"><h2>DAO queue</h2><div class="grid" id="dao"></div><div class="scroll" id="daoList" style="margin-top:10px"></div>
     </div>
 
     <div class="card">
@@ -200,6 +200,79 @@ async function loadLpWeight() {
       stat("Stake value", osg(a[2], 0) + " OSG") +
       stat("Rate now", rateNow.toFixed(2) + "% / day (max " + rateMax.toFixed(2) + "%)", a[4] < a[3] ? "warn" : "good"));
   } catch (e) { fail("lpw", e); }
+}
+ // ===== Owner actions: every write is simulated first, then confirmed =====
+var signer = null;
+async function getSigner() {
+  if (!signer) signer = await new E.BrowserProvider(window.ethereum).getSigner();
+  var who = await signer.getAddress();
+  if (who.toLowerCase() !== OWNER.toLowerCase()) throw new Error("Connected wallet is not the owner");
+  return signer;
+}
+function note(id, text, cls) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.className = "muted " + (cls || "");
+  el.textContent = text;
+}
+function errText(e) { return (e && (e.shortMessage || e.reason || e.message)) || String(e); }
+async function ownerTx(o) {
+  try {
+    var c = new E.Contract(o.addr, [o.abi], await getSigner());
+    var f = c.getFunction(o.fn);
+    note(o.msg, "Simulating...");
+    try { await f.staticCall(...o.args); }
+    catch (e) { note(o.msg, "Simulation failed, nothing sent: " + errText(e), "bad"); return; }
+    if (!window.confirm(o.name + "\n\n" + o.what + "\n\nSimulation passed. Send from the owner wallet?")) { note(o.msg, "Cancelled. Nothing sent."); return; }
+    note(o.msg, "Waiting for the wallet...");
+    var tx = await f(...o.args);
+    note(o.msg, "Sent " + tx.hash + " - waiting for confirmation...");
+    var r = await tx.wait();
+    note(o.msg, (r.status === 1 ? "Done in block " + r.blockNumber + ": " : "Failed: ") + tx.hash, r.status === 1 ? "good" : "bad");
+    if (o.reload) o.reload();
+  } catch (e) { note(o.msg, "Not sent: " + errText(e), "bad"); }
+}
+function pctToBps(txt, lo, hi) {
+  var x = Number(String(txt).trim());
+  if (!isFinite(x) || String(txt).trim() === "") throw new Error("Enter a number");
+  var bps = Math.round(x * 100);
+  if (Math.abs(bps - x * 100) > 1e-6) throw new Error("Use at most 2 decimals");
+  if (bps < lo || bps > hi) throw new Error("Allowed " + (lo / 100).toFixed(2) + "% to " + (hi / 100).toFixed(2) + "%");
+  return bps;
+}
+async function lpWeightNow() {
+  var m = new E.Contract(A.lp, ["function lpToken() view returns (address)", "function lpWeight() view returns (uint256)"], pv());
+  var a = await Promise.all([m.lpToken(), m.lpWeight()]);
+  var p = new E.Contract(a[0], ["function getReserves() view returns (uint112, uint112, uint32)", "function token0() view returns (address)", "function totalSupply() view returns (uint256)"], pv());
+  var b = await Promise.all([p.getReserves(), p.token0(), p.totalSupply()]);
+  var osgRes = b[1].toLowerCase() === A.token.toLowerCase() ? b[0][0] : b[0][1];
+  if (b[2] === 0n || osgRes === 0n) throw new Error("LP pair is empty");
+  return { now: a[1], right: (2n * osgRes * 1000000000000000000n) / b[2] };
+}
+function loadLpControls() {
+  fill("lpCtl",
+    '<div class="bar"><input id="lpRateIn" placeholder="New LP max rate, % per day (0.10 - 2.00)" style="flex:1"><button class="gold" id="lpRateBtn">Set LP rate</button></div>' +
+    '<div class="bar"><button class="ghost" id="lpWBtn">Set LP weight to the correct value</button></div>' +
+    '<div class="muted" id="lpMsg">Owner actions are simulated first, then you confirm in the wallet.</div>');
+  document.getElementById("lpRateBtn").onclick = async function () {
+    var bps;
+    try { bps = pctToBps(document.getElementById("lpRateIn").value, 10, 200); } catch (e) { note("lpMsg", errText(e), "bad"); return; }
+    var old = await new E.Contract(A.lp, ["function maxRateBps() view returns (uint256)"], pv()).maxRateBps();
+    if (BigInt(bps) === old) { note("lpMsg", "That is already the rate.", "warn"); return; }
+    ownerTx({ msg: "lpMsg", name: "LP Mining - setMaxRateBps", addr: A.lp, abi: "function setMaxRateBps(uint256 newBps)", fn: "setMaxRateBps", args: [bps],
+      what: "Max rate: " + (Number(old) / 100).toFixed(2) + "% -> " + (bps / 100).toFixed(2) + "% per day.\nThe contract still lowers the running rate if the daily budget is short.",
+      reload: function () { loadLpWeight(); } });
+  };
+  document.getElementById("lpWBtn").onclick = async function () {
+    var w;
+    try { w = await lpWeightNow(); } catch (e) { note("lpMsg", errText(e), "bad"); return; }
+    if (w.right === w.now) { note("lpMsg", "Weight is already correct.", "good"); return; }
+    if (!(w.right <= w.now * 2n && w.right * 2n >= w.now)) { note("lpMsg", "More than 2x away - needs two steps. Nothing sent.", "bad"); return; }
+    var diff = Number(((w.right - w.now) * 10000n) / w.now) / 100;
+    ownerTx({ msg: "lpMsg", name: "LP Mining - setLpWeight", addr: A.lp, abi: "function setLpWeight(uint256 newWeight)", fn: "setLpWeight", args: [w.right],
+      what: "LP weight: " + osg(w.now, 4) + " -> " + osg(w.right, 4) + " OSG per LP (" + (diff > 0 ? "+" : "") + diff.toFixed(2) + "%).\nOnly new deposits use the new weight.\nRaw value: " + w.right.toString(),
+      reload: function () { loadLpWeight(); } });
+  };
 }
  async function loadTerm() {
   try {
@@ -510,7 +583,7 @@ document.getElementById("connectBtn").onclick = async function () {
     document.getElementById("app").style.display = "block";
     loadProgramme();
     loadToken();
-    loadTreasury(); loadLpWeight(); loadTerm(); loadDao();
+    loadTreasury(); loadLpWeight(); loadLpControls(); loadTerm(); loadDao();
     loadEarners(false);
   } catch (e) { msg.textContent = "Connect failed: " + ((e && e.message) || e); }
 };
