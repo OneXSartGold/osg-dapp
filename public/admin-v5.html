@@ -39,12 +39,11 @@
   <h1>OSG ADMIN · v5</h1>
 
   <div class="card" id="gate">
-    <div class="muted" id="gateMsg">Connect the owner or a sub-admin wallet to continue.</div>
+    <div class="muted" id="gateMsg">Connect your admin wallet to continue.</div>
     <div style="margin-top:10px"><button class="gold" id="connectBtn">Connect wallet</button></div>
   </div>
 
   <div id="app">
-    <div class="card" id="viewNote" style="display:none"><div class="warn">View only. Settings can be changed only from the owner wallet.</div></div>
     <div class="card">
       <h2>Referral programme</h2>
       <div class="grid" id="prog"></div>
@@ -61,7 +60,7 @@
     </div>
 
     <div class="card" id="subCard" style="display:none">
-      <h2>Sub-admins</h2>
+      <h2>Admin access</h2>
       <div id="subCtl"></div>
     </div>
 
@@ -280,7 +279,7 @@ function loadLpControls() {
       reload: function () { loadLpWeight(); } });
   };
 }
-// ===== Roles: owner changes settings, sub-admins only view =====
+// ===== Roles: the owner wallet changes settings; other admin wallets read =====
 var TASKBOARD = "0x4581B50E6EAf62EDfA618F55A55f60Cb3A13C897";
 var IS_OWNER = false;
 async function roleOf(a) {
@@ -291,8 +290,8 @@ async function roleOf(a) {
     if (Number(r[0]) > 0 || Number(r[1]) > 0) return "sub";
   } catch (e) {}
   try {
-    var j = await (await fetch("/subadmins.json?t=" + Date.now())).json();
-    if ((j.viewers || []).some(function (x) { return String(x).toLowerCase() === a.toLowerCase(); })) return "sub";
+    var j = await (await fetch("/admins.json?t=" + Date.now())).json();
+    if ((j.wallets || []).some(function (x) { return String(x).toLowerCase() === a.toLowerCase(); })) return "sub";
   } catch (e) {}
   return "";
 }
@@ -389,12 +388,12 @@ function loadLpMoreControls() {
 }
 function loadSubAdmins() {
   fill("subCtl",
-    '<div class="bar"><input id="subAddr" placeholder="Sub-admin wallet 0x..." style="flex:1"><button class="ghost" id="subCheck">Check</button></div>' +
+    '<div class="bar"><input id="subAddr" placeholder="Admin wallet 0x..." style="flex:1"><button class="ghost" id="subCheck">Check</button></div>' +
     '<div class="bar"><label class="muted"><input type="checkbox" id="subGrant" style="width:auto"> Give bonus to members (airdrop)</label></div>' +
     '<div class="bar"><label class="muted"><input type="checkbox" id="subMark" style="width:auto"> Mark tasks and attendance done</label>' +
     '<label class="muted"><input type="checkbox" id="subTask" style="width:auto"> Create and edit tasks</label></div>' +
     '<div class="bar"><button class="gold" id="subSave1">Save bonus permission</button><button class="gold" id="subSave2">Save task permissions</button></div>' +
-    '<div class="muted" id="subMsg">Anyone with a permission here can open this page in view-only mode. To let someone only view, add their wallet to public/subadmins.json. Untick all and save to remove.</div>');
+    '<div class="muted" id="subMsg">Anyone with a permission here can open this page in view-only mode. To let someone only view, add their wallet to public/admins.json. Untick all and save to remove.</div>');
   var P = ["function adminPerms(address) view returns (uint8)"];
   function addr() {
     var a = document.getElementById("subAddr").value.trim();
@@ -732,7 +731,7 @@ document.getElementById("connectBtn").onclick = async function () {
     var chain = await window.ethereum.request({ method: "eth_chainId" });
     if (parseInt(chain, 16) !== 137) { msg.textContent = "Switch the wallet to Polygon and try again."; return; }
     var role = accts[0] ? await roleOf(accts[0]) : "";
-    if (!role) { msg.textContent = "This wallet is not the owner or a sub-admin."; return; }
+    if (!role) { msg.textContent = "This wallet does not have admin access."; return; }
     IS_OWNER = role === "owner";
     document.getElementById("gate").style.display = "none";
     document.getElementById("app").style.display = "block";
@@ -740,7 +739,6 @@ document.getElementById("connectBtn").onclick = async function () {
     loadToken();
     loadTreasury(); loadLpWeight(); loadTerm(); loadDao();
     if (IS_OWNER) { loadLpControls(); loadLpMoreControls(); loadTermControls(); loadSubAdmins(); document.getElementById("subCard").style.display = "block"; }
-    else document.getElementById("viewNote").style.display = "block";
     loadEarners(false);
   } catch (e) { msg.textContent = "Connect failed: " + ((e && e.message) || e); }
 };
