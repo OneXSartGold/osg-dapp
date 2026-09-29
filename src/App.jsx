@@ -10360,12 +10360,16 @@ export default function App() {
   const [data, setData] = useState(EMPTY);
   const [busy, setBusy] = useState({});
   const [refParam, setRefParam] = useState(null);
+  // Last values read successfully from the chain, and the DexScreener
+  // price, so a failed RPC read never shows a made-up number.
+  const lastGoodRef = useRef({ osgPerPol: 0, totalStaked: "0" });
+  const dexPolPerOsgRef = useRef(0);
   const [polUsd, setPolUsd] = useState(0.077);
   const [holders, setHolders] = useState(null);
   const [chg24, setChg24] = useState(null);
   const providerRef = useRef(null);
   const t = I18N[lang] || I18N.en;
-    // Header crest: the connected wallet's rank, read again on wallet or tab
+  // Header crest: the connected wallet's rank, read again on wallet or tab
   // change. No wallet, rank 0, or a failed read shows nothing.
   const [myRank, setMyRank] = useState(0);
   useEffect(() => {
@@ -10436,6 +10440,7 @@ export default function App() {
           var pu = pr ? Number(pr.priceUsd) : 0;
           var pn = pr ? Number(pr.priceNative) : 0;
           if (/POL|MATIC/i.test(qs || "") && pu > 0 && pn > 0) {
+            dexPolPerOsgRef.current = pn;
             var polNow = pu / pn;
             if (polNow > 0.01 && polNow < 10) setPolUsd(polNow);
           }
@@ -10591,7 +10596,7 @@ export default function App() {
     const polBal = val(10, 0n);
     var _lpRes = val(11, null);
     var _lpT0 = val(12, null);
-    var osgPerPol = 1;
+    var osgPerPol = 0;
     try {
       if (_lpRes && _lpT0) {
         var _r0 = Number(formatUnits(_lpRes[0], 18));
@@ -10603,8 +10608,14 @@ export default function App() {
         if (_osgRes > 0) osgPerPol = _polRes / _osgRes;
       }
     } catch (e) {
-      osgPerPol = 1;
+      osgPerPol = 0;
     }
+    // A failed read must not show a made-up price or stake: keep the
+    // last good value, else DexScreener's price, else 0 (shown as 0.00).
+    if (osgPerPol > 0) lastGoodRef.current.osgPerPol = osgPerPol;
+    else osgPerPol = lastGoodRef.current.osgPerPol || dexPolPerOsgRef.current || 0;
+    var totStkShow = results[4].status === "fulfilled" ? f18(totStk) : lastGoodRef.current.totalStaked;
+    if (results[4].status === "fulfilled") lastGoodRef.current.totalStaked = totStkShow;
     if (false) console.log("LP_DEBUG", {
       resNull: !_lpRes,
       t0Null: !_lpT0,
@@ -10617,7 +10628,7 @@ export default function App() {
       staked: si ? f18(si.staked) : "0",
       storageReward: si ? f18(si.rewardPoolPending) : "0",
       pending: f18(pend),
-      totalStaked: f18(totStk),
+      totalStaked: totStkShow,
       activeStakers: pool ? String(pool.currentActiveStakers) : "0",
       dailyEmission: pool ? f18(pool.dailyStakingEmission) : "0",
       rewardDistributed: pool ? f18(pool.rewardDistributed) : "0",
