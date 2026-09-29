@@ -10430,6 +10430,15 @@ export default function App() {
         .then(function (d) {
           var pr = d && d.pairs && d.pairs[0];
           var c = pr && pr.priceChange && pr.priceChange.h24;
+          // POL price from the same OSG/WPOL pair, so the app never falls
+          // back to the old fixed 0.077 when CoinGecko is rate-limited.
+          var qs = pr && pr.quoteToken && pr.quoteToken.symbol;
+          var pu = pr ? Number(pr.priceUsd) : 0;
+          var pn = pr ? Number(pr.priceNative) : 0;
+          if (/POL|MATIC/i.test(qs || "") && pu > 0 && pn > 0) {
+            var polNow = pu / pn;
+            if (polNow > 0.01 && polNow < 10) setPolUsd(polNow);
+          }
           if (c !== undefined && c !== null) setChg24(Number(c));
         })
         .catch(function () {});
