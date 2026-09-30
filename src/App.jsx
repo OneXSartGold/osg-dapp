@@ -3,7 +3,7 @@ import qrcode from "qrcode-generator";
 import {
   BrowserProvider,
   JsonRpcProvider,
-  FallbackProvider,
+  FetchRequest,
   Contract,
   formatUnits,
   parseUnits,
@@ -55,6 +55,53 @@ const LOGO =
 
 // ── helpers ──────────────────────────────────────────────
 const short = (a) => (a ? `${a.slice(0, 6)}…${a.slice(-4)}` : "");
+// One shared read provider for the whole app. It tries RPC_URLS in order
+// and moves to the next node when one answers with an HTTP error
+// (429 / 529 / 5xx), a rate-limit reply, or no answer, then sticks with
+// the node that worked. ethers' FallbackProvider with quorum 1 took the
+// first error as the answer and never tried the next node.
+class FailoverRpcProvider extends JsonRpcProvider {
+  constructor(urls) {
+    super(urls[0], 137, { staticNetwork: true, batchMaxCount: 3 });
+    this._urls = urls;
+    this._at = 0;
+  }
+  async _send(payload) {
+    var lastErr = null;
+    for (var k = 0; k < this._urls.length; k++) {
+      var idx = (this._at + k) % this._urls.length;
+      try {
+        var req = new FetchRequest(this._urls[idx]);
+        req.body = JSON.stringify(payload);
+        req.setHeader("content-type", "application/json");
+        req.timeout = 10000;
+        req.setThrottleParams({ maxAttempts: 1 });
+        var res = await req.send();
+        res.assertOk();
+        var out = res.bodyJson;
+        var arr = Array.isArray(out) ? out : [out];
+        var limited = arr.some(function (r) {
+          return r && r.error && /rate|limit|capacity|too many/i.test(String(r.error.message || ""));
+        });
+        if (limited) throw new Error("rpc limited");
+        this._at = idx;
+        return arr;
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+    throw lastErr;
+  }
+}
+var sharedReadProvider = null;
+// Every "new FallbackProvider(...)" below returns the one shared failover
+// provider; the arguments are ignored on purpose.
+class FallbackProvider {
+  constructor() {
+    if (!sharedReadProvider) sharedReadProvider = new FailoverRpcProvider(RPC_URLS);
+    return sharedReadProvider;
+  }
+}
 const fmt = (v, d = 2) =>
   Number(v).toLocaleString("en-US", { maximumFractionDigits: d });
 const f18 = (bn) => {
@@ -6535,8 +6582,8 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
      const p = miningProviderRef.current;
       mining = new Contract(ADDRESSES.lpMining, LP_MINING_ABI, p);
       const onEvt = () => { setBlockPulse(Date.now()); setBlockCount((c) => c + 1); };
-      mining.on("Deposited", onEvt);
-      mining.on("Claimed", onEvt);
+      // live pulse off: polling for events overloaded the free RPCs
+      
       return () => {
         mining.off("Deposited", onEvt);
         mining.off("Claimed", onEvt);
