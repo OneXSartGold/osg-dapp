@@ -86,6 +86,8 @@ export const POLYGON_PARAMS = {
 // -- Read RPCs (fallback order: first that responds wins) --
 
 export const RPC_URLS = [  
+   // Paid dRPC through our own server route; the key stays on Vercel.
+  (typeof window !== "undefined" ? window.location.origin : "") + "/api/rpc",
  "https://polygon-bor-rpc.publicnode.com",    
   "https://polygon.drpc.org",
   "https://1rpc.io/matic",
