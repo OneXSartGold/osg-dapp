@@ -62,7 +62,7 @@ const short = (a) => (a ? `${a.slice(0, 6)}…${a.slice(-4)}` : "");
 // first error as the answer and never tried the next node.
 class FailoverRpcProvider extends JsonRpcProvider {
   constructor(urls) {
-    super(urls[0], 137, { staticNetwork: true, batchMaxCount: 3 });
+    super(urls[0], 137, { staticNetwork: true, batchMaxCount: 10 });
     this._urls = urls;
     this._at = 0;
   }
@@ -74,7 +74,7 @@ class FailoverRpcProvider extends JsonRpcProvider {
         var req = new FetchRequest(this._urls[idx]);
         req.body = JSON.stringify(payload);
         req.setHeader("content-type", "application/json");
-        req.timeout = 10000;
+        req.timeout = 4000;
         req.setThrottleParams({ maxAttempts: 1 });
         var res = await req.send();
         res.assertOk();
