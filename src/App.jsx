@@ -6512,6 +6512,7 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
         termLifted: lifted,
         lpWeight: f18(lpW),
         isWired: wired,
+        loaded: true,
         stakedLp: String(totalStakedLp),
         pendingTotal: String(totalPending),
       });
@@ -6747,12 +6748,12 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
         <div className="sec">Paying now</div>
         <div style={{ display: "flex", alignItems: "baseline", gap: 8, margin: "12px 0 2px" }}>
           <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 40, fontWeight: 700, letterSpacing: "-.03em", color: C.gold1, lineHeight: 1 }}>
-            {(rateBps / 100).toFixed(2)}
+            {info.loaded ? (rateBps / 100).toFixed(2) : "…"}
           </span>
           <span style={{ fontSize: 14, color: C.txt2 }}>% a day</span>
         </div>
         <div style={{ fontSize: 12.5, color: C.txt3, marginTop: 8 }}>
-          {fmt(info.filled, 2)} of {fmt(info.capacity, 0)} LP staked across the pool
+          {info.loaded ? fmt(info.filled, 2) + " of " + fmt(info.capacity, 0) + " LP staked across the pool" : "Reading the pool…"}
         </div>
         <div style={{ height: 4, background: "#191921", borderRadius: 3, marginTop: 10, overflow: "hidden" }}>
           <div style={{ height: "100%", width: fillPct + "%", background: "linear-gradient(90deg,#F7D27A,#e0bd6d)" }} />
@@ -6763,7 +6764,7 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
             shared down proportionally.
           </div>
         )}
-        {!info.isWired && (
+        {info.loaded && !info.isWired && (
           <div style={{ fontSize: 11.5, color: "#ffb4b4", marginTop: 10 }}>
             Not wired to the reward pool — rewards are not accruing.
           </div>
