@@ -4057,6 +4057,52 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
     }
     setCollecting(false);
   }
+// Collect the spot bonus. Takes as many stakes as fit in one call, the
+  // pool and today's limit, tests the call first, then sends it.
+  const [spotBusy, setSpotBusy] = useState(false);
+  async function claimSpot() {
+    if (!spot || !spot.items || !spot.items.length) return;
+    const signer = await ensureReady();
+    if (!signer) return;
+    setSpotBusy(true);
+    try {
+      const room = spot.pool < spot.todayLeft ? spot.pool : spot.todayLeft;
+      const pick = [];
+      let sum = 0n;
+      for (const x of spot.items) {
+        if (pick.length >= SPOT_MAX_BATCH) break;
+        if (sum + x.amount > room) continue;
+        pick.push(x);
+        sum += x.amount;
+      }
+      if (!pick.length) {
+        showToast(spot.todayLeft < spot.pool
+          ? "⏳ Today's spot bonus limit is used up. Your bonus stays safe; collect it tomorrow."
+          : "⏳ The bonus pool is being topped up. Your bonus stays safe until then.");
+        setSpotBusy(false);
+        return;
+      }
+      const c = new Contract(SPOT_ADDR, SPOT_ABI, signer);
+      const a = pick.map(function (x) { return x.sourceId; });
+      const b = pick.map(function (x) { return x.staker; });
+      const k = pick.map(function (x) { return x.index; });
+      const got = await c.claimMany.staticCall(a, b, k);
+      if (got === 0n) {
+        showToast("ℹ️ You have reached Rank 2, so these stakes no longer pay a spot bonus.");
+        setSpotBusy(false);
+        setSpotTick(function (n) { return n + 1; });
+        return;
+      }
+      const gas = await c.claimMany.estimateGas(a, b, k);
+      showToast("Collecting " + fmt(f18(got), 2) + " OSG…");
+      await (await c.claimMany(a, b, k, { gasLimit: gas + gas / 5n + 50000n })).wait();
+      showToast("✅ " + fmt(f18(got), 2) + " OSG spot bonus is in your wallet");
+    } catch (e) {
+      showToast("❌ " + (e.shortMessage || e.reason || "Transaction failed"));
+    }
+    setSpotBusy(false);
+    setSpotTick(function (n) { return n + 1; });
+  }
   async function claimCommission() {
     const signer = await ensureReady();
     if (!signer) return;
@@ -4127,6 +4173,11 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
                   </div>
                 </div>
               </div>
+{spot.items.length > 0 && !spot.paused && spot.selfStake >= spot.minSelf && !spot.rankHit && (
+                <button className="btn-gold" style={{ marginTop: 12 }} disabled={spotBusy} onClick={claimSpot}>
+                  {spotBusy ? "Working…" : "Collect " + fmt(f18(spot.total), 2) + " OSG"}
+                </button>
+              )}
               <div style={{ fontSize: 11.5, color: C.txt3, marginTop: 10, lineHeight: 1.6 }}>
                 {"You get " + (spot.rateBps / 100) + "% of every new stake your direct members open from 1 October 2026, once per stake, while it is still open. It is paid straight to your wallet."}
               </div>
