@@ -3671,7 +3671,8 @@ async function loadSpotState(p, wallet, directs) {
   const out = {
     started: startAt > 0n, startAt: startAt, paused: paused, rateBps: Number(rate), minSelf: minSelf,
     selfStake: st.selfStake, eligible: st.eligible, reachedAt: st.reachedAt, received: st.received,
-    pool: pool, todayLeft: today, items: [], total: 0n, rankHit: st.reachedAt > 0n,
+    pool: pool, todayLeft: today, items: [], total: 0n,
+    rankRecorded: st.reachedAt > 0n, blockedByRank: false,
   };
   if (!out.started || st.selfStake < minSelf) return out;
 
@@ -3705,7 +3706,7 @@ async function loadSpotState(p, wallet, directs) {
           if (Number(q.reason) === 0 && q.amount > 0n) {
             out.items.push({ sourceId: s.id, staker: d, index: k, amount: q.amount });
           } else if (Number(q.reason) === 6) {
-            out.rankHit = true;
+            out.blockedByRank = true;
           }
         }
       })());
@@ -4173,7 +4174,7 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
                   </div>
                 </div>
               </div>
-{spot.items.length > 0 && !spot.paused && spot.selfStake >= spot.minSelf && !spot.rankHit && (
+{spot.items.length > 0 && !spot.paused && spot.selfStake >= spot.minSelf && (
                 <button className="btn-gold" style={{ marginTop: 12 }} disabled={spotBusy} onClick={claimSpot}>
                   {spotBusy ? "Working…" : "Collect " + fmt(f18(spot.total), 2) + " OSG"}
                 </button>
@@ -4186,8 +4187,10 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
                   ? "The spot bonus is paused for now. Nothing is lost; collect it later."
                   : spot.selfStake < spot.minSelf
                   ? "Keep at least " + fmt(f18(spot.minSelf), 0) + " OSG of your own stake to collect. You have " + fmt(f18(spot.selfStake), 0) + " OSG."
-                  : spot.rankHit
-                  ? "You have reached Rank 2, so new stakes no longer pay a spot bonus. Stakes opened before that can still be collected."
+                  : spot.items.length > 0 && spot.rankRecorded
+                  ? "You have reached Rank 2. Stakes opened before that can still be collected; new ones no longer pay."
+                  : spot.items.length === 0 && (spot.rankRecorded || spot.blockedByRank)
+                  ? "You have reached Rank 2, so new stakes no longer pay a spot bonus."
                   : spot.items.length === 0
                   ? "Nothing to collect yet."
                   : spot.pool < spot.total
