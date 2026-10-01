@@ -4148,7 +4148,7 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
         <h1>{t.referral}</h1>
       </div>
 
-{spot && (spot.error || spot.started) && (
+{spot && !spot.error && spot.started && !spot.paused && (
         <div className="card" style={{ marginTop: 14 }}>
           <div className="sec">Spot bonus</div>
           {spot.error ? (
