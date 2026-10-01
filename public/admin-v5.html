@@ -101,7 +101,8 @@ var A = {
   lp: "0x1F04F1441208ee8dDD3a124DEfc4a493d768d0fC",
   spot: "0x7Ee98AE2BeAEf2251A8bBB3810006495F62b7C92"
 };
-var RPCS = ["https://polygon-bor-rpc.publicnode.com", "https://polygon.drpc.org"];
+// Our own paid route first (/api/rpc, key on the server), public nodes after it.
+var RPCS = [location.origin + "/api/rpc", "https://polygon-bor-rpc.publicnode.com", "https://polygon.drpc.org", "https://1rpc.io/matic"];
 var ABI = {
   token: ["function paused() view returns (bool)", "function totalSupply() view returns (uint256)", "function mintedThisHour() view returns (uint256)", "function dailyMinted() view returns (uint256)", "function owner() view returns (address)", "function governance() view returns (address)"],
   referral: ["function usersLength() view returns (uint256)", "function allUsers(uint256) view returns (address)", "function airdropPaused() view returns (bool)", "function airdropPaySource() view returns (uint8)", "function totalAirdropAssigned() view returns (uint256)", "function totalAirdropPaid() view returns (uint256)", "function taskBoard() view returns (address)", "function currentRank(address user, address[] directs) view returns (uint8)"],
@@ -115,13 +116,40 @@ var RANKS = ["-", "Bronze", "Silver", "Gold", "Diamond", "Platinum"];
 var MIN_DIRECT = 100;
 var TEAM_CAP = 3000;
 
+// Tries each node in order and moves on after an HTTP error (529, 429, 5xx),
+// a rate-limit reply or 4 s without an answer. FallbackProvider with quorum 1
+// took the first error as the answer and never tried the next node.
+class FailoverRpc extends E.JsonRpcProvider {
+  constructor(urls) {
+    super(urls[0], 137, { staticNetwork: true, batchMaxCount: 10 });
+    this._urls = urls;
+    this._at = 0;
+  }
+  async _send(payload) {
+    var lastErr = null;
+    for (var k = 0; k < this._urls.length; k++) {
+      var idx = (this._at + k) % this._urls.length;
+      try {
+        var req = new E.FetchRequest(this._urls[idx]);
+        req.body = JSON.stringify(payload);
+        req.setHeader("content-type", "application/json");
+        req.timeout = 4000;
+        req.setThrottleParams({ maxAttempts: 1 });
+        var res = await req.send();
+        res.assertOk();
+        var out = res.bodyJson;
+        var arr = Array.isArray(out) ? out : [out];
+        if (arr.some(function (r) { return r && r.error && /rate|limit|capacity|too many/i.test(String(r.error.message || "")); })) throw new Error("rpc limited");
+        this._at = idx;
+        return arr;
+      } catch (e) { lastErr = e; }
+    }
+    throw lastErr;
+  }
+}
 var provider = null;
 function pv() {
-  if (!provider) {
-    provider = new E.FallbackProvider(RPCS.map(function (u, i) {
-      return { provider: new E.JsonRpcProvider(u, 137, { staticNetwork: true, batchMaxCount: 3 }), priority: i + 1, weight: 1, stallTimeout: 1200 };
-    }), 137, { quorum: 1 });
-  }
+  if (!provider) provider = new FailoverRpc(RPCS);
   return provider;
 }
 function C(name) { return new E.Contract(A[name], ABI[name], pv()); }
@@ -313,9 +341,12 @@ function loadTreasuryControls() {
   function setSpender(allow) {
     return async function () {
       var a; try { a = spAddr(); } catch (e) { note("treMsg", errText(e), "bad"); return; }
-      var now = await T().isSpender(a);
-      if (now === allow) { note("treMsg", spenderName(a) + (allow ? " is already allowed." : " is already not allowed."), "warn"); return; }
-      if (allow && (await pv().getCode(a)) === "0x") { note("treMsg", "That address is not a contract. Nothing sent.", "bad"); return; }
+      try {
+        note("treMsg", "Reading...");
+        var now = await T().isSpender(a);
+        if (now === allow) { note("treMsg", spenderName(a) + (allow ? " is already allowed." : " is already not allowed."), "warn"); return; }
+        if (allow && (await pv().getCode(a)) === "0x") { note("treMsg", "That address is not a contract. Nothing sent.", "bad"); return; }
+      } catch (e) { note("treMsg", "Could not read the chain, nothing sent: " + errText(e), "bad"); return; }
       ownerTx({ msg: "treMsg", name: allow ? "Allow Treasury spender" : "Remove Treasury spender", addr: A.treasury, abi: "function allowSpender(address spender, bool allowed)", fn: "allowSpender", args: [a, allow],
         what: allow ? spenderName(a) + " (" + a + ") may pay members from the Treasury pools.\nTakes effect at once." : spenderName(a) + " may no longer pay from the Treasury.\nTakes effect at once.",
         reload: re });
