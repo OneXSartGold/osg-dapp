@@ -56,7 +56,7 @@
 
     <div class="card">
       <h2>Treasury</h2>
-      <div class="grid" id="tre"></div></div><div class="card"><h2>LP mining weight</h2><div class="grid" id="lpw"></div><div id="lpCtl" style="margin-top:10px"></div></div><div class="card"><h2>Term staking</h2><div class="grid" id="term"></div><div id="termCtl" style="margin-top:10px"></div></div><div class="card"><h2>DAO queue</h2><div class="grid" id="dao"></div><div class="scroll" id="daoList" style="margin-top:10px"></div>
+      <div class="grid" id="tre"></div><div id="treCtl" style="margin-top:10px"></div></div><div class="card"><h2>LP mining weight</h2><div class="grid" id="lpw"></div><div id="lpCtl" style="margin-top:10px"></div></div><div class="card"><h2>Term staking</h2><div class="grid" id="term"></div><div id="termCtl" style="margin-top:10px"></div></div><div class="card"><h2>DAO queue</h2><div class="grid" id="dao"></div><div class="scroll" id="daoList" style="margin-top:10px"></div>
     </div>
 
     <div class="card" id="subCard" style="display:none">
@@ -98,7 +98,8 @@ var A = {
   health: "0x43dA472c78ed18fe5964C638B09F62a5bebf435C",
   treasury: "0x4669b2d38098Ae28D0332F03D1630B334aDDDF50",
   term: "0xb3DE3956DF62a069c9AC428Ec58120b3d9CD7cCc",
-  lp: "0x1F04F1441208ee8dDD3a124DEfc4a493d768d0fC"
+  lp: "0x1F04F1441208ee8dDD3a124DEfc4a493d768d0fC",
+  spot: "0x7Ee98AE2BeAEf2251A8bBB3810006495F62b7C92"
 };
 var RPCS = ["https://polygon-bor-rpc.publicnode.com", "https://polygon.drpc.org"];
 var ABI = {
@@ -165,7 +166,7 @@ async function loadTreasury() {
   try {
     var tr = C("treasury");
     var r = C("referral");
-    var res = await Promise.all([tr.airdropPool(), tr.teamBonusPool(), tr.endsAt(), tr.isSpender(A.referral), r.airdropPaused(), r.airdropPaySource()]);
+    var res = await Promise.all([tr.airdropPool(), tr.teamBonusPool(), tr.endsAt(), tr.isSpender(A.referral), r.airdropPaused(), r.airdropPaySource(), tr.isSpender(A.spot)]);
     var ends = new Date(Number(res[2]) * 1000).toISOString().slice(0, 10);
     fill("tre",
       stat("Airdrop pool", osg(res[0]) + " OSG", res[0] === 0n ? "warn" : "") +
@@ -173,7 +174,8 @@ async function loadTreasury() {
       stat("Season ends", ends) +
       stat("v5 may spend", res[3] ? "Yes" : "No", res[3] ? "good" : "warn") +
       stat("Airdrop paused", res[4] ? "Yes" : "No") +
-      stat("Airdrop paid from", Number(res[5]) === 1 ? "Treasury" : "Pool"));
+      stat("Airdrop paid from", Number(res[5]) === 1 ? "Treasury" : "Pool") +
+      stat("Spot may spend", res[6] ? "Yes" : "No", res[6] ? "good" : "warn"));
   } catch (e) { fail("tre", e); }
 }
 
@@ -277,6 +279,66 @@ function loadLpControls() {
     ownerTx({ msg: "lpMsg", name: "Fix LP counting", addr: A.lp, abi: "function setLpWeight(uint256 newWeight)", fn: "setLpWeight", args: [w.right],
       what: "100 OSG added counts as: " + (Number((200n * 1000000000000000000n * w.now) / w.right) / 1e18).toFixed(1) + " OSG -> 200 OSG.\nOnly new LP deposits are affected; existing ones stay as they are.",
       reload: function () { loadLpWeight(); } });
+  };
+}
+// ===== Treasury: who may pay from it, and adding OSG to the airdrop pool =====
+var TRE_R = ["function isSpender(address) view returns (bool)", "function airdropPool() view returns (uint256)", "function closesAt() view returns (uint256)"];
+var TOK_R = ["function balanceOf(address) view returns (uint256)", "function allowance(address, address) view returns (uint256)"];
+function spenderName(a) {
+  var l = a.toLowerCase();
+  if (l === A.spot.toLowerCase()) return "Spot bonus";
+  if (l === A.referral.toLowerCase()) return "Referral v5";
+  return short(a);
+}
+function loadTreasuryControls() {
+  fill("treCtl",
+    '<div class="bar"><input id="treSpIn" value="' + A.spot + '" style="flex:1"><button class="ghost" id="treSpCheck">Check</button></div>' +
+    '<div class="bar"><button class="gold" id="treSpAllow">Allow to pay from Treasury</button><button class="ghost" id="treSpRemove">Remove</button></div>' +
+    field("treFundIn", "OSG to add to the airdrop pool (from the owner wallet)", "treFundBtn", "Add to airdrop pool") +
+    '<div class="muted" id="treMsg">The address above is the Spot bonus contract. The airdrop pool is shared: Referral v5 airdrop and Spot both pay from it.</div>');
+  var T = function () { return new E.Contract(A.treasury, TRE_R, pv()); };
+  var re = function () { loadTreasury(); };
+  function spAddr() {
+    var a = document.getElementById("treSpIn").value.trim();
+    if (!E.isAddress(a)) throw new Error("Not a valid address");
+    return E.getAddress(a);
+  }
+  document.getElementById("treSpCheck").onclick = async function () {
+    try {
+      var a = spAddr();
+      var ok = await T().isSpender(a);
+      note("treMsg", spenderName(a) + (ok ? " may pay from the Treasury." : " may not pay from the Treasury."), ok ? "good" : "warn");
+    } catch (e) { note("treMsg", errText(e), "bad"); }
+  };
+  function setSpender(allow) {
+    return async function () {
+      var a; try { a = spAddr(); } catch (e) { note("treMsg", errText(e), "bad"); return; }
+      var now = await T().isSpender(a);
+      if (now === allow) { note("treMsg", spenderName(a) + (allow ? " is already allowed." : " is already not allowed."), "warn"); return; }
+      if (allow && (await pv().getCode(a)) === "0x") { note("treMsg", "That address is not a contract. Nothing sent.", "bad"); return; }
+      ownerTx({ msg: "treMsg", name: allow ? "Allow Treasury spender" : "Remove Treasury spender", addr: A.treasury, abi: "function allowSpender(address spender, bool allowed)", fn: "allowSpender", args: [a, allow],
+        what: allow ? spenderName(a) + " (" + a + ") may pay members from the Treasury pools.\nTakes effect at once." : spenderName(a) + " may no longer pay from the Treasury.\nTakes effect at once.",
+        reload: re });
+    };
+  }
+  document.getElementById("treSpAllow").onclick = setSpender(true);
+  document.getElementById("treSpRemove").onclick = setSpender(false);
+  document.getElementById("treFundBtn").onclick = async function () {
+    var v; try { v = osgIn("treFundIn"); } catch (e) { note("treMsg", errText(e), "bad"); return; }
+    try {
+      var tok = new E.Contract(A.token, TOK_R, pv());
+      var r = await Promise.all([tok.balanceOf(OWNER), tok.allowance(OWNER, A.treasury), T().airdropPool(), T().closesAt()]);
+      if (BigInt(Math.floor(Date.now() / 1000)) >= r[3]) { note("treMsg", "The Treasury is closed. Nothing sent.", "bad"); return; }
+      if (r[0] < v) { note("treMsg", "The owner wallet holds only " + osg(r[0]) + " OSG. Nothing sent.", "bad"); return; }
+      if (r[1] < v) {
+        ownerTx({ msg: "treMsg", name: "Step 1 of 2: let the Treasury take OSG", addr: A.token, abi: "function approve(address spender, uint256 amount)", fn: "approve", args: [A.treasury, v],
+          what: "Let the Treasury take exactly " + osg(v) + " OSG from the owner wallet.\nNothing moves yet. After this, press Add to airdrop pool again for step 2." });
+        return;
+      }
+      ownerTx({ msg: "treMsg", name: "Step 2 of 2: add OSG to the airdrop pool", addr: A.treasury, abi: "function fundAirdrop(uint256 amount)", fn: "fundAirdrop", args: [v],
+        what: "Move " + osg(v) + " OSG from the owner wallet into the Treasury airdrop pool.\nPool: " + osg(r[2]) + " -> " + osg(r[2] + v) + " OSG.\nIt cannot be taken back out until the Treasury closes.",
+        reload: re });
+    } catch (e) { note("treMsg", errText(e), "bad"); }
   };
 }
 // ===== Roles: the owner wallet changes settings; other admin wallets read =====
@@ -743,7 +805,7 @@ document.getElementById("connectBtn").onclick = async function () {
     loadProgramme();
     loadToken();
     loadTreasury(); loadLpWeight(); loadTerm(); loadDao();
-    if (IS_OWNER) { loadLpControls(); loadLpMoreControls(); loadTermControls(); loadSubAdmins(); document.getElementById("subCard").style.display = "block"; }
+    if (IS_OWNER) { loadTreasuryControls(); loadLpControls(); loadLpMoreControls(); loadTermControls(); loadSubAdmins(); document.getElementById("subCard").style.display = "block"; }
     loadEarners(false);
   } catch (e) { msg.textContent = "Connect failed: " + ((e && e.message) || e); }
 };
