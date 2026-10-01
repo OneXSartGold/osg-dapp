@@ -3637,6 +3637,86 @@ function RankBadge({ rank, size, lit }) {
     </div>
   );
 }
+// ── Spot bonus (OSGSpotReward, live since 1 Oct 2026) ──────────────────
+// The direct sponsor collects a share of every new stake their directs
+// open after the start, paid from the Treasury airdrop pool. The
+// contract's quote() decides every amount and every "no"; this code only
+// finds the stakes to ask about.
+const SPOT_ADDR = "0x7Ee98AE2BeAEf2251A8bBB3810006495F62b7C92";
+const SPOT_ABI = [
+  "function startAt() view returns (uint256)",
+  "function paused() view returns (bool)",
+  "function rateBps() view returns (uint256)",
+  "function minSelfStake() view returns (uint256)",
+  "function sourcesCount() view returns (uint256)",
+  "function sources(uint256) view returns (address src, uint16 baseBps, bool active)",
+  "function quote(address sponsor, uint256 sourceId, address staker, uint256 index) view returns (uint256 amount, uint8 reason)",
+  "function sponsorStatus(address sponsor) view returns (uint256 selfStake, bool eligible, uint256 reachedAt, uint256 received)",
+  "function todayLeft() view returns (uint256)",
+  "function claimMany(uint256[] sourceIds, address[] stakers, uint256[] indexes) returns (uint256 total)",
+];
+const SPOT_SOURCE_ABI = [
+  "function spotPositionCount(address user) view returns (uint256)",
+  "function spotPosition(address user, uint256 index) view returns (uint256 amount, uint256 startTime, bool open)",
+];
+const SPOT_MAX_BATCH = 20;
+
+async function loadSpotState(p, wallet, directs) {
+  const spot = new Contract(SPOT_ADDR, SPOT_ABI, p);
+  const tre = new Contract(ADDRESSES.treasury, ["function airdropPool() view returns (uint256)"], p);
+  const [startAt, paused, rate, minSelf, n, st, pool, today] = await Promise.all([
+    spot.startAt(), spot.paused(), spot.rateBps(), spot.minSelfStake(),
+    spot.sourcesCount(), spot.sponsorStatus(wallet), tre.airdropPool(), spot.todayLeft(),
+  ]);
+  const out = {
+    started: startAt > 0n, startAt: startAt, paused: paused, rateBps: Number(rate), minSelf: minSelf,
+    selfStake: st.selfStake, eligible: st.eligible, reachedAt: st.reachedAt, received: st.received,
+    pool: pool, todayLeft: today, items: [], total: 0n, rankHit: st.reachedAt > 0n,
+  };
+  if (!out.started || st.selfStake < minSelf) return out;
+
+  const ids = [];
+  for (let i = 0; i < Number(n); i++) ids.push(i);
+  const srcs = await Promise.all(ids.map(function (i) { return spot.sources(i); }));
+  const live = [];
+  srcs.forEach(function (s, i) {
+    if (s.active) live.push({ id: i, c: new Contract(s.src, SPOT_SOURCE_ABI, p) });
+  });
+  const seen = {};
+  const people = (directs || []).filter(function (a) {
+    const k = String(a).toLowerCase();
+    if (seen[k]) return false;
+    seen[k] = true;
+    return true;
+  });
+
+  // Walk each direct's positions newest first. Positions are appended in
+  // time order, so the first one opened before the start ends the walk.
+  const jobs = [];
+  people.forEach(function (d) {
+    live.forEach(function (s) {
+      jobs.push((async function () {
+        const cnt = Number(await s.c.spotPositionCount(d));
+        for (let k = cnt - 1; k >= 0; k--) {
+          const pos = await s.c.spotPosition(d, k);
+          if (pos.startTime < startAt) break;
+          if (!pos.open) continue;
+          const q = await spot.quote(wallet, s.id, d, k);
+          if (Number(q.reason) === 0 && q.amount > 0n) {
+            out.items.push({ sourceId: s.id, staker: d, index: k, amount: q.amount });
+          } else if (Number(q.reason) === 6) {
+            out.rankHit = true;
+          }
+        }
+      })());
+    });
+  });
+  await Promise.all(jobs);
+  out.items.sort(function (a, b) { return a.amount > b.amount ? -1 : a.amount < b.amount ? 1 : 0; });
+  out.total = out.items.reduce(function (s, x) { return s + x.amount; }, 0n);
+  return out;
+}
+
 function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensureReady, t }) {
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const refLink = wallet ? `${origin}/?ref=${wallet}` : "—";
@@ -3706,6 +3786,23 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
   const [chainRows, setChainRows] = useState(null);
   const [directRows, setDirectRows] = useState(null);
   const [card, setCard] = useState(null);
+// Spot bonus: what this wallet can collect from its directs' new stakes.
+  const [spot, setSpot] = useState(null);
+  const [spotTick, setSpotTick] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    if (!wallet || !directRows || !(getReadProvider || getProvider)) {
+      setSpot(null);
+      return;
+    }
+    const p = getReadProvider ? getReadProvider() : getProvider();
+    loadSpotState(p, wallet, directRows.map(function (d) { return d.addr; }))
+      .then(function (r) { if (!cancelled) setSpot(r); })
+      .catch(function () { if (!cancelled) setSpot({ error: true }); });
+    return function () {
+      cancelled = true;
+    };
+  }, [wallet, directRows, spotTick]);
   const [openLvl, setOpenLvl] = useState(null);
   const [lvlRows, setLvlRows] = useState(null);
   const [lvlErr, setLvlErr] = useState(false);
@@ -4003,6 +4100,53 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
       <div className="page-head">
         <h1>{t.referral}</h1>
       </div>
+
+{spot && (spot.error || spot.started) && (
+        <div className="card" style={{ marginTop: 14 }}>
+          <div className="sec">Spot bonus</div>
+          {spot.error ? (
+            <div style={{ fontSize: 12.5, color: C.txt3 }}>
+              Could not read the spot bonus right now. Reload the page to try again.
+            </div>
+          ) : (
+            <div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 10.5, color: C.txt3 }}>To collect</div>
+                  <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 15, color: C.gold1 }}>
+                    {fmt(f18(spot.total), 2) + " OSG"}
+                  </div>
+                  <div style={{ fontSize: 10.5, color: C.txt3, marginTop: 2 }}>
+                    {spot.items.length + (spot.items.length === 1 ? " stake" : " stakes")}
+                  </div>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 10.5, color: C.txt3 }}>Received so far</div>
+                  <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 15, color: C.txt2 }}>
+                    {fmt(f18(spot.received), 2) + " OSG"}
+                  </div>
+                </div>
+              </div>
+              <div style={{ fontSize: 11.5, color: C.txt3, marginTop: 10, lineHeight: 1.6 }}>
+                {"You get " + (spot.rateBps / 100) + "% of every new stake your direct members open from 1 October 2026, once per stake, while it is still open. It is paid straight to your wallet."}
+              </div>
+              <div style={{ fontSize: 11.5, color: C.gold1, marginTop: 8, lineHeight: 1.6 }}>
+                {spot.paused
+                  ? "The spot bonus is paused for now. Nothing is lost; collect it later."
+                  : spot.selfStake < spot.minSelf
+                  ? "Keep at least " + fmt(f18(spot.minSelf), 0) + " OSG of your own stake to collect. You have " + fmt(f18(spot.selfStake), 0) + " OSG."
+                  : spot.rankHit
+                  ? "You have reached Rank 2, so new stakes no longer pay a spot bonus. Stakes opened before that can still be collected."
+                  : spot.items.length === 0
+                  ? "Nothing to collect yet."
+                  : spot.pool < spot.total
+                  ? "The bonus pool is being topped up. Your bonus stays safe until then."
+                  : ""}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {card && tiers && (function () {
         var bar = minDirect;
