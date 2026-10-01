@@ -15,7 +15,7 @@
 
 const UPSTREAM = "https://lb.drpc.live/polygon/";
 const MAX_BATCH = 20;
-const TIMEOUT_MS = 8000;
+const TIMEOUT_MS = 3500; // must stay below the client timeout (4000 ms in src/App.jsx)
 
 const ALLOWED = new Set([
   "eth_chainId",
