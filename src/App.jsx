@@ -9935,6 +9935,20 @@ const EMPTY = {
   claim: { canClaim: false, amount: "0", total: "0", reason: "" },
 };
 
+// Live contracts shown on OSGScan. Retired ones keep their keys in
+// contracts.js but are not listed here.
+const SCAN_CONTRACTS = [
+  ["OSG Token", ADDRESSES.token],
+  ["OSG / POL Pair", ADDRESSES.pair],
+  ["Reward Pool", ADDRESSES.pool],
+  ["LP Mining · 12 months", ADDRESSES.lpMining],
+  ["LP Mining · 6 & 18 months", ADDRESSES.lpTiers],
+  ["Term Staking", ADDRESSES.termStaking],
+  ["Referral", ADDRESSES.referralV42],
+  ["Spot Reward", ADDRESSES.spot],
+  ["Treasury", ADDRESSES.treasury],
+  ["P2P Exchange", ADDRESSES.p2pExchange],
+];
 function OSGScan({ wallet, data, holders, polUsd, chg24, t }) {
   const spark = () =>
     [4, 7, 5, 9, 7, 12, 9, 13, 10, 15].map((h, i) => (
@@ -10007,26 +10021,6 @@ function OSGScan({ wallet, data, holders, polUsd, chg24, t }) {
   const [wcRes, setWcRes] = useState(null);
   const [activity, setActivity] = useState({ transfers: [], swappers: [] });
   const [activityRange, setActivityRange] = useState("today");
-  const [holdersData, setHoldersData] = useState(null);
-  useEffect(function () {
-    var alive = true;
-    function loadHolders() {
-      fetch("/api/osgscan-holders")
-        .then(function (r) {
-          return r.json();
-        })
-        .then(function (d) {
-          if (alive && d && !d.error) setHoldersData(d);
-        })
-        .catch(function () {});
-    }
-    loadHolders();
-    var id = setInterval(loadHolders, 600000);
-    return function () {
-      alive = false;
-      clearInterval(id);
-    };
-  }, []);
   useEffect(
     function () {
       var alive = true;
@@ -10069,17 +10063,10 @@ function OSGScan({ wallet, data, holders, polUsd, chg24, t }) {
     )
       .balanceOf(a)
       .then(function (bal) {
-        var rankInfo =
-          holdersData && holdersData.holders
-            ? holdersData.holders.find(function (hh) {
-                return hh.address.toLowerCase() === a.toLowerCase();
-              })
-            : null;
         setWcRes({
           ok: true,
           addr: a,
           bal: Number(f18(bal)),
-          rank: rankInfo ? rankInfo.rank : null,
         });
       })
       .catch(function () {
@@ -10167,63 +10154,6 @@ function OSGScan({ wallet, data, holders, polUsd, chg24, t }) {
           </div>
         </div>
       </div>
-      {/* top holders — ranked bars */}{" "}
-      <div className="scan-card">
-        {" "}
-        <div className="scan-ctitle">
-          {" "}
-          <div className="t">Top Holders</div>{" "}
-          <div className="tag">
-            {holdersData ? "Top " + holdersData.holders.length : "Loading"}
-          </div>{" "}
-        </div>{" "}
-        {!holdersData ? (
-          <div className="scan-note">Loading holder data…</div>
-        ) : (
-          holdersData.holders.slice(0, 5).map(function (h, i) {
-            var colors = [
-              "#FFD166",
-              "#FF9F5A",
-              "#FF6B9D",
-              "#C77DFF",
-              "#5EC8FF",
-            ];
-            var col = colors[i] || "#5EC8FF";
-            return (
-              <div className="scan-hrow" key={h.address}>
-                {" "}
-                <div className="scan-hbadge" style={{ background: col }}>
-                  {i + 1}
-                </div>{" "}
-                <div className="scan-hinfo">
-                  {" "}
-                  <div className="scan-htop">
-                    {" "}
-                    <span className="scan-hlab">
-                      {h.label || "Wallet"} <small>{short(h.address)}</small>
-                    </span>{" "}
-                    <span className="scan-hpct">
-                      {h.percent.toFixed(2)}%
-                    </span>{" "}
-                  </div>{" "}
-                  <div className="scan-hbar">
-                    <i
-                      style={{
-                        width: h.percent + "%",
-                        background:
-                          "linear-gradient(90deg," + col + ",#ffffff55)",
-                      }}
-                    />
-                  </div>{" "}
-                </div>{" "}
-              </div>
-            );
-          })
-        )}{" "}
-        <div className="scan-note">
-          Reconstructed from on-chain Transfer history · updates every 10 min
-        </div>{" "}
-      </div>{" "}
       {/* wallet check — live balanceOf */}
       <div className="scan-card">
         <div className="scan-ctitle">
@@ -10273,11 +10203,6 @@ function OSGScan({ wallet, data, holders, polUsd, chg24, t }) {
                 <div className="cell">
                   <div className="k">OSG Balance</div>
                   <div className="v gold">{fmt(wcRes.bal, 2)}</div>{" "}
-                </div>{" "}
-                <div className="cell">
-                  {" "}
-                  <div className="k">Rank</div>{" "}
-                  <div className="v">{wcRes.rank ? "#" + wcRes.rank : "—"}</div>
                 </div>
               </div>
             </div>
@@ -10307,27 +10232,9 @@ function OSGScan({ wallet, data, holders, polUsd, chg24, t }) {
       <div className="scan-card">
         <div className="scan-ctitle">
           <div className="t">Verified Contracts</div>
-          <div className="tag">17 · Polygon</div>
+          <div className="tag">{SCAN_CONTRACTS.length + " · Polygon"}</div>
         </div>
-        {[
-  ["OSG Token", ADDRESSES.token],
-  ["Staking", ADDRESSES.staking],
-  ["Reward Pool", ADDRESSES.pool],
-  ["Reward Storage", ADDRESSES.rewardStorage],
-  ["TimelockDAO", ADDRESSES.timelock],
-  ["Bond", ADDRESSES.bond],
-  ["Messenger", ADDRESSES.messenger],
-  ["Media Storage", ADDRESSES.mediaStorage],
-  ["Referral Distributor", ADDRESSES.referralDistributor],
-  ["P2P Exchange", ADDRESSES.p2pExchange],
-  ["LP Mining", ADDRESSES.lpMining],
-  ["Treasury", ADDRESSES.treasury],
-  ["Term Staking v2", ADDRESSES.termStaking],
-  ["Referral v4.1", ADDRESSES.referralV4],
-  ["Referral v4.2", ADDRESSES.referralV42],
-  ["Referral Lens", ADDRESSES.referralLens],
-  ["Referral Health", ADDRESSES.referralHealth],
-].map(function (row) {
+        {SCAN_CONTRACTS.map(function (row) {
           return (
             <div className="scan-row" key={row[1]}>
               <div className="lbl">{row[0]}</div>

@@ -61,6 +61,10 @@ export const ADDRESSES = {
   referralLens:   "0xdF9462D08CDcB70BCFc56579faC863F128B7Ff27",
   referralHealth: "0x43dA472c78ed18fe5964C638B09F62a5bebf435C",
 
+  pair:    "0xA15214B09a9b3E1c821B94fB97d6d3BcA8201Cd2",   // OSG/WPOL QuickSwap V2
+  spot:    "0x7Ee98AE2BeAEf2251A8bBB3810006495F62b7C92",   // OSGSpotReward
+  lpTiers: "0x333a6c51Baa2d19Af036f45f32eaCF10234F17C8",   // OSGLPMiningTiers v1.2 (6 + 18 months)
+
   // -- Retired. Empty, unwired, kept only so old links resolve. --
   // termStakingV1: "0x9432B8C2B67C4c86c26EdB98893611013FAdF562",
   // lpMiningV6:    "0xb0510d6f707dF47fE7427732D5507290D847b736",
