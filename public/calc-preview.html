@@ -81,6 +81,28 @@ body{background:var(--bg);color:var(--txt);font-family:var(--sans);margin:0}
 .rate{margin-top:10px;font-size:10.5px;color:var(--txt3);line-height:1.5}
 .rate .mono{color:var(--txt2)}
 
+.rc-top{padding-bottom:4px}
+.rc-h{display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:14px}
+.rc-h .dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--green);margin-right:8px}
+.live{font-size:10px;font-weight:800;color:var(--green);border:1px solid rgba(70,208,138,.5);border-radius:999px;padding:3px 9px}
+.rc-chip{display:inline-block;margin-top:12px;font-weight:800;font-size:13px;color:var(--green);border:1px solid rgba(70,208,138,.5);background:rgba(70,208,138,.08);border-radius:6px;padding:3px 9px}
+.rc-price{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-top:4px}
+.rc-price .mono{font-size:40px;font-weight:700;color:var(--gold1)}
+.rc-price small{font-weight:700;color:var(--gold2);font-size:15px}
+.rc-price .usd{font-size:13px;font-weight:700;color:var(--green);border:1px solid rgba(70,208,138,.5);border-radius:999px;padding:3px 10px}
+.rc-sub{font-size:11.5px;color:var(--txt2);margin-top:2px}
+.rc-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin-top:12px;padding:9px 0}
+.rc-stats div{padding-left:10px;border-left:1px solid var(--line)}
+.rc-stats div:first-child{padding-left:0;border-left:0}
+.rc-stats i{display:block;font-style:normal;font-size:9px;letter-spacing:.4px;text-transform:uppercase;color:var(--txt3);font-weight:700}
+.rc-stats b{font-family:var(--mono);font-size:13px;margin-top:3px;display:inline-block}
+.rc-stats b.up{color:var(--green);font-size:11px}
+.unch{margin-top:8px;font-size:9.5px;letter-spacing:1px;text-transform:uppercase;color:var(--blue);text-align:center;font-weight:700}
+.rc-foot{display:flex;align-items:center;gap:14px;margin-top:12px;padding-top:11px;border-top:1px solid var(--line)}
+.rc-foot i{display:block;font-style:normal;font-size:9px;letter-spacing:1px;font-weight:800}
+.rc-foot i.g{color:var(--gold2)}
+.rc-foot b{font-size:15px}
+.rc-foot .vp{margin-left:auto;color:var(--gold1);font-weight:700;font-size:13px;text-decoration:none}
 .note{background:var(--card);border:1px solid var(--line2);border-radius:16px;padding:16px;font-size:13.5px;line-height:1.6;color:var(--txt2)}
 .note h3{margin:0 0 6px;font-size:14px;color:var(--txt)}
 .note b{color:var(--txt)}
@@ -95,18 +117,20 @@ body{background:var(--bg);color:var(--txt);font-family:var(--sans);margin:0}
 <main class="phone">
   <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span class="tag">Preview</span><span style="font-size:11px;color:var(--txt3)">New calculator card · prices for illustration</span></div>
 
-  <section class="hero" aria-label="Emission hero card (unchanged)">
-    <div class="eyebrow">Earned by the community</div>
-    <div class="big">542,180<small>OSG</small></div>
-    <div class="sub">498,410 already in wallets · <b>43,770 still unclaimed</b> across every wallet</div>
-    <div class="today">5,881 OSG released a day</div>
-    <div class="track"><div class="fill"></div></div>
-    <div class="tline"><span>2.41% of 22,540,000</span><span>21,997,820 left</span></div>
-
-  </section>
 
   <section class="calc" aria-label="LP calculator">
-    <div class="calc-h"><h2>LP Calculator</h2><span style="font-size:11px;color:var(--txt3)">OSG + POL, 50 / 50</span></div>
+    <div class="rc-top">
+      <div class="rc-h"><span><span class="dot"></span>OSG / WPOL · QuickSwap V2</span><span class="live">● LIVE</span></div>
+      <div class="rc-chip">1 OSG</div>
+      <div class="rc-price"><span class="mono">13.04</span><small>POL</small><span class="usd">≈ $1.42</span></div>
+      <div class="rc-sub">1 POL ≈ $0.1089 · Market live</div>
+      <div class="rc-stats">
+        <div><i>24H</i><b class="up">▲ +0.47%</b></div>
+        <div><i>Holders</i><b>680</b></div>
+        <div><i>Pool staked</i><b>1,460</b></div>
+      </div>
+      <div class="unch">Unchanged ↑ · New ↓</div>
+    </div>
     <div class="halv" aria-label="Next halving countdown">
       <span class="new">NEW</span>
       <div class="halv-h"><span>Next halving</span><span id="hDate">5 Jun 2029</span></div>
@@ -118,6 +142,7 @@ body{background:var(--bg);color:var(--txt);font-family:var(--sans);margin:0}
       </div>
       <div class="halv-f">Daily release <span class="mono">5,881</span> → <span class="mono to">2,940</span> OSG</div>
     </div>
+    <div class="calc-h" style="margin-top:14px"><h2>LP Calculator</h2><span style="font-size:11px;color:var(--txt3)">OSG + POL, 50 / 50</span></div>
     <div class="seg" role="group" aria-label="I want to enter">
       <button id="mUSD" aria-pressed="true" data-m="USD">$ USD</button>
       <button id="mOSG" aria-pressed="false" data-m="OSG">OSG</button>
@@ -137,13 +162,18 @@ body{background:var(--bg);color:var(--txt);font-family:var(--sans);margin:0}
       <div><div class="k">Counted as</div><div class="v g" id="oVal">—</div></div>
     </div>
 
-    <div class="tiers" aria-label="Estimate per month">
-      <div class="r"><span>Term</span><span>Up to / month</span><span>Full term</span></div>
+    <div class="tiers" aria-label="Estimate per day and per month">
+      <div class="r"><span>Term</span><span>Up to / day</span><span>Up to / month</span></div>
       <div class="r"><span>6 months<span class="soon">soon</span></span><span id="t6m">—</span><span id="t6f">—</span></div>
       <div class="r"><span>12 months</span><span id="t12m">—</span><span id="t12f">—</span></div>
       <div class="r"><span>18 months<span class="soon">soon</span></span><span id="t18m">—</span><span id="t18f">—</span></div>
     </div>
     <div class="rate">1 OSG ≈ <span class="mono" id="rOsg">—</span> · 1 POL ≈ <span class="mono" id="rPol">—</span> · demo rate. Up to = ceiling, falls when more stake shares the daily budget. DYOR.</div>
+    <div class="rc-foot">
+      <div><i class="g">OSG</i><b class="mono">821.79</b></div>
+      <div><i class="g">POL</i><b class="mono">36.65</b></div>
+      <a href="#" onclick="return false" class="vp">View pool ↗</a>
+    </div>
   </section>
 </main>
 
@@ -168,8 +198,8 @@ body{background:var(--bg);color:var(--txt);font-family:var(--sans);margin:0}
   tick(); setInterval(tick,1000);
 
   // ---- LP calculator (demo prices) ----
-  var POL_USD = 0.11;
-  var OSG_RES = 79191.71, POL_RES = 114050/0.11;   // demo reserves
+  var POL_USD = 0.1089;
+  var OSG_RES = 1, POL_RES = 13.04;   // demo: 1 OSG = 13.04 POL
   var POL_PER_OSG = POL_RES/OSG_RES;
   var OSG_USD = POL_PER_OSG*POL_USD;
   var RATES = {m6:{bps:20,days:180}, m12:{bps:33,days:365}, m18:{bps:40,days:540}};
@@ -191,8 +221,8 @@ body{background:var(--bg);color:var(--txt);font-family:var(--sans);margin:0}
     document.getElementById('oVal').textContent = f(val,2) + ' OSG';
     [['6','m6'],['12','m12'],['18','m18']].forEach(function(p){
       var r = RATES[p[1]], perDay = val*r.bps/10000;
-      document.getElementById('t'+p[0]+'m').textContent = f(perDay*30,2) + ' OSG';
-      document.getElementById('t'+p[0]+'f').textContent = f(perDay*r.days,1) + ' OSG';
+      document.getElementById('t'+p[0]+'m').textContent = f(perDay,2) + ' OSG';
+      document.getElementById('t'+p[0]+'f').textContent = f(perDay*30,2) + ' OSG';
     });
     document.getElementById('rOsg').textContent = f(POL_PER_OSG,2) + ' POL ($' + f(OSG_USD,3) + ')';
     document.getElementById('rPol').textContent = '$' + f(POL_USD,4);
