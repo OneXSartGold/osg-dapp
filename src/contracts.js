@@ -173,6 +173,7 @@ export const POOL_ABI = [
   // owner-only, listed here so the admin page can read/plan around it
   "function miningPercent() view returns (uint256)",
   "function emissionEndTime() view returns (uint256)",
+  "function getEmissionInfo() view returns (uint256 halving, uint256 dailyBase, uint256 nextHalvingIn, uint256 emissionEndsIn, uint256 remainingBudget, bool stopped, uint256 daysBehind, bool needsSync, bool inEmergency)",
 
   /* ---- lifetime emission, read straight off the pool ----
    * Home used to show OSGStaking.getPoolInfo()'s figure as the ecosystem
