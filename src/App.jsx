@@ -7512,6 +7512,19 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
   const stakeW = isTier ? tierLpW : lpW;
   const stakeBps = isTier ? liveBps || 0 : rateBps;
 
+  // ---- add-liquidity preview, for the selected lock ----
+  const addLp = pool.osgRes > 0 ? (Number(osgIn) / pool.osgRes) * pool.lpSupply : 0;
+  // 180 / 540 use the lpTiers lpWeight; if that read is missing, fall back
+  // to the 365-day lpW so "Counted as" still shows the LP's value.
+  const addW = isTier && tierLpW > 0 ? tierLpW : lpW;
+  const addCounted = addLp * addW;
+  // 365 keeps dailyFor; 180 / 540 use the live tier rate, or null ("—").
+  const addPerDay = !isTier
+    ? dailyFor(addLp)
+    : liveBps != null
+      ? (addCounted * liveBps) / 10000
+      : null;
+
   // ---- every open position, both contracts ----
   const allPositions = positions
     .map((p) => ({
@@ -7787,13 +7800,13 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: C.txt2, padding: "5px 0" }}>
                   <span>Counted as</span>
                   <b style={{ color: C.txt, fontFamily: "'JetBrains Mono',monospace" }}>
-                    {((Number(osgIn) / pool.osgRes) * pool.lpSupply * lpW).toFixed(0)} OSG
+                    {addCounted.toFixed(0)} OSG
                   </b>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: C.txt2, padding: "5px 0" }}>
-                  <span>Earns daily</span>
+                  <span>Up to / day</span>
                   <b style={{ color: C.green, fontFamily: "'JetBrains Mono',monospace" }}>
-                    {dailyFor((Number(osgIn) / pool.osgRes) * pool.lpSupply).toFixed(2)} OSG
+                    {addPerDay != null ? addPerDay.toFixed(2) + " OSG" : "—"}
                   </b>
                 </div>
               </>
