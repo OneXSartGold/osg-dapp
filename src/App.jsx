@@ -2114,11 +2114,13 @@ function LpCalcBody({ polPerOsg, polUsd, unit, setUnit, amt, setAmt, scrollId, r
   var cTotalUsd = cOsg * osgUsd + cPol * polUsdLive;
   var cCounted = cOsg * 2;
   var calcLabels = {
-    USD: "Total I want to add (USD)",
+    USD: "Total I want to add (USDT)",
     OSG: "OSG I want to add",
     POL: "POL I want to add",
   };
   var calcDefaults = { USD: "100", OSG: "100", POL: "1000" };
+  // Shown unit names; the mode value stays "USD" so the maths is unchanged.
+  var unitNames = { USD: "USDT", OSG: "OSG", POL: "POL" };
   var kStyle = {
     fontSize: 9,
     letterSpacing: "1px",
@@ -2142,7 +2144,7 @@ function LpCalcBody({ polPerOsg, polUsd, unit, setUnit, amt, setAmt, scrollId, r
         }}
       >
         {[
-          ["USD", "$ USD"],
+          ["USD", "USDT"],
           ["OSG", "OSG"],
           ["POL", "POL"],
         ].map(function (m) {
@@ -2219,7 +2221,7 @@ function LpCalcBody({ polPerOsg, polUsd, unit, setUnit, amt, setAmt, scrollId, r
           }}
         />
         <span style={{ fontWeight: 800, color: C.gold2, fontSize: 13 }}>
-          {calcUnit}
+          {unitNames[calcUnit]}
         </span>
       </div>
       {!calcReady ? (
@@ -6735,7 +6737,7 @@ function Earn({ wallet, ensureReady, showToast }) {
             <div className="sec">New stake</div>
             <div style={{ fontSize: 12.5, color: C.txt2, lineHeight: 1.6, marginTop: 8 }}>
               New Term stakes are closed. Your existing Term positions keep
-              running — claim and withdraw below. For new locks use Mining →
+              running — claim and withdraw above. For new locks use Mining →
               180 / 365 / 540 days.
             </div>
           </div>
@@ -7887,7 +7889,7 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
               ? "You have 10 open positions in this lock — the maximum. Withdraw one before locking again."
               : "Minimum " +
                 (tiers && tiers.minDeposit != null ? Number(tiers.minDeposit).toFixed(2) : "…") +
-                " LP. Up to 10 open positions per wallet in this lock."}
+                " LP. Up to 10 open positions per wallet across 180 and 540 days."}
         </div>
       </div>
 
