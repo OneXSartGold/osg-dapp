@@ -2933,7 +2933,7 @@ function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvid
                   LP Calculator
                 </div>
                 <span style={{ fontSize: 11, color: C.txt3 }}>
-                  OSG + POL, 50 / 50
+                  OSG + POL
                 </span>
               </div>
               <LpCalcBody
@@ -7687,7 +7687,7 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
       <div className="card" id="miningCalc">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
           <div style={{ fontSize: 15, fontWeight: 800, color: C.txt }}>LP Calculator</div>
-          <span style={{ fontSize: 11, color: C.txt3 }}>OSG + POL, 50 / 50</span>
+          <span style={{ fontSize: 11, color: C.txt3 }}>OSG + POL</span>
         </div>
         <LpCalcBody
           polPerOsg={pool.polPerOsg}
