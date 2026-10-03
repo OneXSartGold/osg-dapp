@@ -7558,6 +7558,31 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
   const tierPending = (tierPositions || []).reduce((t, p) => t + (Number(p.pending) || 0), 0);
   const allPending = myPending + tierPending;
 
+  // Same look as the Home MARKET HERO card: dark gold gradient, gold
+  // border and a 1px gold "shine" line along the top edge (absolute, so it
+  // adds no height).
+  const heroCard = {
+    position: "relative",
+    overflow: "hidden",
+    background: "linear-gradient(165deg,#16140C 0%,#121118 60%)",
+    border: "1px solid rgba(233,185,73,.2)",
+    borderRadius: 20,
+    padding: "18px 16px 16px",
+    boxShadow: "0 8px 34px rgba(0,0,0,.4)",
+  };
+  const shine = (
+    <div
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        height: 1,
+        background: "linear-gradient(90deg,transparent," + C.gold2 + ",transparent)",
+      }}
+    ></div>
+  );
+
   return (
     <div className="page stag">
       <div
@@ -7574,7 +7599,8 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
       </div>
 
       {/* ---------- choose lock ---------- */}
-      <div className="card">
+      <div style={heroCard}>
+        {shine}
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <div className="sec">Choose your lock</div>
           <span
@@ -7683,8 +7709,8 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
 
         <div
           style={{
-            background: "rgba(247,210,122,.05)",
-            border: "1px solid rgba(247,210,122,.35)",
+            background: "rgba(233,185,73,.06)",
+            border: "1px solid rgba(233,185,73,.35)",
             borderRadius: 14,
             padding: "12px 14px",
             marginTop: 14,
@@ -7700,7 +7726,8 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
       </div>
 
       {/* ---------- LP calculator (same maths as Home) ---------- */}
-      <div className="card" id="miningCalc">
+      <div id="miningCalc" style={heroCard}>
+        {shine}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
           <div style={{ fontSize: 15, fontWeight: 800, color: C.txt }}>LP Calculator</div>
           <span style={{ fontSize: 11, color: C.txt3 }}>OSG + POL</span>
@@ -7759,7 +7786,8 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
       </div>
 
       <LegacyMining wallet={wallet} ensureReady={ensureReady} showToast={showToast} />{/* ---------- create LP ---------- */}
-      <div className="card">
+      <div style={heroCard}>
+        {shine}
         <div className="sec">Add liquidity</div>
         <div style={{ fontSize: 12.5, color: C.txt2, lineHeight: 1.6, marginTop: 8 }}>
           Add OSG and POL together. The LP token lands in your wallet — you never
@@ -7836,7 +7864,8 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
       </div>
 
       {/* ---------- stake LP ---------- */}
-      <div className="card">
+      <div style={heroCard}>
+        {shine}
         <div className="sec">Stake LP</div>
         <div style={{ background: C.bg2 || "#0c0c12", border: "1px solid " + C.line, borderRadius: 14, padding: 14, marginTop: 12 }}>
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: C.txt3 }}>
@@ -7910,7 +7939,8 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
       </div>
 
       {/* ---------- positions ---------- */}
-      <div className="card">
+      <div style={heroCard}>
+        {shine}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
             <div className="sec">Ready to claim</div>
