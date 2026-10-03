@@ -2072,9 +2072,38 @@ function PoolCards({ getProvider, wallet, oldStaked, setTab }) {
 }
 
 function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvider, getReadProvider, ensureReady, showToast, setTab, refParam }) {
-  const [calcUsd, setCalcUsd] = useState("");
-  const [calcOsg, setCalcOsg] = useState("");
+  const [calcAmt, setCalcAmt] = useState("100");
   const [calcUnit, setCalcUnit] = useState("USD");
+
+  // LP calculator ceilings in bps per day, read once. 365 days = LP Mining
+  // maxRateBps(); 180 / 540 days = OSGLPMiningTiers rateBps(0) / rateBps(1),
+  // which fall back to 20 / 40 if the read fails. d365 stays 0 ("—") until
+  // the read succeeds, so no made-up rate is shown.
+  const [lpBps, setLpBps] = useState({ d180: 20, d365: 0, d540: 40 });
+  useEffect(function () {
+    if (!getReadProvider) return;
+    var alive = true;
+    var p = getReadProvider();
+    var lp = new Contract(ADDRESSES.lpMining, LP_MINING_ABI, p);
+    var tiers = new Contract(
+      ADDRESSES.lpTiers,
+      ["function rateBps(uint256) view returns (uint256)"],
+      p,
+    );
+    Promise.allSettled([lp.maxRateBps(), tiers.rateBps(0), tiers.rateBps(1)]).then(
+      function (r) {
+        if (!alive) return;
+        setLpBps({
+          d180: r[1].status === "fulfilled" ? Number(r[1].value) : 20,
+          d365: r[0].status === "fulfilled" ? Number(r[0].value) : 0,
+          d540: r[2].status === "fulfilled" ? Number(r[2].value) : 40,
+        });
+      },
+    );
+    return function () {
+      alive = false;
+    };
+  }, []);
 
   // Next halving, from RewardPool.getEmissionInfo(). Read on mount and at
   // most every 10 minutes; the countdown itself ticks locally. A failed
@@ -2188,18 +2217,58 @@ function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvid
       <EmissionHero getProvider={getProvider} />
       {/* MARKET HERO — balance + market + calculator */}
       {(function () {
-        var OSG_PER_POL =
-          data && Number(data.osgPerPol) > 0 ? 1 / Number(data.osgPerPol) : 0;
         var pol = typeof polUsd === "number" && polUsd > 0 ? polUsd : 0.077;
         var cnum = function (s) {
           var n = parseFloat(String(s).replace(/,/g, ""));
           return n > 0 ? n : 0;
         };
-        var cfmt = function (n) {
+        var cfmt = function (n, dp) {
+          var d = dp == null ? 2 : dp;
           return Number(n).toLocaleString("en-US", {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
+            minimumFractionDigits: d,
+            maximumFractionDigits: d,
           });
+        };
+        // LP calculator. Live prices only: polPerOsg from the pair reserves,
+        // polUsd from the market feed. An LP deposit is 50 / 50 by value.
+        var polPerOsg = data && Number(data.osgPerPol) > 0 ? Number(data.osgPerPol) : 0;
+        var polUsdLive = typeof polUsd === "number" && polUsd > 0 ? polUsd : 0;
+        var osgUsd = polPerOsg * polUsdLive;
+        var calcReady = polPerOsg > 0 && polUsdLive > 0;
+        var amt = cnum(calcAmt);
+        var cOsg = 0,
+          cPol = 0;
+        if (calcReady) {
+          if (calcUnit === "USD") {
+            cOsg = amt / 2 / osgUsd;
+            cPol = amt / 2 / polUsdLive;
+          } else if (calcUnit === "OSG") {
+            cOsg = amt;
+            cPol = amt * polPerOsg;
+          } else {
+            cPol = amt;
+            cOsg = amt / polPerOsg;
+          }
+        }
+        var cTotalUsd = cOsg * osgUsd + cPol * polUsdLive;
+        var cCounted = cOsg * 2;
+        var calcLabels = {
+          USD: "Total I want to add (USD)",
+          OSG: "OSG I want to add",
+          POL: "POL I want to add",
+        };
+        var calcDefaults = { USD: "100", OSG: "100", POL: "1000" };
+        var calcRows = [
+          ["180 days", lpBps.d180],
+          ["365 days", lpBps.d365],
+          ["540 days", lpBps.d540],
+        ];
+        var kStyle = {
+          fontSize: 9,
+          letterSpacing: "1px",
+          textTransform: "uppercase",
+          color: C.txt3,
+          fontWeight: 700,
         };
         return (
           <div
@@ -2586,40 +2655,88 @@ function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvid
             <div
               id="osgCalc"
               style={{
-                marginTop: 13,
-                background: C.bg2,
-                border: "1px solid " + C.line,
-                borderRadius: 13,
-                padding: "11px 12px",
+                marginTop: 14,
               }}
             >
               <div
                 style={{
-                  fontSize: 8.5,
-                  letterSpacing: "1px",
-                  textTransform: "uppercase",
-                  color: C.txt3,
-                  fontWeight: 600,
-                  marginBottom: 4,
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: 8,
                 }}
               >
-                You spend
+                <div style={{ fontSize: 15, fontWeight: 800, color: C.txt }}>
+                  LP Calculator
+                </div>
+                <span style={{ fontSize: 11, color: C.txt3 }}>
+                  OSG + POL, 50 / 50
+                </span>
+              </div>
+              <div
+                role="group"
+                aria-label="I want to enter"
+                style={{
+                  display: "flex",
+                  background: C.bg2,
+                  border: "1px solid " + C.line2,
+                  borderRadius: 999,
+                  padding: 3,
+                  gap: 2,
+                  marginTop: 12,
+                }}
+              >
+                {[
+                  ["USD", "$ USD"],
+                  ["OSG", "OSG"],
+                  ["POL", "POL"],
+                ].map(function (m) {
+                  var on = calcUnit === m[0];
+                  return (
+                    <button
+                      key={m[0]}
+                      aria-pressed={on}
+                      onClick={function () {
+                        setCalcUnit(m[0]);
+                        setCalcAmt(calcDefaults[m[0]]);
+                      }}
+                      style={{
+                        flex: 1,
+                        fontSize: 12.5,
+                        fontWeight: 700,
+                        border: 0,
+                        borderRadius: 999,
+                        padding: "7px 0",
+                        cursor: "pointer",
+                        background: on ? C.gold2 : "none",
+                        color: on ? C.bg : C.txt2,
+                      }}
+                    >
+                      {m[1]}
+                    </button>
+                  );
+                })}
+              </div>
+              <div style={Object.assign({}, kStyle, { margin: "12px 0 5px" })}>
+                {calcLabels[calcUnit]}
               </div>
               <div
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: 6,
+                  gap: 8,
                   background: "#000",
                   border: "1px solid " + C.line2,
-                  borderRadius: 9,
-                  padding: "8px 11px",
+                  borderRadius: 11,
+                  padding: "9px 12px",
                 }}
               >
                 <input
                   className="mono"
                   inputMode="decimal"
+                  autoComplete="off"
                   placeholder="0.00"
+                  aria-label={calcLabels[calcUnit]}
                   onFocus={function () {
                     setTimeout(function () {
                       var el = document.getElementById("osgCalc");
@@ -2630,16 +2747,9 @@ function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvid
                         });
                     }, 300);
                   }}
-                  value={calcUsd}
+                  value={calcAmt}
                   onChange={function (e) {
-                    var v = e.target.value.replace(/[^0-9.]/g, "");
-                    setCalcUsd(v);
-                    setCalcOsg(
-                      cfmt(
-                        (calcUnit === "USD" ? cnum(v) / pol : cnum(v)) *
-                          OSG_PER_POL,
-                      ),
-                    );
+                    setCalcAmt(e.target.value.replace(/[^0-9.]/g, ""));
                   }}
                   style={{
                     flex: 1,
@@ -2649,123 +2759,190 @@ function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvid
                     border: "none",
                     outline: "none",
                     color: C.txt,
-                    fontSize: 16,
+                    fontSize: 19,
                     fontWeight: 700,
                   }}
                 />
-                <span
-                  onClick={function () {
-                    setCalcUnit(calcUnit === "USD" ? "POL" : "USD");
-                    setCalcUsd("");
-                    setCalcOsg("");
-                  }}
+                <span style={{ fontWeight: 800, color: C.gold2, fontSize: 13 }}>
+                  {calcUnit}
+                </span>
+              </div>
+              {!calcReady ? (
+                <div
                   style={{
-                    flexShrink: 0,
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 5,
-                    background: C.card2,
-                    border: "1px solid " + C.line2,
-                    borderRadius: 30,
-                    padding: "5px 11px",
-                    cursor: "pointer",
+                    marginTop: 12,
+                    fontSize: 12,
+                    color: C.txt3,
+                    textAlign: "center",
                   }}
                 >
-                  <span
-                    style={{ color: C.gold2, fontWeight: 700, fontSize: 13 }}
+                  Price loading…
+                </div>
+              ) : (
+                <div>
+                  <div style={Object.assign({}, kStyle, { margin: "12px 0 5px" })}>
+                    You need
+                  </div>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr auto 1fr",
+                      gap: 8,
+                      alignItems: "stretch",
+                    }}
                   >
-                    {calcUnit === "USD" ? "$ USD" : "POL"}
-                  </span>
-                  <span style={{ fontSize: 9, color: C.txt3 }}>▾</span>
-                </span>
-              </div>
-              <div
-                style={{
-                  textAlign: "center",
-                  color: C.txt3,
-                  fontSize: 13,
-                  margin: "5px 0",
-                }}
-              >
-                ↓
-              </div>
-              <div
-                style={{
-                  fontSize: 8.5,
-                  letterSpacing: "1px",
-                  textTransform: "uppercase",
-                  color: C.txt3,
-                  fontWeight: 600,
-                  marginBottom: 4,
-                }}
-              >
-                You get (estimate)
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  background: "rgba(70,208,138,.07)",
-                  border: "1px solid rgba(70,208,138,.25)",
-                  borderRadius: 9,
-                  padding: "8px 11px",
-                }}
-              >
-                <input
-                  className="mono"
-                  inputMode="decimal"
-                  placeholder="0.00"
-                  value={calcOsg}
-                  onChange={function (e) {
-                    var v = e.target.value.replace(/[^0-9.]/g, "");
-                    setCalcOsg(v);
-                    setCalcUsd(cfmt((cnum(v) / OSG_PER_POL) * pol));
-                  }}
-                  style={{
-                    flex: 1,
-                    width: "100%",
-                    minWidth: 0,
-                    background: "none",
-                    border: "none",
-                    outline: "none",
-                    color: C.green,
-                    fontSize: 16,
-                    fontWeight: 700,
-                  }}
-                />
-                <span
-                  className="mono"
-                  style={{
-                    flexShrink: 0,
-                    color: C.green,
-                    fontWeight: 600,
-                    fontSize: 13,
-                    background: "rgba(70,208,138,.1)",
-                    border: "1px solid rgba(70,208,138,.25)",
-                    borderRadius: 30,
-                    padding: "5px 11px",
-                  }}
-                >
-                  OSG
-                </span>
-              </div>
-              <div
-                style={{
-                  marginTop: 8,
-                  fontSize: 9.5,
-                  color: C.txt3,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                }}
-              >
-                1 POL ≈{" "}
-                <span className="mono" style={{ color: C.txt2 }}>
-                  ${pol.toFixed(4)}
-                </span>{" "}
-                · {mkt.live ? "live rate" : "est. rate"}
-              </div>
+                    {[
+                      ["OSG", cOsg, cOsg * osgUsd],
+                      null,
+                      ["POL", cPol, cPol * polUsdLive],
+                    ].map(function (sd, i) {
+                      if (!sd)
+                        return (
+                          <div
+                            key="plus"
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              color: C.gold2,
+                              fontWeight: 800,
+                              fontSize: 18,
+                            }}
+                          >
+                            +
+                          </div>
+                        );
+                      return (
+                        <div
+                          key={sd[0]}
+                          style={{
+                            background: C.bg2,
+                            border: "1px solid " + C.line2,
+                            borderRadius: 12,
+                            padding: "10px 10px 9px",
+                            minWidth: 0,
+                          }}
+                        >
+                          <div style={kStyle}>{sd[0]}</div>
+                          <div
+                            className="mono"
+                            style={{
+                              fontSize: 18,
+                              fontWeight: 700,
+                              marginTop: 4,
+                              color: C.txt,
+                              fontVariantNumeric: "tabular-nums",
+                              overflowWrap: "anywhere",
+                            }}
+                          >
+                            {cfmt(sd[1])}
+                          </div>
+                          <div style={{ fontSize: 11, color: C.txt2, marginTop: 2 }}>
+                            {"≈ $" + cfmt(sd[2])}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div
+                    style={{
+                      marginTop: 10,
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr",
+                      gap: 8,
+                    }}
+                  >
+                    <div style={{ borderTop: "1px solid " + C.line, paddingTop: 8 }}>
+                      <div style={kStyle}>Total value</div>
+                      <div
+                        className="mono"
+                        style={{ fontSize: 15, fontWeight: 700, marginTop: 3, color: C.txt }}
+                      >
+                        {"$" + cfmt(cTotalUsd)}
+                      </div>
+                    </div>
+                    <div style={{ borderTop: "1px solid " + C.line, paddingTop: 8 }}>
+                      <div style={kStyle}>Counted as</div>
+                      <div
+                        className="mono"
+                        style={{ fontSize: 15, fontWeight: 700, marginTop: 3, color: C.green }}
+                      >
+                        {"≈ " + cfmt(cCounted) + " OSG"}
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    aria-label="Estimate per day and per month"
+                    style={{
+                      marginTop: 12,
+                      border: "1px solid " + C.line2,
+                      borderRadius: 12,
+                      overflow: "hidden",
+                    }}
+                  >
+                    {[["Lock", "Up to / day", "Up to / month"]]
+                      .concat(
+                        calcRows.map(function (r) {
+                          var perDay = (cCounted * r[1]) / 10000;
+                          return [
+                            r[0],
+                            r[1] > 0 ? cfmt(perDay) + " OSG" : "—",
+                            r[1] > 0 ? cfmt(perDay * 30) + " OSG" : "—",
+                          ];
+                        }),
+                      )
+                      .map(function (row, i) {
+                        var head = i === 0;
+                        return (
+                          <div
+                            key={row[0]}
+                            style={Object.assign(
+                              {
+                                display: "grid",
+                                gridTemplateColumns: "1.2fr 1fr 1fr",
+                                padding: "8px 10px",
+                                fontSize: 12,
+                                alignItems: "center",
+                                borderTop: head ? "0" : "1px solid " + C.line,
+                                color: C.txt,
+                              },
+                              head ? Object.assign({}, kStyle, { background: C.card2 }) : {},
+                            )}
+                          >
+                            <span>{row[0]}</span>
+                            <span
+                              className={head ? "" : "mono"}
+                              style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}
+                            >
+                              {row[1]}
+                            </span>
+                            <span
+                              className={head ? "" : "mono"}
+                              style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}
+                            >
+                              {row[2]}
+                            </span>
+                          </div>
+                        );
+                      })}
+                  </div>
+                  <div
+                    style={{
+                      marginTop: 10,
+                      fontSize: 10.5,
+                      color: C.txt3,
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    {"1 OSG ≈ " +
+                      cfmt(polPerOsg) +
+                      " POL ($" +
+                      cfmt(osgUsd, 3) +
+                      ") · 1 POL ≈ $" +
+                      cfmt(polUsdLive, 4) +
+                      " · Up to = ceiling; it falls when more stake shares the daily budget. Add ~1% extra POL for price movement. DYOR."}
+                  </div>
+                </div>
+              )}
             </div>
             <div
               style={{
