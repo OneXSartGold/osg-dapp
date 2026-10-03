@@ -6729,40 +6729,15 @@ function Earn({ wallet, ensureReady, showToast }) {
             );
           })}
 
+          {/* New Term stakes are closed in the app; existing positions above
+              keep their claim and withdraw. New locks go through Mining. */}
           <div className="card">
             <div className="sec">New stake</div>
-            <div className="field">
-              <div className="row">
-                <label>Amount</label>
-                <span className="bal">Balance {fmt(osgBal, 2)} OSG</span>
-              </div>
-              <input
-                className="inp"
-                placeholder="0.00"
-                inputMode="decimal"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-              />
+            <div style={{ fontSize: 12.5, color: C.txt2, lineHeight: 1.6, marginTop: 8 }}>
+              New Term stakes are closed. Your existing Term positions keep
+              running — claim and withdraw below. For new locks use Mining →
+              180 / 365 / 540 days.
             </div>
-            <div
-              style={{
-                fontSize: 11.5,
-                color: C.txt3,
-                marginTop: 9,
-                marginBottom: 4,
-              }}
-            >
-              Minimum {fmt(pool.minDeposit, 0)} OSG. Maximum 5 positions per
-              wallet.
-            </div>
-            <button
-              className="btn-gold"
-              style={{ marginTop: 8 }}
-              disabled={busy.dep || pool.paused}
-              onClick={doDeposit}
-            >
-              {pool.paused ? "Staking paused" : busy.dep ? "Working…" : "Stake OSG"}
-            </button>
           </div>
         </>
       )}
