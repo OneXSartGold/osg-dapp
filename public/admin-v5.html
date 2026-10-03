@@ -507,6 +507,29 @@ function osgIn(id) {
 }
 var TERM_R = ["function maxRateBps() view returns (uint256)", "function miningShareBps() view returns (uint256)", "function maxShareBps() view returns (uint256)", "function minDeposit() view returns (uint256)", "function capacity() view returns (uint256)", "function paused() view returns (bool)"];
 var LP_R = ["function miningShareBps() view returns (uint256)", "function maxShareBps() view returns (uint256)", "function minDeposit() view returns (uint256)", "function capacityLp() view returns (uint256)", "function paused() view returns (bool)"];
+// ===== One shares guard for the three programmes on the Mining bucket =====
+var SHARE_PROGS = { term: "Term", lp: "LP 12 months", tiers: "LP 6 & 18 months" };
+async function sharesNow() {
+  var keys = Object.keys(SHARE_PROGS);
+  var r = await Promise.all(keys.map(function (k) { return new E.Contract(A[k], ["function miningShareBps() view returns (uint256)"], pv()).miningShareBps(); }));
+  var out = {};
+  keys.forEach(function (k, i) { out[k] = r[i]; });
+  return out;
+}
+// Total with `key` set to `bps`. Over 10,000 -> err (names the largest other
+// share to lower first). Otherwise text for the confirm: what the others keep
+// and how much of the Mining budget stays unused.
+function shareGuard(s, key, bps) {
+  var total = BigInt(bps), others = [];
+  Object.keys(SHARE_PROGS).forEach(function (k) { if (k !== key) { total += s[k]; others.push(k); } });
+  if (total > 10000n) {
+    var big = others.slice().sort(function (a, b) { return s[b] > s[a] ? 1 : s[b] < s[a] ? -1 : 0; })[0];
+    return { err: "This would make the shares add up to " + (Number(total) / 100).toFixed(2) + "%. Lower " + SHARE_PROGS[big] + " first. Nothing sent." };
+  }
+  var keep = others.map(function (k) { return SHARE_PROGS[k] + " keeps " + (Number(s[k]) / 100).toFixed(2) + "%"; }).join(", ") + ".";
+  var unused = 10000n - total;
+  return { text: keep + "\n" + (unused > 0n ? (Number(unused) / 100).toFixed(2) + "% of the Mining budget will stay unused." : "All three together use 100% of the Mining budget.") };
+}
 function pauseTx(o) {
   return async function () {
     var paused = await new E.Contract(o.addr, ["function paused() view returns (bool)"], pv()).paused();
@@ -518,7 +541,7 @@ function pauseTx(o) {
 function loadTermControls() {
   fill("termCtl",
     field("termRateIn", "New Term daily reward limit in % (0.10 to 2.00)", "termRateBtn", "Change Term reward") +
-    field("termShareIn", "Term share of the mining budget in % (Term + LP at most 100)", "termShareBtn", "Change Term share") +
+    field("termShareIn", "Term share of the mining budget in % (all three together at most 100)", "termShareBtn", "Change Term share") +
     field("termMinIn", "Smallest Term stake in OSG", "termMinBtn", "Change minimum") +
     field("termCapIn", "Raise Term limit to (total OSG, can only go up)", "termCapBtn", "Raise limit") +
     '<div class="bar"><button class="ghost" id="termPauseBtn">Pause or resume Term staking</button></div>' +
@@ -534,11 +557,13 @@ function loadTermControls() {
   };
   document.getElementById("termShareBtn").onclick = async function () {
     var bps; try { bps = pctToBps(document.getElementById("termShareIn").value, 0, 10000); } catch (e) { note("termMsg", errText(e), "bad"); return; }
-    var r = await Promise.all([T().miningShareBps(), T().maxShareBps(), new E.Contract(A.lp, LP_R, pv()).miningShareBps()]);
+    var r, sh;
+    try { r = await Promise.all([T().miningShareBps(), T().maxShareBps()]); sh = await sharesNow(); } catch (e) { note("termMsg", "Could not read the shares, nothing sent: " + errText(e), "bad"); return; }
     if (BigInt(bps) > r[1]) { note("termMsg", "Above the Term ceiling of " + (Number(r[1]) / 100).toFixed(2) + "%. Nothing sent.", "bad"); return; }
-    if (BigInt(bps) + r[2] > 10000n) { note("termMsg", "Term + LP would be " + ((bps + Number(r[2])) / 100).toFixed(2) + "%. Lower LP first. Nothing sent.", "bad"); return; }
+    var g = shareGuard(sh, "term", bps);
+    if (g.err) { note("termMsg", g.err, "bad"); return; }
     ownerTx({ msg: "termMsg", name: "Change Term share of mining budget", addr: A.term, abi: "function setMiningShareBps(uint256 newBps)", fn: "setMiningShareBps", args: [bps],
-      what: "Term share: " + (Number(r[0]) / 100).toFixed(2) + "% -> " + (bps / 100).toFixed(2) + "%.\nLP keeps " + (Number(r[2]) / 100).toFixed(2) + "%.", reload: re });
+      what: "Term share: " + (Number(r[0]) / 100).toFixed(2) + "% -> " + (bps / 100).toFixed(2) + "%.\n" + g.text, reload: function () { re(); loadShares(); } });
   };
   document.getElementById("termMinBtn").onclick = async function () {
     var v; try { v = osgIn("termMinIn"); } catch (e) { note("termMsg", errText(e), "bad"); return; }
@@ -559,7 +584,7 @@ function loadLpMoreControls() {
   var box = document.getElementById("lpCtl");
   box.insertAdjacentHTML("beforeend",
     '<div id="lpMore">' +
-    field("lpShareIn", "LP share of the mining budget in % (Term + LP at most 100)", "lpShareBtn", "Change LP share") +
+    field("lpShareIn", "LP share of the mining budget in % (all three together at most 100)", "lpShareBtn", "Change LP share") +
     field("lpMinIn", "Smallest LP deposit (LP tokens)", "lpMinBtn", "Change minimum") +
     field("lpCapIn", "Raise LP limit to (total LP tokens, can only go up)", "lpCapBtn", "Raise limit") +
     '<div class="bar"><button class="ghost" id="lpPauseBtn">Pause or resume LP mining</button></div></div>');
@@ -567,11 +592,13 @@ function loadLpMoreControls() {
   var re = function () { loadLpWeight(); };
   document.getElementById("lpShareBtn").onclick = async function () {
     var bps; try { bps = pctToBps(document.getElementById("lpShareIn").value, 0, 10000); } catch (e) { note("lpMsg", errText(e), "bad"); return; }
-    var r = await Promise.all([L().miningShareBps(), L().maxShareBps(), new E.Contract(A.term, TERM_R, pv()).miningShareBps()]);
+    var r, sh;
+    try { r = await Promise.all([L().miningShareBps(), L().maxShareBps()]); sh = await sharesNow(); } catch (e) { note("lpMsg", "Could not read the shares, nothing sent: " + errText(e), "bad"); return; }
     if (BigInt(bps) > r[1]) { note("lpMsg", "Above the LP ceiling of " + (Number(r[1]) / 100).toFixed(2) + "%. Nothing sent.", "bad"); return; }
-    if (BigInt(bps) + r[2] > 10000n) { note("lpMsg", "Term + LP would be " + ((bps + Number(r[2])) / 100).toFixed(2) + "%. Lower Term first. Nothing sent.", "bad"); return; }
+    var g = shareGuard(sh, "lp", bps);
+    if (g.err) { note("lpMsg", g.err, "bad"); return; }
     ownerTx({ msg: "lpMsg", name: "Change LP share of mining budget", addr: A.lp, abi: "function setMiningShareBps(uint256 newBps)", fn: "setMiningShareBps", args: [bps],
-      what: "LP share: " + (Number(r[0]) / 100).toFixed(2) + "% -> " + (bps / 100).toFixed(2) + "%.\nTerm keeps " + (Number(r[2]) / 100).toFixed(2) + "%.", reload: re });
+      what: "LP 12 months share: " + (Number(r[0]) / 100).toFixed(2) + "% -> " + (bps / 100).toFixed(2) + "%.\n" + g.text, reload: function () { re(); loadShares(); } });
   };
   document.getElementById("lpMinBtn").onclick = async function () {
     var v; try { v = osgIn("lpMinIn"); } catch (e) { note("lpMsg", errText(e), "bad"); return; }
