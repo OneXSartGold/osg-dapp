@@ -7267,11 +7267,15 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
   }
 
   async function doWithdraw(posId) {
-    if (!amount || Number(amount) <= 0) {
-      showToast("⚠️ Enter an amount");
-      return;
-    }
-    if (locked) {
+    // A withdraw always takes the whole position, so no amount is needed.
+    // Lock check on THIS position (LPMining LOCK_PERIOD = 365 days, unless
+    // termLifted). Not found -> fall through; staticCall below still guards.
+    const pos = positions.find((p) => p.id === posId);
+    if (
+      pos &&
+      !info.termLifted &&
+      pos.startTime + 365 * 86400 > Math.floor(Date.now() / 1000)
+    ) {
       showToast("⏳ This position is still inside its 365-day term");
       return;
     }
@@ -7279,12 +7283,11 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
     if (!signer) return;
     setBusy((b) => ({ ...b, wd: true }));
     try {
-      const amt = parseUnits(String(amount), 18);
       const mining = new Contract(ADDRESSES.lpMining, LP_MINING_ABI, signer);
+      await mining.withdraw.staticCall(posId);
       const tx = await mining.withdraw(posId, { gasLimit: (await mining.withdraw.estimateGas(posId)) + 900000n });
       await tx.wait();
       showToast("✅ Withdrawn!");
-      setAmount("");
       await loadRead();
     } catch (e) {
       showToast("❌ " + (e?.shortMessage || e?.reason || "Withdraw failed"));
@@ -7511,6 +7514,19 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
   const tierBlocked = isTier && !(tiers && tiers.paused === false);
   const stakeW = isTier ? tierLpW : lpW;
   const stakeBps = isTier ? liveBps || 0 : rateBps;
+
+  // ---- add-liquidity preview, for the selected lock ----
+  const addLp = pool.osgRes > 0 ? (Number(osgIn) / pool.osgRes) * pool.lpSupply : 0;
+  // 180 / 540 use the lpTiers lpWeight; if that read is missing, fall back
+  // to the 365-day lpW so "Counted as" still shows the LP's value.
+  const addW = isTier && tierLpW > 0 ? tierLpW : lpW;
+  const addCounted = addLp * addW;
+  // 365 keeps dailyFor; 180 / 540 use the live tier rate, or null ("—").
+  const addPerDay = !isTier
+    ? dailyFor(addLp)
+    : liveBps != null
+      ? (addCounted * liveBps) / 10000
+      : null;
 
   // ---- every open position, both contracts ----
   const allPositions = positions
@@ -7787,13 +7803,13 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: C.txt2, padding: "5px 0" }}>
                   <span>Counted as</span>
                   <b style={{ color: C.txt, fontFamily: "'JetBrains Mono',monospace" }}>
-                    {((Number(osgIn) / pool.osgRes) * pool.lpSupply * lpW).toFixed(0)} OSG
+                    {addCounted.toFixed(0)} OSG
                   </b>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: C.txt2, padding: "5px 0" }}>
-                  <span>Earns daily</span>
+                  <span>Up to / day</span>
                   <b style={{ color: C.green, fontFamily: "'JetBrains Mono',monospace" }}>
-                    {dailyFor((Number(osgIn) / pool.osgRes) * pool.lpSupply).toFixed(2)} OSG
+                    {addPerDay != null ? addPerDay.toFixed(2) + " OSG" : "—"}
                   </b>
                 </div>
               </>
