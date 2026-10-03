@@ -23,7 +23,7 @@ import {
   QUICKSWAP_URL,
   P2P_ABI,
   LP_MINING_ABI,
-  
+  LP_TIERS_ABI,
   LP_TOKEN_ABI,
 PAIR_ABI,
   ROUTER_ABI,
@@ -2071,6 +2071,285 @@ function PoolCards({ getProvider, wallet, oldStaked, setTab }) {
   );
 }
 
+// LP calculator body shared by Home and Mining: unit switch, amount, the
+// OSG + POL needed, total value and "Counted as". Live prices only:
+// polPerOsg from the pair reserves, polUsd from the market feed; either at 0
+// shows "Price loading…". An LP deposit is 50 / 50 by value. renderRates
+// draws the per-lock estimate from cCounted; the footer line follows it.
+function LpCalcBody({ polPerOsg, polUsd, unit, setUnit, amt, setAmt, scrollId, renderRates }) {
+  var calcUnit = unit;
+  var calcAmt = amt;
+  var setCalcUnit = setUnit;
+  var setCalcAmt = setAmt;
+  var cnum = function (s) {
+    var n = parseFloat(String(s).replace(/,/g, ""));
+    return n > 0 ? n : 0;
+  };
+  var cfmt = function (n, dp) {
+    var d = dp == null ? 2 : dp;
+    return Number(n).toLocaleString("en-US", {
+      minimumFractionDigits: d,
+      maximumFractionDigits: d,
+    });
+  };
+  polPerOsg = Number(polPerOsg) > 0 ? Number(polPerOsg) : 0;
+  var polUsdLive = typeof polUsd === "number" && polUsd > 0 ? polUsd : 0;
+  var osgUsd = polPerOsg * polUsdLive;
+  var calcReady = polPerOsg > 0 && polUsdLive > 0;
+  var a = cnum(calcAmt);
+  var cOsg = 0,
+    cPol = 0;
+  if (calcReady) {
+    if (calcUnit === "USD") {
+      cOsg = a / 2 / osgUsd;
+      cPol = a / 2 / polUsdLive;
+    } else if (calcUnit === "OSG") {
+      cOsg = a;
+      cPol = a * polPerOsg;
+    } else {
+      cPol = a;
+      cOsg = a / polPerOsg;
+    }
+  }
+  var cTotalUsd = cOsg * osgUsd + cPol * polUsdLive;
+  var cCounted = cOsg * 2;
+  var calcLabels = {
+    USD: "Total I want to add (USDT)",
+    OSG: "OSG I want to add",
+    POL: "POL I want to add",
+  };
+  var calcDefaults = { USD: "100", OSG: "100", POL: "1000" };
+  // Shown unit names; the mode value stays "USD" so the maths is unchanged.
+  var unitNames = { USD: "USDT", OSG: "OSG", POL: "POL" };
+  var kStyle = {
+    fontSize: 9,
+    letterSpacing: "1px",
+    textTransform: "uppercase",
+    color: C.txt3,
+    fontWeight: 700,
+  };
+  return (
+    <>
+      <div
+        role="group"
+        aria-label="I want to enter"
+        style={{
+          display: "flex",
+          background: C.bg2,
+          border: "1px solid " + C.line2,
+          borderRadius: 999,
+          padding: 3,
+          gap: 2,
+          marginTop: 12,
+        }}
+      >
+        {[
+          ["USD", "USDT"],
+          ["OSG", "OSG"],
+          ["POL", "POL"],
+        ].map(function (m) {
+          var on = calcUnit === m[0];
+          return (
+            <button
+              key={m[0]}
+              aria-pressed={on}
+              onClick={function () {
+                setCalcUnit(m[0]);
+                setCalcAmt(calcDefaults[m[0]]);
+              }}
+              style={{
+                flex: 1,
+                fontSize: 12.5,
+                fontWeight: 700,
+                border: 0,
+                borderRadius: 999,
+                padding: "7px 0",
+                cursor: "pointer",
+                background: on ? C.gold2 : "none",
+                color: on ? C.bg : C.txt2,
+              }}
+            >
+              {m[1]}
+            </button>
+          );
+        })}
+      </div>
+      <div style={Object.assign({}, kStyle, { margin: "12px 0 5px" })}>
+        {calcLabels[calcUnit]}
+      </div>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          background: "#000",
+          border: "1px solid " + C.line2,
+          borderRadius: 11,
+          padding: "9px 12px",
+        }}
+      >
+        <input
+          className="mono"
+          inputMode="decimal"
+          autoComplete="off"
+          placeholder="0.00"
+          aria-label={calcLabels[calcUnit]}
+          onFocus={function () {
+            setTimeout(function () {
+              var el = document.getElementById(scrollId);
+              if (el)
+                el.scrollIntoView({
+                  behavior: "smooth",
+                  block: "center",
+                });
+            }, 300);
+          }}
+          value={calcAmt}
+          onChange={function (e) {
+            setCalcAmt(e.target.value.replace(/[^0-9.]/g, ""));
+          }}
+          style={{
+            flex: 1,
+            width: "100%",
+            minWidth: 0,
+            background: "none",
+            border: "none",
+            outline: "none",
+            color: C.txt,
+            fontSize: 19,
+            fontWeight: 700,
+          }}
+        />
+        <span style={{ fontWeight: 800, color: C.gold2, fontSize: 13 }}>
+          {unitNames[calcUnit]}
+        </span>
+      </div>
+      {!calcReady ? (
+        <div
+          style={{
+            marginTop: 12,
+            fontSize: 12,
+            color: C.txt3,
+            textAlign: "center",
+          }}
+        >
+          Price loading…
+        </div>
+      ) : (
+        <div>
+          <div style={Object.assign({}, kStyle, { margin: "12px 0 5px" })}>
+            You need
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr auto 1fr",
+              gap: 8,
+              alignItems: "stretch",
+            }}
+          >
+            {[
+              ["OSG", cOsg, cOsg * osgUsd],
+              null,
+              ["POL", cPol, cPol * polUsdLive],
+            ].map(function (sd, i) {
+              if (!sd)
+                return (
+                  <div
+                    key="plus"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      color: C.gold2,
+                      fontWeight: 800,
+                      fontSize: 18,
+                    }}
+                  >
+                    +
+                  </div>
+                );
+              return (
+                <div
+                  key={sd[0]}
+                  style={{
+                    background: C.bg2,
+                    border: "1px solid " + C.line2,
+                    borderRadius: 12,
+                    padding: "10px 10px 9px",
+                    minWidth: 0,
+                  }}
+                >
+                  <div style={kStyle}>{sd[0]}</div>
+                  <div
+                    className="mono"
+                    style={{
+                      fontSize: 18,
+                      fontWeight: 700,
+                      marginTop: 4,
+                      color: C.txt,
+                      fontVariantNumeric: "tabular-nums",
+                      overflowWrap: "anywhere",
+                    }}
+                  >
+                    {cfmt(sd[1])}
+                  </div>
+                  <div style={{ fontSize: 11, color: C.txt2, marginTop: 2 }}>
+                    {"≈ $" + cfmt(sd[2])}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div
+            style={{
+              marginTop: 10,
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 8,
+            }}
+          >
+            <div style={{ borderTop: "1px solid " + C.line, paddingTop: 8 }}>
+              <div style={kStyle}>Total value</div>
+              <div
+                className="mono"
+                style={{ fontSize: 15, fontWeight: 700, marginTop: 3, color: C.txt }}
+              >
+                {"$" + cfmt(cTotalUsd)}
+              </div>
+            </div>
+            <div style={{ borderTop: "1px solid " + C.line, paddingTop: 8 }}>
+              <div style={kStyle}>Counted as</div>
+              <div
+                className="mono"
+                style={{ fontSize: 15, fontWeight: 700, marginTop: 3, color: C.green }}
+              >
+                {"≈ " + cfmt(cCounted) + " OSG"}
+              </div>
+            </div>
+          </div>
+          {renderRates(cCounted, cfmt, kStyle)}
+          <div
+            style={{
+              marginTop: 10,
+              fontSize: 10.5,
+              color: C.txt3,
+              lineHeight: 1.5,
+            }}
+          >
+            {"1 OSG ≈ " +
+              cfmt(polPerOsg) +
+              " POL ($" +
+              cfmt(osgUsd, 3) +
+              ") · 1 POL ≈ $" +
+              cfmt(polUsdLive, 4) +
+              " · Up to = ceiling; it falls when more stake shares the daily budget. Add ~1% extra POL for price movement. DYOR."}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvider, getReadProvider, ensureReady, showToast, setTab, refParam }) {
   const [calcAmt, setCalcAmt] = useState("100");
   const [calcUnit, setCalcUnit] = useState("USD");
@@ -2253,58 +2532,11 @@ function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvid
       {/* MARKET HERO — balance + market + calculator */}
       {(function () {
         var pol = typeof polUsd === "number" && polUsd > 0 ? polUsd : 0.077;
-        var cnum = function (s) {
-          var n = parseFloat(String(s).replace(/,/g, ""));
-          return n > 0 ? n : 0;
-        };
-        var cfmt = function (n, dp) {
-          var d = dp == null ? 2 : dp;
-          return Number(n).toLocaleString("en-US", {
-            minimumFractionDigits: d,
-            maximumFractionDigits: d,
-          });
-        };
-        // LP calculator. Live prices only: polPerOsg from the pair reserves,
-        // polUsd from the market feed. An LP deposit is 50 / 50 by value.
-        var polPerOsg = effectivePolPerOsg;
-        var polUsdLive = typeof polUsd === "number" && polUsd > 0 ? polUsd : 0;
-        var osgUsd = polPerOsg * polUsdLive;
-        var calcReady = polPerOsg > 0 && polUsdLive > 0;
-        var amt = cnum(calcAmt);
-        var cOsg = 0,
-          cPol = 0;
-        if (calcReady) {
-          if (calcUnit === "USD") {
-            cOsg = amt / 2 / osgUsd;
-            cPol = amt / 2 / polUsdLive;
-          } else if (calcUnit === "OSG") {
-            cOsg = amt;
-            cPol = amt * polPerOsg;
-          } else {
-            cPol = amt;
-            cOsg = amt / polPerOsg;
-          }
-        }
-        var cTotalUsd = cOsg * osgUsd + cPol * polUsdLive;
-        var cCounted = cOsg * 2;
-        var calcLabels = {
-          USD: "Total I want to add (USD)",
-          OSG: "OSG I want to add",
-          POL: "POL I want to add",
-        };
-        var calcDefaults = { USD: "100", OSG: "100", POL: "1000" };
         var calcRows = [
           ["180 days", lpBps.d180],
           ["365 days", lpBps.d365],
           ["540 days", lpBps.d540],
         ];
-        var kStyle = {
-          fontSize: 9,
-          letterSpacing: "1px",
-          textTransform: "uppercase",
-          color: C.txt3,
-          fontWeight: 700,
-        };
         return (
           <div
             style={{
@@ -2704,276 +2936,74 @@ function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvid
                   OSG + POL, 50 / 50
                 </span>
               </div>
-              <div
-                role="group"
-                aria-label="I want to enter"
-                style={{
-                  display: "flex",
-                  background: C.bg2,
-                  border: "1px solid " + C.line2,
-                  borderRadius: 999,
-                  padding: 3,
-                  gap: 2,
-                  marginTop: 12,
-                }}
-              >
-                {[
-                  ["USD", "$ USD"],
-                  ["OSG", "OSG"],
-                  ["POL", "POL"],
-                ].map(function (m) {
-                  var on = calcUnit === m[0];
+              <LpCalcBody
+                polPerOsg={effectivePolPerOsg}
+                polUsd={polUsd}
+                unit={calcUnit}
+                setUnit={setCalcUnit}
+                amt={calcAmt}
+                setAmt={setCalcAmt}
+                scrollId="osgCalc"
+                renderRates={function (cCounted, cfmt, kStyle) {
                   return (
-                    <button
-                      key={m[0]}
-                      aria-pressed={on}
-                      onClick={function () {
-                        setCalcUnit(m[0]);
-                        setCalcAmt(calcDefaults[m[0]]);
-                      }}
+                    <div
+                      aria-label="Estimate per day and per month"
                       style={{
-                        flex: 1,
-                        fontSize: 12.5,
-                        fontWeight: 700,
-                        border: 0,
-                        borderRadius: 999,
-                        padding: "7px 0",
-                        cursor: "pointer",
-                        background: on ? C.gold2 : "none",
-                        color: on ? C.bg : C.txt2,
+                        marginTop: 12,
+                        border: "1px solid " + C.line2,
+                        borderRadius: 12,
+                        overflow: "hidden",
                       }}
                     >
-                      {m[1]}
-                    </button>
+                      {[["Lock", "Up to / day", "Up to / month"]]
+                        .concat(
+                          calcRows.map(function (r) {
+                            var perDay = (cCounted * r[1]) / 10000;
+                            return [
+                              r[0],
+                              r[1] > 0 ? cfmt(perDay) + " OSG" : "—",
+                              r[1] > 0 ? cfmt(perDay * 30) + " OSG" : "—",
+                            ];
+                          }),
+                        )
+                        .map(function (row, i) {
+                          var head = i === 0;
+                          return (
+                            <div
+                              key={row[0]}
+                              style={Object.assign(
+                                {
+                                  display: "grid",
+                                  gridTemplateColumns: "1.2fr 1fr 1fr",
+                                  padding: "8px 10px",
+                                  fontSize: 12,
+                                  alignItems: "center",
+                                  borderTop: head ? "0" : "1px solid " + C.line,
+                                  color: C.txt,
+                                },
+                                head ? Object.assign({}, kStyle, { background: C.card2 }) : {},
+                              )}
+                            >
+                              <span>{row[0]}</span>
+                              <span
+                                className={head ? "" : "mono"}
+                                style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}
+                              >
+                                {row[1]}
+                              </span>
+                              <span
+                                className={head ? "" : "mono"}
+                                style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}
+                              >
+                                {row[2]}
+                              </span>
+                            </div>
+                          );
+                        })}
+                    </div>
                   );
-                })}
-              </div>
-              <div style={Object.assign({}, kStyle, { margin: "12px 0 5px" })}>
-                {calcLabels[calcUnit]}
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  background: "#000",
-                  border: "1px solid " + C.line2,
-                  borderRadius: 11,
-                  padding: "9px 12px",
                 }}
-              >
-                <input
-                  className="mono"
-                  inputMode="decimal"
-                  autoComplete="off"
-                  placeholder="0.00"
-                  aria-label={calcLabels[calcUnit]}
-                  onFocus={function () {
-                    setTimeout(function () {
-                      var el = document.getElementById("osgCalc");
-                      if (el)
-                        el.scrollIntoView({
-                          behavior: "smooth",
-                          block: "center",
-                        });
-                    }, 300);
-                  }}
-                  value={calcAmt}
-                  onChange={function (e) {
-                    setCalcAmt(e.target.value.replace(/[^0-9.]/g, ""));
-                  }}
-                  style={{
-                    flex: 1,
-                    width: "100%",
-                    minWidth: 0,
-                    background: "none",
-                    border: "none",
-                    outline: "none",
-                    color: C.txt,
-                    fontSize: 19,
-                    fontWeight: 700,
-                  }}
-                />
-                <span style={{ fontWeight: 800, color: C.gold2, fontSize: 13 }}>
-                  {calcUnit}
-                </span>
-              </div>
-              {!calcReady ? (
-                <div
-                  style={{
-                    marginTop: 12,
-                    fontSize: 12,
-                    color: C.txt3,
-                    textAlign: "center",
-                  }}
-                >
-                  Price loading…
-                </div>
-              ) : (
-                <div>
-                  <div style={Object.assign({}, kStyle, { margin: "12px 0 5px" })}>
-                    You need
-                  </div>
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr auto 1fr",
-                      gap: 8,
-                      alignItems: "stretch",
-                    }}
-                  >
-                    {[
-                      ["OSG", cOsg, cOsg * osgUsd],
-                      null,
-                      ["POL", cPol, cPol * polUsdLive],
-                    ].map(function (sd, i) {
-                      if (!sd)
-                        return (
-                          <div
-                            key="plus"
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              color: C.gold2,
-                              fontWeight: 800,
-                              fontSize: 18,
-                            }}
-                          >
-                            +
-                          </div>
-                        );
-                      return (
-                        <div
-                          key={sd[0]}
-                          style={{
-                            background: C.bg2,
-                            border: "1px solid " + C.line2,
-                            borderRadius: 12,
-                            padding: "10px 10px 9px",
-                            minWidth: 0,
-                          }}
-                        >
-                          <div style={kStyle}>{sd[0]}</div>
-                          <div
-                            className="mono"
-                            style={{
-                              fontSize: 18,
-                              fontWeight: 700,
-                              marginTop: 4,
-                              color: C.txt,
-                              fontVariantNumeric: "tabular-nums",
-                              overflowWrap: "anywhere",
-                            }}
-                          >
-                            {cfmt(sd[1])}
-                          </div>
-                          <div style={{ fontSize: 11, color: C.txt2, marginTop: 2 }}>
-                            {"≈ $" + cfmt(sd[2])}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div
-                    style={{
-                      marginTop: 10,
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr",
-                      gap: 8,
-                    }}
-                  >
-                    <div style={{ borderTop: "1px solid " + C.line, paddingTop: 8 }}>
-                      <div style={kStyle}>Total value</div>
-                      <div
-                        className="mono"
-                        style={{ fontSize: 15, fontWeight: 700, marginTop: 3, color: C.txt }}
-                      >
-                        {"$" + cfmt(cTotalUsd)}
-                      </div>
-                    </div>
-                    <div style={{ borderTop: "1px solid " + C.line, paddingTop: 8 }}>
-                      <div style={kStyle}>Counted as</div>
-                      <div
-                        className="mono"
-                        style={{ fontSize: 15, fontWeight: 700, marginTop: 3, color: C.green }}
-                      >
-                        {"≈ " + cfmt(cCounted) + " OSG"}
-                      </div>
-                    </div>
-                  </div>
-                  <div
-                    aria-label="Estimate per day and per month"
-                    style={{
-                      marginTop: 12,
-                      border: "1px solid " + C.line2,
-                      borderRadius: 12,
-                      overflow: "hidden",
-                    }}
-                  >
-                    {[["Lock", "Up to / day", "Up to / month"]]
-                      .concat(
-                        calcRows.map(function (r) {
-                          var perDay = (cCounted * r[1]) / 10000;
-                          return [
-                            r[0],
-                            r[1] > 0 ? cfmt(perDay) + " OSG" : "—",
-                            r[1] > 0 ? cfmt(perDay * 30) + " OSG" : "—",
-                          ];
-                        }),
-                      )
-                      .map(function (row, i) {
-                        var head = i === 0;
-                        return (
-                          <div
-                            key={row[0]}
-                            style={Object.assign(
-                              {
-                                display: "grid",
-                                gridTemplateColumns: "1.2fr 1fr 1fr",
-                                padding: "8px 10px",
-                                fontSize: 12,
-                                alignItems: "center",
-                                borderTop: head ? "0" : "1px solid " + C.line,
-                                color: C.txt,
-                              },
-                              head ? Object.assign({}, kStyle, { background: C.card2 }) : {},
-                            )}
-                          >
-                            <span>{row[0]}</span>
-                            <span
-                              className={head ? "" : "mono"}
-                              style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}
-                            >
-                              {row[1]}
-                            </span>
-                            <span
-                              className={head ? "" : "mono"}
-                              style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}
-                            >
-                              {row[2]}
-                            </span>
-                          </div>
-                        );
-                      })}
-                  </div>
-                  <div
-                    style={{
-                      marginTop: 10,
-                      fontSize: 10.5,
-                      color: C.txt3,
-                      lineHeight: 1.5,
-                    }}
-                  >
-                    {"1 OSG ≈ " +
-                      cfmt(polPerOsg) +
-                      " POL ($" +
-                      cfmt(osgUsd, 3) +
-                      ") · 1 POL ≈ $" +
-                      cfmt(polUsdLive, 4) +
-                      " · Up to = ceiling; it falls when more stake shares the daily budget. Add ~1% extra POL for price movement. DYOR."}
-                  </div>
-                </div>
-              )}
+              />
             </div>
             <div
               style={{
@@ -6701,40 +6731,15 @@ function Earn({ wallet, ensureReady, showToast }) {
             );
           })}
 
+          {/* New Term stakes are closed in the app; existing positions above
+              keep their claim and withdraw. New locks go through Mining. */}
           <div className="card">
             <div className="sec">New stake</div>
-            <div className="field">
-              <div className="row">
-                <label>Amount</label>
-                <span className="bal">Balance {fmt(osgBal, 2)} OSG</span>
-              </div>
-              <input
-                className="inp"
-                placeholder="0.00"
-                inputMode="decimal"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-              />
+            <div style={{ fontSize: 12.5, color: C.txt2, lineHeight: 1.6, marginTop: 8 }}>
+              New Term stakes are closed. Your existing Term positions keep
+              running — claim and withdraw above. For new locks use Mining →
+              180 / 365 / 540 days.
             </div>
-            <div
-              style={{
-                fontSize: 11.5,
-                color: C.txt3,
-                marginTop: 9,
-                marginBottom: 4,
-              }}
-            >
-              Minimum {fmt(pool.minDeposit, 0)} OSG. Maximum 5 positions per
-              wallet.
-            </div>
-            <button
-              className="btn-gold"
-              style={{ marginTop: 8 }}
-              disabled={busy.dep || pool.paused}
-              onClick={doDeposit}
-            >
-              {pool.paused ? "Staking paused" : busy.dep ? "Working…" : "Stake OSG"}
-            </button>
           </div>
         </>
       )}
@@ -6955,6 +6960,14 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
   const [busy, setBusy] = useState({});
   const [blockPulse, setBlockPulse] = useState(0);
   const [blockCount, setBlockCount] = useState(0);
+  // Lock choice: 365 = LPMining (ADDRESSES.lpMining, unchanged);
+  // 180 / 540 = OSGLPMiningTiers (ADDRESSES.lpTiers) tier 0 / tier 1.
+  const [lockDays, setLockDays] = useState(365);
+  const [lockAgree, setLockAgree] = useState(false);
+  const [tiers, setTiers] = useState(null);
+  const [tierPositions, setTierPositions] = useState([]);
+  const [calcAmt, setCalcAmt] = useState("100");
+  const [calcUnit, setCalcUnit] = useState("USD");
 
   const miningProviderRef = useRef(null);
   if (!miningProviderRef.current) {
@@ -7014,6 +7027,69 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
           });
         }
       } catch (e) {}
+
+      // ---- 180 / 540-day lock reads (OSGLPMiningTiers) ----
+      // Kept apart from the 365-day reads so one side failing never blanks
+      // the other. A failed read stays null and its figure is hidden.
+      // Tier 0 (180 d) and tier 1 (540 d) share ONE capacity:
+      // capacityLp / totalLp / capacityLeft cover both tiers together.
+      try {
+        const tc = new Contract(ADDRESSES.lpTiers, LP_TIERS_ABI, p);
+        const r = await Promise.allSettled([
+          tc.paused(),
+          tc.minDeposit(),
+          tc.capacityLp(),
+          tc.totalLp(),
+          tc.capacityLeft(),
+          tc.rateBps(0),
+          tc.rateBps(1),
+          tc.effectiveRateBps(0),
+          tc.effectiveRateBps(1),
+          tc.lpWeight(),
+          mining.maxRateBps(),
+          wallet ? tc.openPositionCount(wallet) : Promise.resolve(0n),
+        ]);
+        const v = (i) => (r[i].status === "fulfilled" ? r[i].value : null);
+        const num = (x) => (x == null ? null : Number(x));
+        const amt18 = (x) => (x == null ? null : f18(x));
+        setTiers({
+          paused: v(0),
+          minDeposit: amt18(v(1)),
+          capacity: amt18(v(2)),
+          filled: amt18(v(3)),
+          capacityLeft: amt18(v(4)),
+          max180: num(v(5)),
+          max540: num(v(6)),
+          live180: num(v(7)),
+          live540: num(v(8)),
+          lpWeight: amt18(v(9)),
+          max365: num(v(10)),
+          openCount: num(v(11)),
+        });
+
+        const tList = [];
+        if (wallet) {
+          const tn = Number(await tc.positionCount(wallet));
+          for (let i = 0; i < tn; i++) {
+            const [pos, pend] = await Promise.all([
+              tc.positions(wallet, i),
+              tc.pendingReward(wallet, i),
+            ]);
+            if (pos.closed) continue;
+            tList.push({
+              id: i,
+              days: Number(pos.tier) === 1 ? 540 : 180,
+              lp: f18(pos.lpAmount),
+              osgValue: f18(pos.osgValue),
+              pending: f18(pend),
+              unlockAt: Number(pos.unlockAt),
+            });
+          }
+        }
+        setTierPositions(tList);
+      } catch (e) {
+        console.error("lock tiers load failed", e);
+      }
 
       // ---- pool-level reads (v7) ----
       const [capLp, totLp, capLeft, rateBps, budget, wired, minDep, lifted, lpW] =
@@ -7217,22 +7293,126 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
     }
   }
 
+  // 180 / 540-day lock (OSGLPMiningTiers). tier 0 = 180 days, tier 1 = 540.
+  async function doDepositTier(tier) {
+    const days = tier === 1 ? 540 : 180;
+    if (!amount || Number(amount) <= 0) {
+      showToast("⚠️ Enter an amount");
+      return;
+    }
+    const signer = await ensureReady();
+    if (!signer) return;
+    setBusy((b) => ({ ...b, dep: true }));
+    try {
+      const amt = parseUnits(String(amount), 18);
+      const tc = new Contract(ADDRESSES.lpTiers, LP_TIERS_ABI, signer);
+      const lpToken = new Contract(ADDRESSES.lpPair, LP_TOKEN_ABI, signer);
+      const [isPaused, minD, left, openN, bal] = await Promise.all([
+        tc.paused(),
+        tc.minDeposit(),
+        tc.capacityLeft(),
+        tc.openPositionCount(wallet),
+        lpToken.balanceOf(wallet),
+      ]);
+      if (isPaused) {
+        showToast("⏳ Opens shortly — 365 days is open now.");
+        return;
+      }
+      if (amt < minD) {
+        showToast("⚠️ Minimum deposit is " + Number(f18(minD)).toFixed(2) + " LP");
+        return;
+      }
+      if (amt > left) {
+        showToast("⚠️ Only " + fmt(f18(left), 4) + " LP of room is left in this lock");
+        return;
+      }
+      if (Number(openN) >= 10) {
+        showToast("⚠️ You have 10 open positions in this lock — the maximum");
+        return;
+      }
+      if (amt > bal) {
+        showToast("⚠️ Not enough LP in your wallet");
+        return;
+      }
+      const allowance = await lpToken.allowance(wallet, ADDRESSES.lpTiers);
+      if (allowance < amt) {
+        showToast("1/2 — Approving LP token…");
+        const txA = await lpToken.approve(ADDRESSES.lpTiers, amt);
+        await txA.wait();
+      }
+      showToast("2/2 — Locking for " + days + " days…");
+      await tc.deposit.staticCall(amt, tier);
+      const tx = await tc.deposit(amt, tier, {
+        gasLimit: (await tc.deposit.estimateGas(amt, tier)) + 900000n,
+      });
+      await tx.wait();
+      showToast("✅ Locked until " + fmtGB(Date.now() + days * 86400000));
+      setAmount("");
+      setLockAgree(false);
+      await loadRead();
+    } catch (e) {
+      showToast("❌ " + (e?.shortMessage || e?.reason || "Deposit failed"));
+    } finally {
+      setBusy((b) => ({ ...b, dep: false }));
+    }
+  }
+
+  async function doWithdrawTier(posId) {
+    const signer = await ensureReady();
+    if (!signer) return;
+    setBusy((b) => ({ ...b, wd: true }));
+    try {
+      const tc = new Contract(ADDRESSES.lpTiers, LP_TIERS_ABI, signer);
+      await tc.withdraw.staticCall(posId);
+      const tx = await tc.withdraw(posId, {
+        gasLimit: (await tc.withdraw.estimateGas(posId)) + 900000n,
+      });
+      await tx.wait();
+      showToast("✅ Withdrawn!");
+      await loadRead();
+    } catch (e) {
+      showToast("❌ " + (e?.shortMessage || e?.reason || "Withdraw failed"));
+    } finally {
+      setBusy((b) => ({ ...b, wd: false }));
+    }
+  }
+
   async function doClaim() {
     const signer = await ensureReady();
     if (!signer) return;
     setBusy((b) => ({ ...b, cl: true }));
     try {
       const mining = new Contract(ADDRESSES.lpMining, LP_MINING_ABI, signer);
-      try {
-        var mined = await mining.claimAll({ gasLimit: (await mining.claimAll.estimateGas()) + 900000n });
-        await mined.wait();
-      } catch (e1) {
-        var m1 = (e1 && (e1.shortMessage || e1.reason || e1.message)) || "";
-        var ok1 =
-          m1.toLowerCase().indexOf("no reward") !== -1 ||
-          m1.toLowerCase().indexOf("nothing") !== -1 ||
-          m1.toLowerCase().indexOf("no mining budget") !== -1;
-        if (!ok1) throw e1;
+      // LPMining claimAll reverts "no positions" for a wallet that only holds
+      // 180 / 540-day locks, so it runs only when the 365-day lock has reward.
+      if (myPending > 0) {
+        try {
+          var mined = await mining.claimAll({ gasLimit: (await mining.claimAll.estimateGas()) + 900000n });
+          await mined.wait();
+        } catch (e1) {
+          var m1 = (e1 && (e1.shortMessage || e1.reason || e1.message)) || "";
+          var ok1 =
+            m1.toLowerCase().indexOf("no reward") !== -1 ||
+            m1.toLowerCase().indexOf("nothing") !== -1 ||
+            m1.toLowerCase().indexOf("no mining budget") !== -1;
+          if (!ok1) throw e1;
+        }
+      }
+      // 180 / 540-day locks: collect their reward too, before the mint below.
+      if ((tierPositions || []).some((tp) => Number(tp.pending) > 0)) {
+        const tc = new Contract(ADDRESSES.lpTiers, LP_TIERS_ABI, signer);
+        try {
+          await tc.claimAll.staticCall();
+          var minedT = await tc.claimAll({ gasLimit: (await tc.claimAll.estimateGas()) + 900000n });
+          await minedT.wait();
+        } catch (e3) {
+          var m3 = (e3 && (e3.shortMessage || e3.reason || e3.message)) || "";
+          var ok3 =
+            m3.toLowerCase().indexOf("no reward") !== -1 ||
+            m3.toLowerCase().indexOf("nothing") !== -1 ||
+            m3.toLowerCase().indexOf("no mining budget") !== -1;
+          if (!ok3) throw e3;
+        }
       }
       const pf = await mintPreflight(signer, wallet);
         if (pf.ok && pf.mintable <= 0) {
@@ -7299,6 +7479,68 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
 
   const fmtDate = (t) =>
     t ? new Date(t * 1000).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "—";
+  function fmtGB(ms) {
+    return new Date(ms).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  }
+
+  // ---- selected lock ----
+  const isTier = lockDays !== 365;
+  const tierIdx = lockDays === 540 ? 1 : 0;
+  const ceilBps = {
+    180: tiers ? tiers.max180 : null,
+    365: tiers ? tiers.max365 : null,
+    540: tiers ? tiers.max540 : null,
+  };
+  const liveBps = !isTier
+    ? info.loaded
+      ? rateBps
+      : null
+    : tiers
+      ? lockDays === 540
+        ? tiers.live540
+        : tiers.live180
+      : null;
+  const tierCap = tiers && tiers.capacity != null ? Number(tiers.capacity) : null;
+  const tierFill = tiers && tiers.filled != null ? Number(tiers.filled) : null;
+  const tierFillPct =
+    tierCap > 0 && tierFill != null ? Math.min(100, (tierFill / tierCap) * 100) : 0;
+  const tierLpW = tiers && tiers.lpWeight != null ? Number(tiers.lpWeight) : 0;
+  const unlockLabel = fmtGB(Date.now() + lockDays * 86400000);
+  const tierPaused = isTier && tiers && tiers.paused === true;
+  // 180 / 540 stay closed until the paused() read says false.
+  const tierBlocked = isTier && !(tiers && tiers.paused === false);
+  const stakeW = isTier ? tierLpW : lpW;
+  const stakeBps = isTier ? liveBps || 0 : rateBps;
+
+  // ---- every open position, both contracts ----
+  const allPositions = positions
+    .map((p) => ({
+      key: "m" + p.id,
+      id: p.id,
+      days: 365,
+      lp: p.lp,
+      osgValue: p.osgValue,
+      pending: p.pending,
+      unlockAt: p.startTime + 365 * 86400, // LPMining LOCK_PERIOD = 365 days
+      daysLeft: p.daysLeft,
+      unlocked: p.unlocked,
+    }))
+    .concat(
+      (tierPositions || []).map((p) => ({
+        key: "t" + p.id,
+        id: p.id,
+        days: p.days,
+        lp: p.lp,
+        osgValue: p.osgValue,
+        pending: p.pending,
+        unlockAt: p.unlockAt,
+        daysLeft: Math.max(0, Math.ceil((p.unlockAt - nowSec) / 86400)),
+        unlocked: p.unlockAt <= nowSec,
+      })),
+    )
+    .sort((a, b) => a.unlockAt - b.unlockAt);
+  const tierPending = (tierPositions || []).reduce((t, p) => t + (Number(p.pending) || 0), 0);
+  const allPending = myPending + tierPending;
 
   return (
     <div className="page stag">
@@ -7315,32 +7557,189 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
         <h1 style={{ margin: 0 }}>Mining</h1>
       </div>
 
-      {/* ---------- rate ---------- */}
+      {/* ---------- choose lock ---------- */}
       <div className="card">
-        <div className="sec">Paying now</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div className="sec">Choose your lock</div>
+          <span
+            style={{
+              fontSize: 9,
+              fontWeight: 800,
+              letterSpacing: ".12em",
+              color: "#8AB4FF",
+              background: "rgba(90,150,255,.12)",
+              border: "1px solid rgba(90,150,255,.45)",
+              padding: "2px 7px",
+              borderRadius: 999,
+            }}
+          >
+            NEW
+          </span>
+        </div>
+        <div
+          role="group"
+          aria-label="Lock period"
+          style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8, marginTop: 12 }}
+        >
+          {[180, 365, 540].map((d) => {
+            const on = lockDays === d;
+            const cb = ceilBps[d];
+            return (
+              <button
+                key={d}
+                aria-pressed={on}
+                onClick={() => {
+                  setLockDays(d);
+                  setLockAgree(false);
+                }}
+                style={{
+                  minWidth: 0,
+                  textAlign: "center",
+                  cursor: "pointer",
+                  color: C.txt,
+                  background: on ? "rgba(247,210,122,.07)" : C.bg2 || "#0c0c12",
+                  border: "1px solid " + (on ? C.gold1 : C.line),
+                  boxShadow: on ? "0 0 18px rgba(247,210,122,.22)" : "none",
+                  borderRadius: 14,
+                  padding: "12px 4px 10px",
+                }}
+              >
+                <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 26, fontWeight: 700, letterSpacing: "-.02em", lineHeight: 1 }}>
+                  {d}
+                </div>
+                <div style={{ fontSize: 9.5, letterSpacing: ".14em", color: C.txt3, fontWeight: 700, marginTop: 4 }}>
+                  DAYS
+                </div>
+                {cb != null && (
+                  <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: C.gold1, marginTop: 6 }}>
+                    up to {(cb / 100).toFixed(2)}%
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="sec" style={{ marginTop: 18 }}>Paying now</div>
         <div style={{ display: "flex", alignItems: "baseline", gap: 8, margin: "12px 0 2px" }}>
           <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 40, fontWeight: 700, letterSpacing: "-.03em", color: C.gold1, lineHeight: 1 }}>
-            {info.loaded ? (rateBps / 100).toFixed(2) : "…"}
+            {liveBps != null ? (liveBps / 100).toFixed(2) : (isTier ? tiers : info.loaded) ? "—" : "…"}
           </span>
           <span style={{ fontSize: 14, color: C.txt2 }}>% a day</span>
         </div>
-        <div style={{ fontSize: 12.5, color: C.txt3, marginTop: 8 }}>
-          {info.loaded ? fmt(info.filled, 2) + " of " + fmt(info.capacity, 0) + " LP staked across the pool" : "Reading the pool…"}
-        </div>
-        <div style={{ height: 4, background: "#191921", borderRadius: 3, marginTop: 10, overflow: "hidden" }}>
-          <div style={{ height: "100%", width: fillPct + "%", background: "linear-gradient(90deg,#F7D27A,#e0bd6d)" }} />
-        </div>
-        {overBudget && (
-          <div style={{ fontSize: 11.5, color: C.txt3, lineHeight: 1.55, marginTop: 10 }}>
-            The pool is drawing more than the daily budget, so payouts are being
-            shared down proportionally.
-          </div>
+        {!isTier ? (
+          <>
+            <div style={{ fontSize: 12.5, color: C.txt3, marginTop: 8 }}>
+              {info.loaded ? fmt(info.filled, 2) + " of " + fmt(info.capacity, 0) + " LP staked across the pool" : "Reading the pool…"}
+            </div>
+            <div style={{ height: 4, background: "#191921", borderRadius: 3, marginTop: 10, overflow: "hidden" }}>
+              <div style={{ height: "100%", width: fillPct + "%", background: "linear-gradient(90deg,#F7D27A,#e0bd6d)" }} />
+            </div>
+            {overBudget && (
+              <div style={{ fontSize: 11.5, color: C.txt3, lineHeight: 1.55, marginTop: 10 }}>
+                The pool is drawing more than the daily budget, so payouts are being
+                shared down proportionally.
+              </div>
+            )}
+            {info.loaded && !info.isWired && (
+              <div style={{ fontSize: 11.5, color: "#ffb4b4", marginTop: 10 }}>
+                Not wired to the reward pool — rewards are not accruing.
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            {/* 180 and 540 days share one capacity in OSGLPMiningTiers. */}
+            <div style={{ fontSize: 12.5, color: C.txt3, marginTop: 8 }}>
+              {!tiers
+                ? "Reading the lock…"
+                : tierCap != null && tierFill != null
+                  ? fmt(tiers.filled, 2) + " of " + fmt(tiers.capacity, 0) + " LP staked in this lock"
+                  : ""}
+            </div>
+            {tierCap != null && tierFill != null && (
+              <div style={{ height: 4, background: "#191921", borderRadius: 3, marginTop: 10, overflow: "hidden" }}>
+                <div style={{ height: "100%", width: tierFillPct + "%", background: "linear-gradient(90deg,#F7D27A,#e0bd6d)" }} />
+              </div>
+            )}
+          </>
         )}
-        {info.loaded && !info.isWired && (
-          <div style={{ fontSize: 11.5, color: "#ffb4b4", marginTop: 10 }}>
-            Not wired to the reward pool — rewards are not accruing.
-          </div>
-        )}
+
+        <div
+          style={{
+            background: "rgba(247,210,122,.05)",
+            border: "1px solid rgba(247,210,122,.35)",
+            borderRadius: 14,
+            padding: "12px 14px",
+            marginTop: 14,
+            fontSize: 12.5,
+            color: C.txt2,
+            lineHeight: 1.6,
+          }}
+        >
+          <b style={{ color: C.gold1, fontWeight: 600 }}>Locked for {lockDays} days.</b>{" "}
+          LP added today unlocks on {unlockLabel}. Reward can be claimed at any
+          time along the way.
+        </div>
+      </div>
+
+      {/* ---------- LP calculator (same maths as Home) ---------- */}
+      <div className="card" id="miningCalc">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: C.txt }}>LP Calculator</div>
+          <span style={{ fontSize: 11, color: C.txt3 }}>OSG + POL, 50 / 50</span>
+        </div>
+        <LpCalcBody
+          polPerOsg={pool.polPerOsg}
+          polUsd={polUsd}
+          unit={calcUnit}
+          setUnit={setCalcUnit}
+          amt={calcAmt}
+          setAmt={setCalcAmt}
+          scrollId="miningCalc"
+          renderRates={(cCounted, cfmt, kStyle) => {
+            const cb = ceilBps[lockDays];
+            const perDay = cb != null ? (cCounted * cb) / 10000 : 0;
+            return (
+              <div
+                aria-label="Estimate for the selected lock"
+                style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8, marginTop: 12 }}
+              >
+                {[
+                  ["Up to / day", cb != null ? cfmt(perDay) + " OSG" : "—"],
+                  ["Up to / month", cb != null ? cfmt(perDay * 30) + " OSG" : "—"],
+                  ["Lock", lockDays + " d"],
+                ].map((b) => (
+                  <div
+                    key={b[0]}
+                    style={{
+                      background: C.bg2,
+                      border: "1px solid " + C.line2,
+                      borderRadius: 12,
+                      padding: "10px 10px 9px",
+                      minWidth: 0,
+                    }}
+                  >
+                    <div style={kStyle}>{b[0]}</div>
+                    <div
+                      className="mono"
+                      style={{
+                        fontSize: 14,
+                        fontWeight: 700,
+                        marginTop: 4,
+                        color: b[0] === "Lock" ? C.txt : C.green,
+                        fontVariantNumeric: "tabular-nums",
+                        overflowWrap: "anywhere",
+                      }}
+                    >
+                      {b[1]}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          }}
+        />
       </div>
 
       <LegacyMining wallet={wallet} ensureReady={ensureReady} showToast={showToast} />{/* ---------- create LP ---------- */}
@@ -7420,24 +7819,6 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
         </div>
       </div>
 
-      {/* ---------- term notice ---------- */}
-      <div
-        style={{
-          background: "rgba(247,210,122,.05)",
-          border: "1px solid rgba(247,210,122,.2)",
-          borderRadius: 14,
-          padding: "14px 16px",
-          margin: "14px 0",
-          fontSize: 12.5,
-          color: C.txt2,
-          lineHeight: 1.6,
-        }}
-      >
-        <b style={{ color: C.gold1, fontWeight: 600 }}>Locked for 365 days.</b>{" "}
-        Each deposit runs its own year from the day you make it. Reward can be
-        claimed at any time along the way.
-      </div>
-
       {/* ---------- stake LP ---------- */}
       <div className="card">
         <div className="sec">Stake LP</div>
@@ -7464,32 +7845,51 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
           />
         </div>
 
-        {Number(amount) > 0 && lpW > 0 && (
+        {Number(amount) > 0 && stakeW > 0 && (
           <div style={{ fontSize: 12.5, color: C.txt2, marginTop: 12 }}>
             Counted as{" "}
             <b style={{ color: C.txt, fontFamily: "'JetBrains Mono',monospace" }}>
-              {(Number(amount) * lpW).toFixed(0)} OSG
+              {(Number(amount) * stakeW).toFixed(0)} OSG
             </b>{" "}
             — about{" "}
             <b style={{ color: C.green, fontFamily: "'JetBrains Mono',monospace" }}>
-              {dailyFor(Number(amount)).toFixed(2)} OSG
+              {((Number(amount) * stakeW * stakeBps) / 10000).toFixed(2)} OSG
             </b>{" "}
             a day.
           </div>
         )}
 
+        <label style={{ display: "flex", gap: 9, alignItems: "flex-start", marginTop: 14, fontSize: 12, color: C.txt2, lineHeight: 1.5, cursor: "pointer" }}>
+          <input type="checkbox" checked={lockAgree} onChange={(e) => setLockAgree(e.target.checked)} style={{ marginTop: 2 }} />
+          <span>
+            My LP stays locked until {unlockLabel}. It cannot be withdrawn earlier.
+          </span>
+        </label>
+
         <button
           className="btn-gold"
           style={{ marginTop: 14 }}
-          
-          onClick={doDeposit}
+          disabled={busy.dep || !lockAgree || tierBlocked}
+          onClick={() => (isTier ? doDepositTier(tierIdx) : doDeposit())}
         >
-          {busy.dep ? <span className="spin" /> : "Stake LP"}
+          {busy.dep ? (
+            <span className="spin" />
+          ) : tierPaused ? (
+            "Opens shortly — 365 days is open now."
+          ) : (
+            "Lock LP for " + lockDays + " days"
+          )}
         </button>
         <div style={{ fontSize: 11.5, color: C.txt3, marginTop: 9, lineHeight: 1.55 }}>
-          {positions.length >= 5
-            ? "You have 5 open positions — the maximum. Withdraw one before staking again."
-            : "Minimum " + minDep.toFixed(2) + " LP. Up to 5 open positions per wallet."}
+          {!isTier
+            ? positions.length >= 5
+              ? "You have 5 open positions — the maximum. Withdraw one before staking again."
+              : "Minimum " + minDep.toFixed(2) + " LP. Up to 5 open positions per wallet in this lock."
+            : tiers && tiers.openCount >= 10
+              ? "You have 10 open positions in this lock — the maximum. Withdraw one before locking again."
+              : "Minimum " +
+                (tiers && tiers.minDeposit != null ? Number(tiers.minDeposit).toFixed(2) : "…") +
+                " LP. Up to 10 open positions per wallet across 180 and 540 days."}
         </div>
       </div>
 
@@ -7499,24 +7899,27 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
           <div>
             <div className="sec">Ready to claim</div>
             <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 24, fontWeight: 700, marginTop: 7, color: C.green, letterSpacing: "-.02em" }}>
-              {myPending.toFixed(4)}
+              {allPending.toFixed(4)}
             </div>
           </div>
           <button
             className="btn-gold"
             style={{ width: "auto", padding: "11px 20px", margin: 0, fontSize: 13.5 }}
-            disabled={busy.cl || !wallet || myPending <= 0}
+            disabled={busy.cl || !wallet || allPending <= 0}
             onClick={doClaim}
           >
-            {busy.cl ? <span className="spin" /> : "Claim"}
+            {busy.cl ? <span className="spin" /> : "Claim all"}
           </button>
+        </div>
+        <div style={{ fontSize: 11.5, color: C.txt3, marginTop: 6 }}>
+          One claim collects from every lock.
         </div>
 
         <div className="sec" style={{ marginTop: 22 }}>
-          Positions · {positions.length} of 5
+          Positions · {allPositions.length}
         </div>
 
-        {positions.length === 0 && (
+        {allPositions.length === 0 && (
           <div style={{ textAlign: "center", color: C.txt3, fontSize: 12.5, padding: "22px 10px", lineHeight: 1.7 }}>
             No LP staked yet.
             <br />
@@ -7524,38 +7927,55 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
           </div>
         )}
 
-        {positions.map((p) => {
-          const pct = Math.min(100, ((365 - p.daysLeft) / 365) * 100);
-          return (
-            <div key={p.id} style={{ padding: "15px 0", borderTop: "1px solid " + C.line }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 17, fontWeight: 700, letterSpacing: "-.02em" }}>
-                  {Number(p.lp).toFixed(2)} LP
+        {allPositions.map((p) => (
+          <div
+            key={p.key}
+            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "13px 0", borderTop: "1px solid " + C.line }}
+          >
+            <div style={{ minWidth: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <span
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 700,
+                    color: C.gold1,
+                    border: "1px solid rgba(247,210,122,.55)",
+                    borderRadius: 6,
+                    padding: "1px 6px",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {p.days} d
                 </span>
-                <span style={{ fontSize: 11.5, color: p.unlocked ? C.green : C.txt3 }}>
-                  {p.unlocked ? "Year complete" : p.daysLeft + " days left"}
+                <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 13.5, fontWeight: 700, color: C.txt }}>
+                  {Number(p.lp).toFixed(4)} LP · ≈ {Number(p.osgValue).toFixed(1)} OSG
                 </span>
               </div>
-              <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 12.5, color: C.txt2, marginTop: 5 }}>
-                {Number(p.pending).toFixed(4)} OSG earned
+              <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11.5, color: C.txt3, marginTop: 6, flexWrap: "wrap" }}>
+                <span>Unlocks {fmtGB(p.unlockAt * 1000)}</span>
+                {p.unlocked ? (
+                  <button
+                    className="btn-ghost"
+                    style={{ width: "auto", margin: 0, padding: "4px 12px", fontSize: 12 }}
+                    disabled={busy.wd || !wallet}
+                    onClick={() => (p.days === 365 ? doWithdraw(p.id) : doWithdrawTier(p.id))}
+                  >
+                    {busy.wd ? <span className="spin" /> : "Withdraw"}
+                  </button>
+                ) : (
+                  <span>· {p.daysLeft} days left</span>
+                )}
               </div>
-              <div style={{ height: 3, background: "#191921", borderRadius: 2, marginTop: 11, overflow: "hidden" }}>
-                <div style={{ height: "100%", width: (p.unlocked ? 100 : pct) + "%", background: C.green, opacity: 0.75 }} />
-              </div>
-              <div style={{ fontSize: 11, color: C.txt3, marginTop: 8 }}>
-                Opened {fmtDate(p.startTime)}
-              </div>
-              <button
-                className="btn-ghost"
-                style={{ marginTop: 12, opacity: p.unlocked ? 1 : 0.35 }}
-                disabled={!p.unlocked || busy.wd || !wallet}
-                onClick={() => doWithdraw(p.id)}
-              >
-                {busy.wd ? <span className="spin" /> : "Withdraw LP"}
-              </button>
             </div>
-          );
-        })}
+            <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 13, color: C.green, whiteSpace: "nowrap", textAlign: "right" }}>
+              {Number(p.pending).toFixed(4)} OSG
+            </div>
+          </div>
+        ))}
+
+        <div style={{ fontSize: 11.5, color: C.txt3, marginTop: 12, lineHeight: 1.55 }}>
+          Withdraw appears on a position once its lock ends.
+        </div>
       </div>
     </div>
   );
