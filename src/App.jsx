@@ -2071,11 +2071,55 @@ function PoolCards({ getProvider, wallet, oldStaked, setTab }) {
   );
 }
 
-function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvider, ensureReady, showToast, setTab, refParam }) {
+function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvider, getReadProvider, ensureReady, showToast, setTab, refParam }) {
   const [calcUsd, setCalcUsd] = useState("");
   const [calcOsg, setCalcOsg] = useState("");
   const [calcUnit, setCalcUnit] = useState("USD");
-   
+
+  // Next halving, from RewardPool.getEmissionInfo(). Read on mount and at
+  // most every 10 minutes; the countdown itself ticks locally. A failed
+  // first read leaves halv null and the strip hidden (no made-up figure).
+  const [halv, setHalv] = useState(null);
+  const [nowMs, setNowMs] = useState(Date.now());
+  useEffect(function () {
+    var alive = true;
+    function loadHalving() {
+      if (!getReadProvider) return;
+      var pool = new Contract(ADDRESSES.pool, POOL_ABI, getReadProvider());
+      pool
+        .getEmissionInfo()
+        .then(function (r) {
+          if (!alive) return;
+          setHalv({
+            nextAt: Date.now() + Number(r.nextHalvingIn) * 1000,
+            nextIn: Number(r.nextHalvingIn),
+            dailyBase: r.dailyBase,
+            halving: Number(r.halving),
+            stopped: Boolean(r.stopped),
+          });
+        })
+        .catch(function () {});
+    }
+    loadHalving();
+    var id = setInterval(loadHalving, 600000);
+    return function () {
+      alive = false;
+      clearInterval(id);
+    };
+  }, []);
+  useEffect(
+    function () {
+      if (!halv) return;
+      var id = setInterval(function () {
+        setNowMs(Date.now());
+      }, 1000);
+      return function () {
+        clearInterval(id);
+      };
+    },
+    [halv],
+  );
+
   // ============================================================
   //  OSG MARKET RATE
   //  When the liquidity pool is live, change only the 5 fields below:
@@ -2182,6 +2226,106 @@ function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvid
                   ",transparent)",
               }}
             ></div>
+            {halv && halv.nextIn > 0 && !halv.stopped
+              ? (function () {
+                  var s = Math.max(0, Math.floor((halv.nextAt - nowMs) / 1000));
+                  var pad = function (n) {
+                    return n < 10 ? "0" + n : String(n);
+                  };
+                  var boxes = [
+                    [Math.floor(s / 86400).toLocaleString("en-US"), "days"],
+                    [pad(Math.floor((s % 86400) / 3600)), "hrs"],
+                    [pad(Math.floor((s % 3600) / 60)), "min"],
+                    [pad(s % 60), "sec"],
+                  ];
+                  return (
+                    <div
+                      style={{
+                        marginBottom: 16,
+                        border: "1px solid rgba(233,185,73,.35)",
+                        background: "rgba(233,185,73,.06)",
+                        borderRadius: 14,
+                        padding: "12px 12px 11px",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "baseline",
+                          gap: 8,
+                          fontSize: 10.5,
+                          letterSpacing: "1.4px",
+                          textTransform: "uppercase",
+                          color: C.gold2,
+                          fontWeight: 800,
+                        }}
+                      >
+                        <span>Next halving</span>
+                        <span
+                          style={{
+                            color: C.txt3,
+                            letterSpacing: ".4px",
+                            textTransform: "none",
+                            fontWeight: 600,
+                          }}
+                        >
+                          {new Date(halv.nextAt).toLocaleDateString("en-GB", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </span>
+                      </div>
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "repeat(4,minmax(0,1fr))",
+                          gap: 6,
+                          marginTop: 9,
+                        }}
+                      >
+                        {boxes.map(function (b) {
+                          return (
+                            <div
+                              key={b[1]}
+                              style={{
+                                background: C.bg,
+                                border: "1px solid " + C.line2,
+                                borderRadius: 10,
+                                padding: "7px 0 6px",
+                                textAlign: "center",
+                              }}
+                            >
+                              <div
+                                className="mono"
+                                style={{
+                                  fontSize: 21,
+                                  fontWeight: 700,
+                                  color: C.txt,
+                                  fontVariantNumeric: "tabular-nums",
+                                }}
+                              >
+                                {b[0]}
+                              </div>
+                              <div
+                                style={{
+                                  fontSize: 9,
+                                  letterSpacing: "1px",
+                                  color: C.txt3,
+                                  textTransform: "uppercase",
+                                }}
+                              >
+                                {b[1]}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()
+              : null}
             <div
               style={{
                 display: "flex",
@@ -2436,31 +2580,6 @@ function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvid
                   style={{ fontSize: 13.5, color: C.txt, marginTop: 4 }}
                 >
                   {mkt.holders}
-                </div>
-              </div>
-              <div
-                style={{
-                  flex: 1,
-                  borderLeft: "1px solid " + C.line,
-                  paddingLeft: 12,
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: 9,
-                    letterSpacing: ".4px",
-                    textTransform: "uppercase",
-                    color: C.txt3,
-                    fontWeight: 600,
-                  }}
-                >
-                  Pool Staked
-                </div>
-                <div
-                  className="mono"
-                  style={{ fontSize: 13.5, color: C.txt, marginTop: 4 }}
-                >
-                  {fmt(data.totalStaked, 0)}
                 </div>
               </div>
             </div>
@@ -11206,6 +11325,7 @@ export default function App() {
     t={t}
     network={network}
     getProvider={getProvider}
+    getReadProvider={getReadProvider}
     ensureReady={ensureReady}
     showToast={showToast}
     setTab={setTab}
