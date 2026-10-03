@@ -130,6 +130,11 @@
         <p class="help">Is commission running, and today's referral budget.</p>
         <div class="grid" id="prog"></div>
       </div>
+      <div class="card">
+        <h2>Bonus pay source</h2>
+        <p class="help">Where task / airdrop and rank bonuses are paid from, and their daily share.</p>
+        <div class="grid" id="refSw"></div><div id="refCtl" style="margin-top:10px"></div>
+      </div>
     </section>
 
     <section class="panel" role="tabpanel" id="panel-treasury" aria-labelledby="tab-treasury" hidden>
@@ -1309,6 +1314,65 @@ function loadTermDeadlineControls() {
   };
 }
 
+// ===== Referral v5: where task / airdrop bonuses are paid from =====
+// PaySource enum in OSGReferralV5.sol: 0 = POOL (reward pool), 1 = TREASURY.
+var REF_SW = ["function airdropPaySource() view returns (uint8)", "function rankPaySource() view returns (uint8)", "function bonusShareBps() view returns (uint256)", "function airdropShareBps() view returns (uint256)",
+  "function airdropPaused() view returns (bool)", "function rankPaused() view returns (bool)", "function commissionPaused() view returns (bool)"];
+function paySrcName(v) { return Number(v) === 1 ? "Treasury" : "Reward pool"; }
+function refSw() { return new E.Contract(A.referral, REF_SW, pv()); }
+async function loadRefSwitches() { try { await loadRefSwitchesRead(); } catch (e) { fail("refSw", e); } }
+async function loadRefSwitchesRead() {
+  var c = refSw();
+  var r = await Promise.allSettled([c.airdropPaySource(), c.rankPaySource(), c.bonusShareBps(), c.airdropShareBps(), c.airdropPaused(), c.rankPaused(), c.commissionPaused()]);
+  fill("refSw",
+    rstat("Task / airdrop bonuses paid from", r[0], paySrcName) +
+    rstat("Rank bonus paid from", r[1], paySrcName) +
+    rstat("Rank bonus share of the day", r[2], function (v) { return bpsPct(v); }) +
+    rstat("Airdrop share of the day", r[3], function (v) { return bpsPct(v); }) +
+    rstat("Airdrop claims paused", r[4], function (v) { return v ? "Yes" : "No"; }, yesBad("Members cannot claim task / airdrop bonuses.")) +
+    rstat("Rank bonus paused", r[5], function (v) { return v ? "Yes" : "No"; }, yesBad("Rank bonus claims are stopped.")) +
+    rstat("Commission paused", r[6], function (v) { return v ? "Yes" : "No"; }, yesBad("Level commission claims are stopped.")));
+}
+function loadRefControls() {
+  fill("refCtl",
+    '<div class="muted">Pay task / airdrop bonuses from:</div>' +
+    '<div class="bar"><button class="gold" id="refSrcPoolBtn">Reward pool</button><button class="ghost" id="refSrcTreBtn">Treasury</button></div>' +
+    '<div class="bar"><input id="refBonusIn" placeholder="Daily share for rank bonus %"><input id="refAirIn" placeholder="Daily share for airdrop %"><button class="gold" id="refSharesBtn">Change shares</button></div>' +
+    '<div class="bar"><button class="ghost" id="refAirPauseBtn">Pause or resume airdrop claims</button></div>' +
+    '<div class="muted" id="refMsg">Every change is tested first, then you approve it in the wallet. Rank bonus + airdrop together at most 60% of the daily referral budget.</div>');
+  var re = function () { loadRefSwitches(); loadTreasury(); };
+  function setSrc(want) {
+    return async function () {
+      var now;
+      try { now = await refSw().airdropPaySource(); } catch (e) { note("refMsg", "Could not read the pay source, nothing sent: " + errText(e), "bad"); return; }
+      if (Number(now) === want) { note("refMsg", "Bonuses are already paid from the " + paySrcName(want) + ".", "warn"); return; }
+      ownerTx({ msg: "refMsg", name: "Pay task / airdrop bonuses from " + paySrcName(want), addr: A.referral, abi: "function setAirdropPaySource(uint8 src)", fn: "setAirdropPaySource", args: [want],
+        what: "Task / airdrop bonuses paid from: " + paySrcName(now) + " -> " + paySrcName(want) + ".\n" +
+          (want === 0 ? "Bonuses will come out of the daily referral budget (31%), up to the airdrop share per day. The Treasury is not used." : "Bonuses will be paid from the Treasury airdrop pool, not from the daily referral budget."),
+        reload: re });
+    };
+  }
+  document.getElementById("refSrcPoolBtn").onclick = setSrc(0);
+  document.getElementById("refSrcTreBtn").onclick = setSrc(1);
+  document.getElementById("refSharesBtn").onclick = async function () {
+    var a, b;
+    try { a = pctToBps(document.getElementById("refBonusIn").value, 0, 6000); b = pctToBps(document.getElementById("refAirIn").value, 0, 6000); } catch (e) { note("refMsg", errText(e), "bad"); return; }
+    // MAX_COMBINED_SHARE_BPS = 6000 in OSGReferralV5.sol
+    if (a + b > 6000) { note("refMsg", "Rank bonus + airdrop would be " + ((a + b) / 100).toFixed(2) + "%. At most 60% together. Nothing sent.", "bad"); return; }
+    var old;
+    try { old = await Promise.all([refSw().bonusShareBps(), refSw().airdropShareBps()]); } catch (e) { note("refMsg", "Could not read the shares, nothing sent: " + errText(e), "bad"); return; }
+    if (BigInt(a) === old[0] && BigInt(b) === old[1]) { note("refMsg", "Those are already the shares.", "warn"); return; }
+    ownerTx({ msg: "refMsg", name: "Change daily shares for rank bonus and airdrop", addr: A.referral, abi: "function setShares(uint256 bonusBps, uint256 airdropBps)", fn: "setShares", args: [a, b],
+      what: "Rank bonus share of the day: " + bpsPct(old[0]) + " -> " + bpsPct(a) + ".\nAirdrop share of the day: " + bpsPct(old[1]) + " -> " + bpsPct(b) + ".\nLevel commission keeps at least " + ((10000 - a - b) / 100).toFixed(2) + "% of the daily referral budget.", reload: re });
+  };
+  document.getElementById("refAirPauseBtn").onclick = async function () {
+    var p;
+    try { p = await refSw().airdropPaused(); } catch (e) { note("refMsg", "Could not read the pause state, nothing sent: " + errText(e), "bad"); return; }
+    ownerTx({ msg: "refMsg", name: p ? "Resume airdrop claims" : "Pause airdrop claims", addr: A.referral, abi: "function setAirdropPaused(bool p)", fn: "setAirdropPaused", args: [!p],
+      what: p ? "Airdrop claims are paused now. Let members claim task / airdrop bonuses again?" : "Stop members from claiming task / airdrop bonuses until you resume.\nWhat they are owed stays recorded.", reload: re });
+  };
+}
+
 // ===== Layout: tabs, role badge, refresh =====
 var TAB_KEY = "osgAdminTab";
 function showTab(name, focus) {
@@ -1357,7 +1421,7 @@ function setRole(role, addr) {
 async function loadAll() {
   var btn = document.getElementById("refreshBtn");
   btn.disabled = true;
-  var jobs = [loadProgramme, loadToken, loadTreasury, loadLpWeight, loadTerm, loadDao, loadEmission, loadShares, loadTiers, loadFlexi, loadSpot];
+  var jobs = [loadProgramme, loadToken, loadTreasury, loadLpWeight, loadTerm, loadDao, loadEmission, loadShares, loadTiers, loadFlexi, loadSpot, loadRefSwitches];
   await Promise.allSettled(jobs.map(function (f) { return f(); }));
   document.getElementById("lastUpd").textContent = "Last updated " + new Date().toTimeString().slice(0, 8);
   btn.disabled = false;
@@ -1383,7 +1447,7 @@ document.getElementById("connectBtn").onclick = async function () {
     setRole(role, accts[0]);
     initTabs();
     loadAll();
-    if (IS_OWNER) { loadTreasuryControls(); loadLpControls(); loadLpMoreControls(); loadTermControls(); loadTiersControls(); loadTermDeadlineControls(); loadSubAdmins(); document.getElementById("subCard").style.display = "block"; }
+    if (IS_OWNER) { loadTreasuryControls(); loadLpControls(); loadLpMoreControls(); loadTermControls(); loadTiersControls(); loadTermDeadlineControls(); loadRefControls(); loadSubAdmins(); document.getElementById("subCard").style.display = "block"; }
     loadEarners(false);
   } catch (e) { msg.textContent = "Connect failed: " + ((e && e.message) || e); }
 };
