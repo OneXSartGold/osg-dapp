@@ -7267,11 +7267,15 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
   }
 
   async function doWithdraw(posId) {
-    if (!amount || Number(amount) <= 0) {
-      showToast("⚠️ Enter an amount");
-      return;
-    }
-    if (locked) {
+    // A withdraw always takes the whole position, so no amount is needed.
+    // Lock check on THIS position (LPMining LOCK_PERIOD = 365 days, unless
+    // termLifted). Not found -> fall through; staticCall below still guards.
+    const pos = positions.find((p) => p.id === posId);
+    if (
+      pos &&
+      !info.termLifted &&
+      pos.startTime + 365 * 86400 > Math.floor(Date.now() / 1000)
+    ) {
       showToast("⏳ This position is still inside its 365-day term");
       return;
     }
@@ -7279,12 +7283,11 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
     if (!signer) return;
     setBusy((b) => ({ ...b, wd: true }));
     try {
-      const amt = parseUnits(String(amount), 18);
       const mining = new Contract(ADDRESSES.lpMining, LP_MINING_ABI, signer);
+      await mining.withdraw.staticCall(posId);
       const tx = await mining.withdraw(posId, { gasLimit: (await mining.withdraw.estimateGas(posId)) + 900000n });
       await tx.wait();
       showToast("✅ Withdrawn!");
-      setAmount("");
       await loadRead();
     } catch (e) {
       showToast("❌ " + (e?.shortMessage || e?.reason || "Withdraw failed"));
