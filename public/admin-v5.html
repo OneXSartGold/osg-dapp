@@ -42,6 +42,7 @@
   .top .sp { flex: 1; }
   .badge { font-size: 11px; font-weight: 700; letter-spacing: .06em; padding: 3px 9px; border-radius: 999px; }
   .badge.owner { color: #1b1406; background: #E9B949; }
+  .badge.sub { color: #07210f; background: #46D08A; }
   .badge.viewer { color: #CFE0FF; background: rgba(90,150,255,.18); border: 1px solid rgba(90,150,255,.5); }
   .top .who { font-size: 12px; color: #9A9AA8; }
   .top .upd { font-size: 11.5px; color: #9A9AA8; }
@@ -82,6 +83,7 @@
       <button role="tab" id="tab-dao" data-tab="dao" aria-controls="panel-dao">DAO</button>
       <button role="tab" id="tab-access" data-tab="access" aria-controls="panel-access" style="display:none">Access</button>
     </div>
+    <div class="muted" id="canLine" style="display:none;margin:-4px 2px 12px"></div>
 
     <section class="panel" role="tabpanel" id="panel-overview" aria-labelledby="tab-overview">
       <div class="card">
@@ -486,21 +488,43 @@ function loadTreasuryControls() {
     } catch (e) { note("treMsg", errText(e), "bad"); }
   };
 }
-// ===== Roles: the owner wallet changes settings; other admin wallets read =====
-var TASKBOARD = "0x4581B50E6EAf62EDfA618F55A55f60Cb3A13C897";
+// ===== Roles: the owner wallet changes settings; sub-admins hold the =====
+// ===== permissions set on chain; admins.json wallets only read.     =====
+// Referral v5 adminPerms bit 1 = PERM_GRANT (grantAirdrop).
+// TaskBoard adminPerms bit 1 = PERM_MARK (mark / unmark MANUAL tasks),
+// bit 2 = PERM_TASK (create / update / turn tasks on or off).
 var IS_OWNER = false;
-async function roleOf(a) {
-  if (a.toLowerCase() === OWNER.toLowerCase()) return "owner";
-  try {
-    var p = ["function adminPerms(address) view returns (uint8)"];
-    var r = await Promise.all([new E.Contract(A.referral, p, pv()).adminPerms(a), new E.Contract(TASKBOARD, p, pv()).adminPerms(a)]);
-    if (Number(r[0]) > 0 || Number(r[1]) > 0) return "sub";
-  } catch (e) {}
+var ROLE = { kind: "", grant: false, mark: false, task: false, addr: "" };
+var PERM_R = ["function adminPerms(address) view returns (uint8)"];
+var _taskBoard = null;
+// The TaskBoard address is read from Referral v5 taskBoard(), not hard-coded.
+async function taskBoardAddr() {
+  if (_taskBoard) return _taskBoard;
+  var tb = await new E.Contract(A.referral, ["function taskBoard() view returns (address)"], pv()).taskBoard();
+  if (tb === E.ZeroAddress) throw new Error("Referral v5 has no task board set");
+  _taskBoard = tb;
+  return tb;
+}
+async function permsOf(a) {
+  var tb = await taskBoardAddr();
+  var r = await Promise.all([new E.Contract(A.referral, PERM_R, pv()).adminPerms(a), new E.Contract(tb, PERM_R, pv()).adminPerms(a)]);
+  var g = Number(r[0]), t = Number(r[1]);
+  return { v5: g, tb: t, grant: (g & 1) !== 0, mark: (t & 1) !== 0, task: (t & 2) !== 0 };
+}
+async function inAdminsJson(a) {
   try {
     var j = await (await fetch("/admins.json?t=" + Date.now())).json();
-    if ((j.wallets || []).some(function (x) { return String(x).toLowerCase() === a.toLowerCase(); })) return "sub";
-  } catch (e) {}
-  return "";
+    return (j.wallets || []).some(function (x) { return String(x).toLowerCase() === a.toLowerCase(); });
+  } catch (e) { return false; }
+}
+// { kind: "owner" | "sub" | "view" | "", grant, mark, task }
+async function roleOf(a) {
+  if (a.toLowerCase() === OWNER.toLowerCase()) return { kind: "owner", grant: true, mark: true, task: true };
+  var p = null;
+  try { p = await permsOf(a); } catch (e) {}
+  if (p && (p.grant || p.mark || p.task)) return { kind: "sub", grant: p.grant, mark: p.mark, task: p.task };
+  if (await inAdminsJson(a)) return { kind: "view", grant: false, mark: false, task: false };
+  return { kind: "", grant: false, mark: false, task: false };
 }
 function field(inId, hint, btnId, label) {
   return '<div class="bar"><input id="' + inId + '" placeholder="' + esc(hint) + '" style="flex:1"><button class="gold" id="' + btnId + '">' + esc(label) + "</button></div>";
@@ -638,7 +662,7 @@ function loadSubAdmins() {
   document.getElementById("subCheck").onclick = async function () {
     try {
       var a = addr();
-      var r = await Promise.all([new E.Contract(A.referral, P, pv()).adminPerms(a), new E.Contract(TASKBOARD, P, pv()).adminPerms(a)]);
+      var r = await Promise.all([new E.Contract(A.referral, P, pv()).adminPerms(a), new E.Contract(await taskBoardAddr(), P, pv()).adminPerms(a)]);
       var g = Number(r[0]), t = Number(r[1]);
       document.getElementById("subGrant").checked = (g & 1) !== 0;
       document.getElementById("subMark").checked = (t & 1) !== 0;
@@ -652,11 +676,12 @@ function loadSubAdmins() {
     ownerTx({ msg: "subMsg", name: g ? "Allow bonus giving" : "Remove bonus giving", addr: A.referral, abi: "function setAdmin(address who, uint8 perms)", fn: "setAdmin", args: [a, g],
       what: short(a) + (g ? " may give airdrop bonus to members from the Treasury." : " may no longer give airdrop bonus.") });
   };
-  document.getElementById("subSave2").onclick = function () {
+  document.getElementById("subSave2").onclick = async function () {
     var a; try { a = addr(); } catch (e) { note("subMsg", errText(e), "bad"); return; }
+    var tb; try { tb = await taskBoardAddr(); } catch (e) { note("subMsg", "Could not read the task board address, nothing sent: " + errText(e), "bad"); return; }
     var t = (document.getElementById("subMark").checked ? 1 : 0) | (document.getElementById("subTask").checked ? 2 : 0);
     var list = [t & 1 ? "mark tasks done" : "", t & 2 ? "create and edit tasks" : ""].filter(Boolean).join(" and ");
-    ownerTx({ msg: "subMsg", name: "Task board permissions", addr: TASKBOARD, abi: "function setAdmin(address who, uint8 perms)", fn: "setAdmin", args: [a, t],
+    ownerTx({ msg: "subMsg", name: "Task board permissions", addr: tb, abi: "function setAdmin(address who, uint8 perms)", fn: "setAdmin", args: [a, t],
       what: short(a) + (t ? " may " + list + "." : " loses all task board permissions.") });
   };
 }
@@ -1410,13 +1435,23 @@ function initTabs() {
   showTab(last);
 }
 function setRole(role, addr) {
+  ROLE = { kind: role.kind, grant: !!role.grant, mark: !!role.mark, task: !!role.task, addr: addr };
   var b = document.getElementById("roleBadge");
-  b.textContent = role === "owner" ? "Owner" : "Viewer";
-  b.className = "badge " + (role === "owner" ? "owner" : "viewer");
+  if (role.kind === "owner") { b.textContent = "Owner"; b.className = "badge owner"; }
+  else if (role.kind === "sub") {
+    b.textContent = ["Sub-admin"].concat(role.grant ? ["Bonus"] : [], role.task ? ["Tasks"] : [], role.mark ? ["Mark"] : []).join(" · ");
+    b.className = "badge sub";
+  } else { b.textContent = "Viewer"; b.className = "badge viewer"; }
   b.style.display = "";
   document.getElementById("whoAddr").textContent = short(addr);
   document.getElementById("refreshBtn").style.display = "";
-  if (role === "owner") document.getElementById("tab-access").style.display = "";
+  if (role.kind === "owner") document.getElementById("tab-access").style.display = "";
+  var can = document.getElementById("canLine");
+  if (role.kind === "sub") {
+    var list = [role.grant ? "give bonuses to members" : "", role.task ? "create and edit task campaigns" : "", role.mark ? "mark manual tasks done" : ""].filter(Boolean);
+    can.textContent = "You can: " + list.join("; ") + ". Everything else here is view-only.";
+    can.style.display = "";
+  } else can.style.display = "none";
 }
 async function loadAll() {
   var btn = document.getElementById("refreshBtn");
@@ -1439,9 +1474,9 @@ document.getElementById("connectBtn").onclick = async function () {
       chain = await window.ethereum.request({ method: "eth_chainId" });
       if (parseInt(chain, 16) !== 137) { msg.textContent = "Switch the wallet to Polygon and try again."; return; }
     }
-    var role = accts[0] ? await roleOf(accts[0]) : "";
-    if (!role) { msg.textContent = "This wallet does not have admin access."; return; }
-    IS_OWNER = role === "owner";
+    var role = accts[0] ? await roleOf(accts[0]) : { kind: "" };
+    if (!role.kind) { msg.textContent = "This wallet does not have admin access."; return; }
+    IS_OWNER = role.kind === "owner";
     document.getElementById("gate").style.display = "none";
     document.getElementById("app").style.display = "block";
     setRole(role, accts[0]);
