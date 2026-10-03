@@ -110,7 +110,7 @@
       <div class="card">
         <h2>LP 6 &amp; 18 months (Tiers)</h2>
         <p class="help">The 180 and 540-day LP locks: rates, capacity and payout health.</p>
-        <div class="grid" id="tiers"></div>
+        <div class="grid" id="tiers"></div><div id="tiersCtl" style="margin-top:10px"></div>
       </div>
       <div class="card">
         <h2>Term staking (closed to new stakes)</h2>
@@ -129,6 +129,11 @@
         <h2>Referral programme</h2>
         <p class="help">Is commission running, and today's referral budget.</p>
         <div class="grid" id="prog"></div>
+      </div>
+      <div class="card">
+        <h2>Bonus pay source</h2>
+        <p class="help">Where task / airdrop and rank bonuses are paid from, and their daily share.</p>
+        <div class="grid" id="refSw"></div><div id="refCtl" style="margin-top:10px"></div>
       </div>
     </section>
 
@@ -507,6 +512,29 @@ function osgIn(id) {
 }
 var TERM_R = ["function maxRateBps() view returns (uint256)", "function miningShareBps() view returns (uint256)", "function maxShareBps() view returns (uint256)", "function minDeposit() view returns (uint256)", "function capacity() view returns (uint256)", "function paused() view returns (bool)"];
 var LP_R = ["function miningShareBps() view returns (uint256)", "function maxShareBps() view returns (uint256)", "function minDeposit() view returns (uint256)", "function capacityLp() view returns (uint256)", "function paused() view returns (bool)"];
+// ===== One shares guard for the three programmes on the Mining bucket =====
+var SHARE_PROGS = { term: "Term", lp: "LP 12 months", tiers: "LP 6 & 18 months" };
+async function sharesNow() {
+  var keys = Object.keys(SHARE_PROGS);
+  var r = await Promise.all(keys.map(function (k) { return new E.Contract(A[k], ["function miningShareBps() view returns (uint256)"], pv()).miningShareBps(); }));
+  var out = {};
+  keys.forEach(function (k, i) { out[k] = r[i]; });
+  return out;
+}
+// Total with `key` set to `bps`. Over 10,000 -> err (names the largest other
+// share to lower first). Otherwise text for the confirm: what the others keep
+// and how much of the Mining budget stays unused.
+function shareGuard(s, key, bps) {
+  var total = BigInt(bps), others = [];
+  Object.keys(SHARE_PROGS).forEach(function (k) { if (k !== key) { total += s[k]; others.push(k); } });
+  if (total > 10000n) {
+    var big = others.slice().sort(function (a, b) { return s[b] > s[a] ? 1 : s[b] < s[a] ? -1 : 0; })[0];
+    return { err: "This would make the shares add up to " + (Number(total) / 100).toFixed(2) + "%. Lower " + SHARE_PROGS[big] + " first. Nothing sent." };
+  }
+  var keep = others.map(function (k) { return SHARE_PROGS[k] + " keeps " + (Number(s[k]) / 100).toFixed(2) + "%"; }).join(", ") + ".";
+  var unused = 10000n - total;
+  return { text: keep + "\n" + (unused > 0n ? (Number(unused) / 100).toFixed(2) + "% of the Mining budget will stay unused." : "All three together use 100% of the Mining budget.") };
+}
 function pauseTx(o) {
   return async function () {
     var paused = await new E.Contract(o.addr, ["function paused() view returns (bool)"], pv()).paused();
@@ -518,7 +546,7 @@ function pauseTx(o) {
 function loadTermControls() {
   fill("termCtl",
     field("termRateIn", "New Term daily reward limit in % (0.10 to 2.00)", "termRateBtn", "Change Term reward") +
-    field("termShareIn", "Term share of the mining budget in % (Term + LP at most 100)", "termShareBtn", "Change Term share") +
+    field("termShareIn", "Term share of the mining budget in % (all three together at most 100)", "termShareBtn", "Change Term share") +
     field("termMinIn", "Smallest Term stake in OSG", "termMinBtn", "Change minimum") +
     field("termCapIn", "Raise Term limit to (total OSG, can only go up)", "termCapBtn", "Raise limit") +
     '<div class="bar"><button class="ghost" id="termPauseBtn">Pause or resume Term staking</button></div>' +
@@ -534,11 +562,13 @@ function loadTermControls() {
   };
   document.getElementById("termShareBtn").onclick = async function () {
     var bps; try { bps = pctToBps(document.getElementById("termShareIn").value, 0, 10000); } catch (e) { note("termMsg", errText(e), "bad"); return; }
-    var r = await Promise.all([T().miningShareBps(), T().maxShareBps(), new E.Contract(A.lp, LP_R, pv()).miningShareBps()]);
+    var r, sh;
+    try { r = await Promise.all([T().miningShareBps(), T().maxShareBps()]); sh = await sharesNow(); } catch (e) { note("termMsg", "Could not read the shares, nothing sent: " + errText(e), "bad"); return; }
     if (BigInt(bps) > r[1]) { note("termMsg", "Above the Term ceiling of " + (Number(r[1]) / 100).toFixed(2) + "%. Nothing sent.", "bad"); return; }
-    if (BigInt(bps) + r[2] > 10000n) { note("termMsg", "Term + LP would be " + ((bps + Number(r[2])) / 100).toFixed(2) + "%. Lower LP first. Nothing sent.", "bad"); return; }
+    var g = shareGuard(sh, "term", bps);
+    if (g.err) { note("termMsg", g.err, "bad"); return; }
     ownerTx({ msg: "termMsg", name: "Change Term share of mining budget", addr: A.term, abi: "function setMiningShareBps(uint256 newBps)", fn: "setMiningShareBps", args: [bps],
-      what: "Term share: " + (Number(r[0]) / 100).toFixed(2) + "% -> " + (bps / 100).toFixed(2) + "%.\nLP keeps " + (Number(r[2]) / 100).toFixed(2) + "%.", reload: re });
+      what: "Term share: " + (Number(r[0]) / 100).toFixed(2) + "% -> " + (bps / 100).toFixed(2) + "%.\n" + g.text, reload: function () { re(); loadShares(); } });
   };
   document.getElementById("termMinBtn").onclick = async function () {
     var v; try { v = osgIn("termMinIn"); } catch (e) { note("termMsg", errText(e), "bad"); return; }
@@ -559,7 +589,7 @@ function loadLpMoreControls() {
   var box = document.getElementById("lpCtl");
   box.insertAdjacentHTML("beforeend",
     '<div id="lpMore">' +
-    field("lpShareIn", "LP share of the mining budget in % (Term + LP at most 100)", "lpShareBtn", "Change LP share") +
+    field("lpShareIn", "LP share of the mining budget in % (all three together at most 100)", "lpShareBtn", "Change LP share") +
     field("lpMinIn", "Smallest LP deposit (LP tokens)", "lpMinBtn", "Change minimum") +
     field("lpCapIn", "Raise LP limit to (total LP tokens, can only go up)", "lpCapBtn", "Raise limit") +
     '<div class="bar"><button class="ghost" id="lpPauseBtn">Pause or resume LP mining</button></div></div>');
@@ -567,11 +597,13 @@ function loadLpMoreControls() {
   var re = function () { loadLpWeight(); };
   document.getElementById("lpShareBtn").onclick = async function () {
     var bps; try { bps = pctToBps(document.getElementById("lpShareIn").value, 0, 10000); } catch (e) { note("lpMsg", errText(e), "bad"); return; }
-    var r = await Promise.all([L().miningShareBps(), L().maxShareBps(), new E.Contract(A.term, TERM_R, pv()).miningShareBps()]);
+    var r, sh;
+    try { r = await Promise.all([L().miningShareBps(), L().maxShareBps()]); sh = await sharesNow(); } catch (e) { note("lpMsg", "Could not read the shares, nothing sent: " + errText(e), "bad"); return; }
     if (BigInt(bps) > r[1]) { note("lpMsg", "Above the LP ceiling of " + (Number(r[1]) / 100).toFixed(2) + "%. Nothing sent.", "bad"); return; }
-    if (BigInt(bps) + r[2] > 10000n) { note("lpMsg", "Term + LP would be " + ((bps + Number(r[2])) / 100).toFixed(2) + "%. Lower Term first. Nothing sent.", "bad"); return; }
+    var g = shareGuard(sh, "lp", bps);
+    if (g.err) { note("lpMsg", g.err, "bad"); return; }
     ownerTx({ msg: "lpMsg", name: "Change LP share of mining budget", addr: A.lp, abi: "function setMiningShareBps(uint256 newBps)", fn: "setMiningShareBps", args: [bps],
-      what: "LP share: " + (Number(r[0]) / 100).toFixed(2) + "% -> " + (bps / 100).toFixed(2) + "%.\nTerm keeps " + (Number(r[2]) / 100).toFixed(2) + "%.", reload: re });
+      what: "LP 12 months share: " + (Number(r[0]) / 100).toFixed(2) + "% -> " + (bps / 100).toFixed(2) + "%.\n" + g.text, reload: function () { re(); loadShares(); } });
   };
   document.getElementById("lpMinBtn").onclick = async function () {
     var v; try { v = osgIn("lpMinIn"); } catch (e) { note("lpMsg", errText(e), "bad"); return; }
@@ -1106,6 +1138,241 @@ async function loadSpotRead() {
   fill("spotSrc", '<table><thead><tr><th>#</th><th>Source</th><th>Stakes in</th><th class="num">Base</th><th>Active</th><th>Pending</th></tr></thead><tbody>' + (rows || '<tr><td colspan="6" class="muted">No sources yet.</td></tr>') + "</tbody></table>");
 }
 
+// ===== Owner controls: LP 6 & 18 months (Tiers) =====
+// The Tiers source is not in this repo; signatures as given for v1.2.
+var TIERS_W = ["function rateBps(uint256) view returns (uint256)", "function pendingRatesEta() view returns (uint256)", "function pendingRateBps(uint256) view returns (uint256)",
+  "function miningShareBps() view returns (uint256)", "function maxShareBps() view returns (uint256)", "function capacityLp() view returns (uint256)", "function minDeposit() view returns (uint256)",
+  "function lpWeight() view returns (uint256)", "function paused() view returns (bool)", "function lpToken() view returns (address)"];
+function tiersC() { return new E.Contract(A.tiers, TIERS_W, pv()); }
+// Same maths as lpWeightNow() for V81: 1 LP should count as 2 x its OSG side.
+// Tiers lpToken() is tried first; if it is missing, the V81 pair is used
+// (both lock the same OSG/POL LP token).
+async function tiersWeightNow() {
+  var t = tiersC();
+  var lpAddr;
+  try { lpAddr = await t.lpToken(); } catch (e) { lpAddr = await new E.Contract(A.lp, ["function lpToken() view returns (address)"], pv()).lpToken(); }
+  var now = await t.lpWeight();
+  var p = new E.Contract(lpAddr, ["function getReserves() view returns (uint112, uint112, uint32)", "function token0() view returns (address)", "function totalSupply() view returns (uint256)"], pv());
+  var b = await Promise.all([p.getReserves(), p.token0(), p.totalSupply()]);
+  var osgRes = b[1].toLowerCase() === A.token.toLowerCase() ? b[0][0] : b[0][1];
+  if (b[2] === 0n || osgRes === 0n) throw new Error("LP pair is empty");
+  return { now: now, right: (2n * osgRes * 1000000000000000000n) / b[2] };
+}
+async function tiersPending() {
+  var box = document.getElementById("tiersPend");
+  var ap = document.getElementById("tiersApplyBtn");
+  if (!box) return;
+  try {
+    var t = tiersC();
+    var eta = await t.pendingRatesEta();
+    if (eta === 0n) { box.className = "muted"; box.textContent = "No rate change pending."; ap.style.display = "none"; return; }
+    var r = await Promise.all([t.pendingRateBps(0), t.pendingRateBps(1)]);
+    var ready = BigInt(Math.floor(Date.now() / 1000)) >= eta;
+    box.className = "muted " + (ready ? "good" : "warn");
+    box.textContent = "Pending: " + bpsPct(r[0]) + " / " + bpsPct(r[1]) + " — can apply from " + ist(eta) + (ready ? " (ready now)" : "");
+    ap.style.display = ready ? "" : "none";
+  } catch (e) { box.className = "muted bad"; box.textContent = "Could not read the pending rates: " + errText(e); ap.style.display = "none"; }
+}
+function loadTiersControls() {
+  fill("tiersCtl",
+    '<div class="bar"><input id="tiersR180In" placeholder="180 d % per day (0.05 to 1.00)"><input id="tiersR540In" placeholder="540 d % per day (0.05 to 1.00)"><button class="gold" id="tiersRateBtn">Propose rates</button></div>' +
+    '<div class="muted" id="tiersPend">Reading the pending rates...</div>' +
+    '<div class="bar"><button class="gold" id="tiersApplyBtn" style="display:none">Apply now</button><button class="ghost" id="tiersCancelBtn">Cancel</button></div>' +
+    field("tiersShareIn", "% of the Mining budget (all three together at most 100)", "tiersShareBtn", "Change share") +
+    '<div id="tiersMaxRow" style="display:none">' + field("tiersMaxIn", "New share cap in % (at most 70, not below the current share)", "tiersMaxBtn", "Raise the cap") + "</div>" +
+    field("tiersCapIn", "Raise limit to (total LP, can only go up)", "tiersCapBtn", "Raise limit") +
+    field("tiersMinIn", "Smallest deposit (LP)", "tiersMinBtn", "Change minimum") +
+    '<div class="bar"><button class="ghost" id="tiersWBtn">Fix: make 100 OSG count as 200</button></div>' +
+    '<div class="bar"><button class="ghost" id="tiersPauseBtn">Pause new deposits and claims</button><button class="ghost" id="tiersResumeBtn">Resume</button></div>' +
+    '<div class="muted" id="tiersMsg">Every change is tested first, then you approve it in the wallet.</div>');
+  var re = function () { loadTiers(); tiersPending(); };
+  tiersPending();
+  document.getElementById("tiersRateBtn").onclick = async function () {
+    var a, b;
+    try { a = pctToBps(document.getElementById("tiersR180In").value, 5, 100); b = pctToBps(document.getElementById("tiersR540In").value, 5, 100); } catch (e) { note("tiersMsg", errText(e), "bad"); return; }
+    var old;
+    try { old = await Promise.all([tiersC().rateBps(0), tiersC().rateBps(1)]); } catch (e) { note("tiersMsg", "Could not read the rates, nothing sent: " + errText(e), "bad"); return; }
+    if (BigInt(a) === old[0] && BigInt(b) === old[1]) { note("tiersMsg", "Those are already the rates.", "warn"); return; }
+    ownerTx({ msg: "tiersMsg", name: "Propose new LP 6 & 18 months rates", addr: A.tiers, abi: "function proposeRates(uint256 rate180Bps, uint256 rate540Bps)", fn: "proposeRates", args: [a, b],
+      what: "180 days: " + bpsPct(old[0]) + " -> " + bpsPct(a) + " a day.\n540 days: " + bpsPct(old[1]) + " -> " + bpsPct(b) + " a day.\nMembers see the new rate after 48 hours. Before the first deposit it applies at once.", reload: re });
+  };
+  document.getElementById("tiersApplyBtn").onclick = async function () {
+    var eta, r;
+    try { var t = tiersC(); eta = await t.pendingRatesEta(); r = await Promise.all([t.rateBps(0), t.rateBps(1), t.pendingRateBps(0), t.pendingRateBps(1)]); } catch (e) { note("tiersMsg", "Could not read the pending rates, nothing sent: " + errText(e), "bad"); return; }
+    if (eta === 0n) { note("tiersMsg", "No rate change pending.", "warn"); return; }
+    if (BigInt(Math.floor(Date.now() / 1000)) < eta) { note("tiersMsg", "Not yet. It can be applied from " + ist(eta) + ".", "warn"); return; }
+    ownerTx({ msg: "tiersMsg", name: "Apply the new LP 6 & 18 months rates", addr: A.tiers, abi: "function applyRates()", fn: "applyRates", args: [],
+      what: "180 days: " + bpsPct(r[0]) + " -> " + bpsPct(r[2]) + " a day.\n540 days: " + bpsPct(r[1]) + " -> " + bpsPct(r[3]) + " a day.\nTakes effect at once.", reload: re });
+  };
+  document.getElementById("tiersCancelBtn").onclick = async function () {
+    var eta;
+    try { eta = await tiersC().pendingRatesEta(); } catch (e) { note("tiersMsg", "Could not read the pending rates, nothing sent: " + errText(e), "bad"); return; }
+    if (eta === 0n) { note("tiersMsg", "No rate change pending. Nothing to cancel.", "warn"); return; }
+    ownerTx({ msg: "tiersMsg", name: "Cancel the pending LP 6 & 18 months rates", addr: A.tiers, abi: "function cancelRates()", fn: "cancelRates", args: [],
+      what: "Drop the pending rate change. The current rates stay.", reload: re });
+  };
+  document.getElementById("tiersShareBtn").onclick = async function () {
+    var bps; try { bps = pctToBps(document.getElementById("tiersShareIn").value, 0, 10000); } catch (e) { note("tiersMsg", errText(e), "bad"); return; }
+    var r, sh;
+    try { r = await Promise.all([tiersC().miningShareBps(), tiersC().maxShareBps()]); sh = await sharesNow(); } catch (e) { note("tiersMsg", "Could not read the shares, nothing sent: " + errText(e), "bad"); return; }
+    if (BigInt(bps) > r[1]) {
+      document.getElementById("tiersMaxRow").style.display = "";
+      note("tiersMsg", "Above the cap of " + bpsPct(r[1]) + ". Raise the cap first (box above), then change the share. Nothing sent.", "bad");
+      return;
+    }
+    var g = shareGuard(sh, "tiers", bps);
+    if (g.err) { note("tiersMsg", g.err, "bad"); return; }
+    ownerTx({ msg: "tiersMsg", name: "Change LP 6 & 18 months share of mining budget", addr: A.tiers, abi: "function setMiningShareBps(uint256 newBps)", fn: "setMiningShareBps", args: [bps],
+      what: "LP 6 & 18 months share: " + bpsPct(r[0]) + " -> " + bpsPct(bps) + ".\n" + g.text, reload: function () { re(); loadShares(); } });
+  };
+  document.getElementById("tiersMaxBtn").onclick = async function () {
+    var bps; try { bps = pctToBps(document.getElementById("tiersMaxIn").value, 0, 7000); } catch (e) { note("tiersMsg", errText(e), "bad"); return; }
+    var r;
+    try { r = await Promise.all([tiersC().miningShareBps(), tiersC().maxShareBps()]); } catch (e) { note("tiersMsg", "Could not read the cap, nothing sent: " + errText(e), "bad"); return; }
+    if (BigInt(bps) < r[0]) { note("tiersMsg", "The cap cannot be below the current share of " + bpsPct(r[0]) + ". Nothing sent.", "bad"); return; }
+    if (BigInt(bps) === r[1]) { note("tiersMsg", "That is already the cap.", "warn"); return; }
+    ownerTx({ msg: "tiersMsg", name: "Change LP 6 & 18 months share cap", addr: A.tiers, abi: "function setMaxShareBps(uint256 newMax)", fn: "setMaxShareBps", args: [bps],
+      what: "Share cap: " + bpsPct(r[1]) + " -> " + bpsPct(bps) + ".\nThe share itself does not change.", reload: function () { re(); loadShares(); } });
+  };
+  document.getElementById("tiersCapBtn").onclick = async function () {
+    var v; try { v = osgIn("tiersCapIn"); } catch (e) { note("tiersMsg", errText(e), "bad"); return; }
+    var old;
+    try { old = await tiersC().capacityLp(); } catch (e) { note("tiersMsg", "Could not read the limit, nothing sent: " + errText(e), "bad"); return; }
+    if (v <= old) { note("tiersMsg", "The limit can only go up. Now " + osg(old, 0) + " LP. Nothing sent.", "bad"); return; }
+    ownerTx({ msg: "tiersMsg", name: "Raise LP 6 & 18 months limit", addr: A.tiers, abi: "function setCapacityLp(uint256 newCapacity)", fn: "setCapacityLp", args: [v],
+      what: "LP limit (both locks): " + osg(old, 0) + " -> " + osg(v, 0) + " LP.\nThis can never be lowered again.", reload: re });
+  };
+  document.getElementById("tiersMinBtn").onclick = async function () {
+    var v; try { v = osgIn("tiersMinIn"); } catch (e) { note("tiersMsg", errText(e), "bad"); return; }
+    var old;
+    try { old = await tiersC().minDeposit(); } catch (e) { note("tiersMsg", "Could not read the minimum, nothing sent: " + errText(e), "bad"); return; }
+    if (v === old) { note("tiersMsg", "That is already the minimum.", "warn"); return; }
+    ownerTx({ msg: "tiersMsg", name: "Change smallest LP 6 & 18 months deposit", addr: A.tiers, abi: "function setMinDeposit(uint256 newMin)", fn: "setMinDeposit", args: [v],
+      what: "Smallest deposit: " + osg(old, 4) + " -> " + osg(v, 4) + " LP.", reload: re });
+  };
+  document.getElementById("tiersWBtn").onclick = async function () {
+    var w;
+    try { w = await tiersWeightNow(); } catch (e) { note("tiersMsg", errText(e), "bad"); return; }
+    if (w.right === w.now) { note("tiersMsg", "Already correct: 100 OSG counts as 200.", "good"); return; }
+    // The contract allows 1/2x to 2x per call.
+    if (!(w.right <= w.now * 2n && w.right * 2n >= w.now)) { note("tiersMsg", "Too far off to fix in one step (more than 2x). Nothing sent.", "bad"); return; }
+    ownerTx({ msg: "tiersMsg", name: "Fix LP 6 & 18 months counting", addr: A.tiers, abi: "function setLpWeight(uint256 newWeight)", fn: "setLpWeight", args: [w.right],
+      what: "1 LP counts as: " + osg(w.now, 2) + " -> " + osg(w.right, 2) + " OSG.\n100 OSG added counts as: " + (Number((200n * 1000000000000000000n * w.now) / w.right) / 1e18).toFixed(1) + " OSG -> 200 OSG.\nOnly new deposits are affected; existing ones stay as they are.", reload: re });
+  };
+  function tiersPause(want) {
+    return async function () {
+      var p;
+      try { p = await tiersC().paused(); } catch (e) { note("tiersMsg", "Could not read the pause state, nothing sent: " + errText(e), "bad"); return; }
+      if (p === want) { note("tiersMsg", want ? "Already paused." : "Already running.", "warn"); return; }
+      ownerTx({ msg: "tiersMsg", name: want ? "Pause LP 6 & 18 months" : "Resume LP 6 & 18 months", addr: A.tiers, abi: "function " + (want ? "pause" : "unpause") + "()", fn: want ? "pause" : "unpause", args: [],
+        what: want ? "Stop new deposits and claims in LP 6 & 18 months until you resume." : "Resume deposits and claims in LP 6 & 18 months.\nThe contract refuses this if it is not wired, its share is 0 or the reward pool has stopped; the test step will show that reason.", reload: re });
+    };
+  }
+  document.getElementById("tiersPauseBtn").onclick = tiersPause(true);
+  document.getElementById("tiersResumeBtn").onclick = tiersPause(false);
+}
+
+// ===== Owner control: Term deposit deadline =====
+// datetime-local value "YYYY-MM-DDTHH:MM" read as IST (UTC+5:30).
+function istToUnix(v) {
+  var m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(String(v).trim());
+  if (!m) throw new Error("Pick a date and time");
+  return Math.floor(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]) / 1000) - 19800;
+}
+async function termDeadlineNow() {
+  var el = document.getElementById("termDlNow");
+  if (!el) return;
+  try {
+    var d = await new E.Contract(A.term, ["function depositDeadline() view returns (uint256)"], pv()).depositDeadline();
+    el.className = "muted";
+    el.textContent = "Close new Term stakes on: " + (d === 0n ? "None" : ist(d));
+  } catch (e) { el.className = "muted bad"; el.textContent = "Could not read the deadline: " + errText(e); }
+}
+function loadTermDeadlineControls() {
+  document.getElementById("termCtl").insertAdjacentHTML("beforeend",
+    '<div class="muted" id="termDlNow" style="margin-top:10px">Reading the deadline...</div>' +
+    '<div class="bar"><input id="termDlIn" type="datetime-local" aria-label="Close new Term stakes on (IST)"><button class="gold" id="termDlBtn">Set deadline (IST)</button><button class="ghost" id="termDlRmBtn">Remove deadline</button></div>');
+  var D = function () { return new E.Contract(A.term, ["function depositDeadline() view returns (uint256)"], pv()); };
+  var re = function () { loadTerm(); termDeadlineNow(); };
+  termDeadlineNow();
+  var rule = "After this time nobody can open a new Term stake. Existing positions, claims and withdrawals keep working.";
+  document.getElementById("termDlBtn").onclick = async function () {
+    var t; try { t = istToUnix(document.getElementById("termDlIn").value); } catch (e) { note("termMsg", errText(e), "bad"); return; }
+    if (t <= Math.floor(Date.now() / 1000)) { note("termMsg", "Pick a time in the future. Nothing sent.", "bad"); return; }
+    var old;
+    try { old = await D().depositDeadline(); } catch (e) { note("termMsg", "Could not read the deadline, nothing sent: " + errText(e), "bad"); return; }
+    if (old === BigInt(t)) { note("termMsg", "That is already the deadline.", "warn"); return; }
+    ownerTx({ msg: "termMsg", name: "Set Term deposit deadline", addr: A.term, abi: "function setDepositDeadline(uint256 newDeadline)", fn: "setDepositDeadline", args: [t],
+      what: "Close new Term stakes on: " + (old === 0n ? "None" : ist(old)) + " -> " + ist(t) + ".\n" + rule, reload: re });
+  };
+  document.getElementById("termDlRmBtn").onclick = async function () {
+    var old;
+    try { old = await D().depositDeadline(); } catch (e) { note("termMsg", "Could not read the deadline, nothing sent: " + errText(e), "bad"); return; }
+    if (old === 0n) { note("termMsg", "There is no deadline to remove.", "warn"); return; }
+    ownerTx({ msg: "termMsg", name: "Remove Term deposit deadline", addr: A.term, abi: "function setDepositDeadline(uint256 newDeadline)", fn: "setDepositDeadline", args: [0],
+      what: "Close new Term stakes on: " + ist(old) + " -> None.\nNew Term stakes are then limited only by the pause switch and capacity.", reload: re });
+  };
+}
+
+// ===== Referral v5: where task / airdrop bonuses are paid from =====
+// PaySource enum in OSGReferralV5.sol: 0 = POOL (reward pool), 1 = TREASURY.
+var REF_SW = ["function airdropPaySource() view returns (uint8)", "function rankPaySource() view returns (uint8)", "function bonusShareBps() view returns (uint256)", "function airdropShareBps() view returns (uint256)",
+  "function airdropPaused() view returns (bool)", "function rankPaused() view returns (bool)", "function commissionPaused() view returns (bool)"];
+function paySrcName(v) { return Number(v) === 1 ? "Treasury" : "Reward pool"; }
+function refSw() { return new E.Contract(A.referral, REF_SW, pv()); }
+async function loadRefSwitches() { try { await loadRefSwitchesRead(); } catch (e) { fail("refSw", e); } }
+async function loadRefSwitchesRead() {
+  var c = refSw();
+  var r = await Promise.allSettled([c.airdropPaySource(), c.rankPaySource(), c.bonusShareBps(), c.airdropShareBps(), c.airdropPaused(), c.rankPaused(), c.commissionPaused()]);
+  fill("refSw",
+    rstat("Task / airdrop bonuses paid from", r[0], paySrcName) +
+    rstat("Rank bonus paid from", r[1], paySrcName) +
+    rstat("Rank bonus share of the day", r[2], function (v) { return bpsPct(v); }) +
+    rstat("Airdrop share of the day", r[3], function (v) { return bpsPct(v); }) +
+    rstat("Airdrop claims paused", r[4], function (v) { return v ? "Yes" : "No"; }, yesBad("Members cannot claim task / airdrop bonuses.")) +
+    rstat("Rank bonus paused", r[5], function (v) { return v ? "Yes" : "No"; }, yesBad("Rank bonus claims are stopped.")) +
+    rstat("Commission paused", r[6], function (v) { return v ? "Yes" : "No"; }, yesBad("Level commission claims are stopped.")));
+}
+function loadRefControls() {
+  fill("refCtl",
+    '<div class="muted">Pay task / airdrop bonuses from:</div>' +
+    '<div class="bar"><button class="gold" id="refSrcPoolBtn">Reward pool</button><button class="ghost" id="refSrcTreBtn">Treasury</button></div>' +
+    '<div class="bar"><input id="refBonusIn" placeholder="Daily share for rank bonus %"><input id="refAirIn" placeholder="Daily share for airdrop %"><button class="gold" id="refSharesBtn">Change shares</button></div>' +
+    '<div class="bar"><button class="ghost" id="refAirPauseBtn">Pause or resume airdrop claims</button></div>' +
+    '<div class="muted" id="refMsg">Every change is tested first, then you approve it in the wallet. Rank bonus + airdrop together at most 60% of the daily referral budget.</div>');
+  var re = function () { loadRefSwitches(); loadTreasury(); };
+  function setSrc(want) {
+    return async function () {
+      var now;
+      try { now = await refSw().airdropPaySource(); } catch (e) { note("refMsg", "Could not read the pay source, nothing sent: " + errText(e), "bad"); return; }
+      if (Number(now) === want) { note("refMsg", "Bonuses are already paid from the " + paySrcName(want) + ".", "warn"); return; }
+      ownerTx({ msg: "refMsg", name: "Pay task / airdrop bonuses from " + paySrcName(want), addr: A.referral, abi: "function setAirdropPaySource(uint8 src)", fn: "setAirdropPaySource", args: [want],
+        what: "Task / airdrop bonuses paid from: " + paySrcName(now) + " -> " + paySrcName(want) + ".\n" +
+          (want === 0 ? "Bonuses will come out of the daily referral budget (31%), up to the airdrop share per day. The Treasury is not used." : "Bonuses will be paid from the Treasury airdrop pool, not from the daily referral budget."),
+        reload: re });
+    };
+  }
+  document.getElementById("refSrcPoolBtn").onclick = setSrc(0);
+  document.getElementById("refSrcTreBtn").onclick = setSrc(1);
+  document.getElementById("refSharesBtn").onclick = async function () {
+    var a, b;
+    try { a = pctToBps(document.getElementById("refBonusIn").value, 0, 6000); b = pctToBps(document.getElementById("refAirIn").value, 0, 6000); } catch (e) { note("refMsg", errText(e), "bad"); return; }
+    // MAX_COMBINED_SHARE_BPS = 6000 in OSGReferralV5.sol
+    if (a + b > 6000) { note("refMsg", "Rank bonus + airdrop would be " + ((a + b) / 100).toFixed(2) + "%. At most 60% together. Nothing sent.", "bad"); return; }
+    var old;
+    try { old = await Promise.all([refSw().bonusShareBps(), refSw().airdropShareBps()]); } catch (e) { note("refMsg", "Could not read the shares, nothing sent: " + errText(e), "bad"); return; }
+    if (BigInt(a) === old[0] && BigInt(b) === old[1]) { note("refMsg", "Those are already the shares.", "warn"); return; }
+    ownerTx({ msg: "refMsg", name: "Change daily shares for rank bonus and airdrop", addr: A.referral, abi: "function setShares(uint256 bonusBps, uint256 airdropBps)", fn: "setShares", args: [a, b],
+      what: "Rank bonus share of the day: " + bpsPct(old[0]) + " -> " + bpsPct(a) + ".\nAirdrop share of the day: " + bpsPct(old[1]) + " -> " + bpsPct(b) + ".\nLevel commission keeps at least " + ((10000 - a - b) / 100).toFixed(2) + "% of the daily referral budget.", reload: re });
+  };
+  document.getElementById("refAirPauseBtn").onclick = async function () {
+    var p;
+    try { p = await refSw().airdropPaused(); } catch (e) { note("refMsg", "Could not read the pause state, nothing sent: " + errText(e), "bad"); return; }
+    ownerTx({ msg: "refMsg", name: p ? "Resume airdrop claims" : "Pause airdrop claims", addr: A.referral, abi: "function setAirdropPaused(bool p)", fn: "setAirdropPaused", args: [!p],
+      what: p ? "Airdrop claims are paused now. Let members claim task / airdrop bonuses again?" : "Stop members from claiming task / airdrop bonuses until you resume.\nWhat they are owed stays recorded.", reload: re });
+  };
+}
+
 // ===== Layout: tabs, role badge, refresh =====
 var TAB_KEY = "osgAdminTab";
 function showTab(name, focus) {
@@ -1154,7 +1421,7 @@ function setRole(role, addr) {
 async function loadAll() {
   var btn = document.getElementById("refreshBtn");
   btn.disabled = true;
-  var jobs = [loadProgramme, loadToken, loadTreasury, loadLpWeight, loadTerm, loadDao, loadEmission, loadShares, loadTiers, loadFlexi, loadSpot];
+  var jobs = [loadProgramme, loadToken, loadTreasury, loadLpWeight, loadTerm, loadDao, loadEmission, loadShares, loadTiers, loadFlexi, loadSpot, loadRefSwitches];
   await Promise.allSettled(jobs.map(function (f) { return f(); }));
   document.getElementById("lastUpd").textContent = "Last updated " + new Date().toTimeString().slice(0, 8);
   btn.disabled = false;
@@ -1180,7 +1447,7 @@ document.getElementById("connectBtn").onclick = async function () {
     setRole(role, accts[0]);
     initTabs();
     loadAll();
-    if (IS_OWNER) { loadTreasuryControls(); loadLpControls(); loadLpMoreControls(); loadTermControls(); loadSubAdmins(); document.getElementById("subCard").style.display = "block"; }
+    if (IS_OWNER) { loadTreasuryControls(); loadLpControls(); loadLpMoreControls(); loadTermControls(); loadTiersControls(); loadTermDeadlineControls(); loadRefControls(); loadSubAdmins(); document.getElementById("subCard").style.display = "block"; }
     loadEarners(false);
   } catch (e) { msg.textContent = "Connect failed: " + ((e && e.message) || e); }
 };
