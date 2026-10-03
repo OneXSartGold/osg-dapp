@@ -8,83 +8,185 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.2/ethers.umd.min.js" integrity="sha384-gpR0Q6Hx/O+uevlbpbANbS0LWjbejPV1sqD/8w422l/fW8whGY0EPmKw3uG7ACYP" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <style>
   * { box-sizing: border-box; }
+  html, body { overflow-x: hidden; }
   body { margin: 0; background: #08080B; color: #F4F4F5; font-family: system-ui, -apple-system, sans-serif; }
-  .wrap { max-width: 760px; margin: 0 auto; padding: 16px; }
-  h1 { font-size: 18px; margin: 4px 0 14px; color: #F7D27A; letter-spacing: .04em; }
-  h2 { font-size: 13px; margin: 0 0 10px; color: #9A9AA8; letter-spacing: .08em; text-transform: uppercase; }
-  .card { background: #15151E; border: 1px solid rgba(255,255,255,.08); border-radius: 16px; padding: 14px; margin-bottom: 12px; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
-  .stat { background: #1B1B26; border-radius: 10px; padding: 10px; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 12px 12px 40px; }
+  h1 { font-size: 16px; margin: 0; color: #F7D27A; letter-spacing: .06em; }
+  h2 { font-size: 13px; margin: 0 0 4px; color: #9A9AA8; letter-spacing: .08em; text-transform: uppercase; }
+  .help { font-size: 12.5px; color: #9A9AA8; margin: 0 0 10px; line-height: 1.45; }
+  .card { background: #15151E; border: 1px solid rgba(255,255,255,.08); border-radius: 16px; padding: 14px; margin-bottom: 12px; min-width: 0; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+  .stat { background: #1B1B26; border-radius: 10px; padding: 10px; min-width: 0; }
   .stat .k { font-size: 11px; color: #9A9AA8; }
   .stat .v { font-size: 17px; font-weight: 600; margin-top: 3px; overflow-wrap: anywhere; }
+  .stat .why { font-size: 11.5px; margin-top: 4px; color: #F2675C; overflow-wrap: anywhere; }
   .good { color: #46D08A; } .bad { color: #F2675C; } .warn { color: #F7D27A; }
-  button { padding: 11px 14px; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  button { min-height: 44px; padding: 11px 14px; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  button:focus-visible { outline: 2px solid #F7D27A; outline-offset: 2px; }
   .gold { background: #E9B949; color: #1b1406; }
   .ghost { background: #1B1B26; color: #F4F4F5; border: 1px solid rgba(255,255,255,.12); }
-  input { width: 100%; padding: 10px; background: #0E0E14; color: #F4F4F5; border: 1px solid rgba(255,255,255,.12); border-radius: 10px; font-size: 13px; }
+  input { width: 100%; min-width: 0; padding: 10px; background: #0E0E14; color: #F4F4F5; border: 1px solid rgba(255,255,255,.12); border-radius: 10px; font-size: 13px; }
   table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
   th, td { text-align: left; padding: 7px 6px; border-bottom: 1px solid rgba(255,255,255,.06); }
   th { color: #9A9AA8; font-weight: 500; }
   .mono { font-family: ui-monospace, monospace; }
   .muted { color: #9A9AA8; font-size: 12.5px; }
-  .scroll { overflow-x: auto; }
+  .scroll { overflow-x: auto; max-width: 100%; }
   #app { display: none; }
-  select { padding: 9px; background: #0E0E14; color: #F4F4F5; border: 1px solid rgba(255,255,255,.12); border-radius: 10px; font-size: 13px; }
+  select { min-height: 44px; padding: 9px; background: #0E0E14; color: #F4F4F5; border: 1px solid rgba(255,255,255,.12); border-radius: 10px; font-size: 13px; max-width: 100%; }
   .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0; }
+  .bar > input { flex: 1 1 180px; }
   th.num, td.num { text-align: right; }
+  .top { position: sticky; top: 0; z-index: 20; background: rgba(8,8,11,.94); border-bottom: 1px solid rgba(233,185,73,.18); backdrop-filter: blur(6px); }
+  .top .in { max-width: 760px; margin: 0 auto; padding: 8px 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .top .sp { flex: 1; }
+  .badge { font-size: 11px; font-weight: 700; letter-spacing: .06em; padding: 3px 9px; border-radius: 999px; }
+  .badge.owner { color: #1b1406; background: #E9B949; }
+  .badge.viewer { color: #CFE0FF; background: rgba(90,150,255,.18); border: 1px solid rgba(90,150,255,.5); }
+  .top .who { font-size: 12px; color: #9A9AA8; }
+  .top .upd { font-size: 11.5px; color: #9A9AA8; }
+  .top button { min-height: 40px; padding: 8px 12px; font-size: 13px; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 12px; }
+  .tabs button { flex: 1 1 auto; min-height: 44px; padding: 10px 12px; font-size: 13px; background: #15151E; color: #C9C9D2; border: 1px solid rgba(255,255,255,.1); }
+  .tabs button[aria-selected="true"] { background: rgba(233,185,73,.14); color: #F7D27A; border-color: rgba(233,185,73,.55); }
+  .panel[hidden] { display: none; }
+  .goldnote { margin-top: 10px; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(233,185,73,.35); background: rgba(233,185,73,.06); color: #F7D27A; font-size: 12.5px; line-height: 1.45; }
+  .redline { margin-top: 8px; color: #F2675C; font-size: 12.5px; }
+  tr.total td { font-weight: 700; border-top: 1px solid rgba(255,255,255,.18); }
 </style>
 </head>
 <body>
+<div class="top">
+  <div class="in">
+    <h1>OSG ADMIN</h1>
+    <span class="badge" id="roleBadge" style="display:none"></span>
+    <span class="who mono" id="whoAddr"></span>
+    <span class="sp"></span>
+    <span class="upd" id="lastUpd"></span>
+    <button class="ghost" id="refreshBtn" style="display:none">Refresh all</button>
+  </div>
+</div>
 <div class="wrap">
-  <h1>OSG ADMIN · v5</h1>
-
   <div class="card" id="gate">
     <div class="muted" id="gateMsg">Connect your admin wallet to continue.</div>
     <div style="margin-top:10px"><button class="gold" id="connectBtn">Connect wallet</button></div>
   </div>
 
   <div id="app">
-    <div class="card">
-      <h2>Referral programme</h2>
-      <div class="grid" id="prog"></div>
+    <div class="tabs" role="tablist" aria-label="Admin sections">
+      <button role="tab" id="tab-overview" data-tab="overview" aria-controls="panel-overview">Overview</button>
+      <button role="tab" id="tab-mining" data-tab="mining" aria-controls="panel-mining">Mining</button>
+      <button role="tab" id="tab-referral" data-tab="referral" aria-controls="panel-referral">Referral</button>
+      <button role="tab" id="tab-treasury" data-tab="treasury" aria-controls="panel-treasury">Treasury &amp; Spot</button>
+      <button role="tab" id="tab-members" data-tab="members" aria-controls="panel-members">Members</button>
+      <button role="tab" id="tab-dao" data-tab="dao" aria-controls="panel-dao">DAO</button>
+      <button role="tab" id="tab-access" data-tab="access" aria-controls="panel-access" style="display:none">Access</button>
     </div>
 
-    <div class="card">
-      <h2>OSG token</h2>
-      <div class="grid" id="tok"></div>
-    </div>
-
-    <div class="card">
-      <h2>Treasury</h2>
-      <div class="grid" id="tre"></div><div id="treCtl" style="margin-top:10px"></div></div><div class="card"><h2>LP mining weight</h2><div class="grid" id="lpw"></div><div id="lpCtl" style="margin-top:10px"></div></div><div class="card"><h2>Term staking</h2><div class="grid" id="term"></div><div id="termCtl" style="margin-top:10px"></div></div><div class="card"><h2>DAO queue</h2><div class="grid" id="dao"></div><div class="scroll" id="daoList" style="margin-top:10px"></div>
-    </div>
-
-    <div class="card" id="subCard" style="display:none">
-      <h2>Admin access</h2>
-      <div id="subCtl"></div>
-    </div>
-
-    <div class="card">
-      <h2>Wallet lookup</h2>
-      <div style="display:flex;gap:8px"><input id="lookAddr" placeholder="0x..."><button class="gold" id="lookBtn">Check</button></div>
-      <div class="grid" id="look" style="margin-top:10px"></div>
-      <div id="lookTeam"></div>
-    </div>
-
-    <div class="card">
-      <h2>Commission earners</h2>
-      <div class="muted" id="earnMeta">Wallets that have earned commission at least once. Not every member is here - use Wallet lookup for anyone else.</div>
-      <div class="bar">
-        <button class="ghost" id="earnBtn">Load next 25</button>
-        <button class="ghost" id="earnAllBtn">Load all</button>
-        <select id="earnSort"><option value="">Order joined</option><option value="owed">Owed</option><option value="paid">Paid</option><option value="volume">Volume</option><option value="stake">Own stake</option><option value="directs">Directs</option><option value="team">Team</option><option value="rnum">Rank proven</option><option value="elig">Eligible rank</option></select>
-        <label class="muted"><input type="checkbox" id="earnOwed" style="width:auto"> Only owed &gt; 0</label>
-        <button class="ghost" id="earnTeamBtn">Add team + eligible rank</button>
-        <button class="ghost" id="earnCsv">Export CSV</button>
+    <section class="panel" role="tabpanel" id="panel-overview" aria-labelledby="tab-overview">
+      <div class="card">
+        <h2>Emission</h2>
+        <p class="help">Daily OSG released and how it is split.</p>
+        <div class="grid" id="emi"></div>
       </div>
-      <div class="scroll"><table><thead><tr><th>#</th><th>Wallet</th><th>Upline</th><th class="num">Own stake</th><th class="num">Directs</th><th class="num">Levels open</th><th class="num">Volume</th><th class="num">Owed</th><th class="num">Paid</th><th>Rank proven</th><th>Eligible</th><th class="num">Team</th></tr></thead><tbody id="earnRows"></tbody></table></div>
-      <div class="muted" style="margin-top:8px">Tap a row to open the full detail in Wallet lookup.</div>
-    </div>
+      <div class="card">
+        <h2>OSG token</h2>
+        <p class="help">Supply and the hourly / daily mint limits.</p>
+        <div class="grid" id="tok"></div>
+      </div>
+    </section>
+
+    <section class="panel" role="tabpanel" id="panel-mining" aria-labelledby="tab-mining" hidden>
+      <div class="card">
+        <h2>Mining shares</h2>
+        <p class="help">How the daily mining budget is shared between the programmes.</p>
+        <div id="shares"></div>
+      </div>
+      <div class="card">
+        <h2>LP 12 months (V81)</h2>
+        <p class="help">The 365-day LP lock: how LP is counted and its daily rate.</p>
+        <div class="grid" id="lpw"></div><div id="lpCtl" style="margin-top:10px"></div>
+      </div>
+      <div class="card">
+        <h2>LP 6 &amp; 18 months (Tiers)</h2>
+        <p class="help">The 180 and 540-day LP locks: rates, capacity and payout health.</p>
+        <div class="grid" id="tiers"></div>
+      </div>
+      <div class="card">
+        <h2>Term staking (closed to new stakes)</h2>
+        <p class="help">Existing Term positions keep running; check the budget and payouts here.</p>
+        <div class="grid" id="term"></div><div id="termCtl" style="margin-top:10px"></div>
+      </div>
+      <div class="card">
+        <h2>Old Flexi staking (1%)</h2>
+        <p class="help">The old flexible staking pool that still gets the staking share.</p>
+        <div class="grid" id="flexi"></div>
+      </div>
+    </section>
+
+    <section class="panel" role="tabpanel" id="panel-referral" aria-labelledby="tab-referral" hidden>
+      <div class="card">
+        <h2>Referral programme</h2>
+        <p class="help">Is commission running, and today's referral budget.</p>
+        <div class="grid" id="prog"></div>
+      </div>
+    </section>
+
+    <section class="panel" role="tabpanel" id="panel-treasury" aria-labelledby="tab-treasury" hidden>
+      <div class="card">
+        <h2>Treasury</h2>
+        <p class="help">Airdrop and team bonus pools, and who may pay from them.</p>
+        <div class="grid" id="tre"></div><div id="treCtl" style="margin-top:10px"></div>
+      </div>
+      <div class="card">
+        <h2>Spot bonus</h2>
+        <p class="help">Sponsor bonus on new stakes: settings, sources and pending changes.</p>
+        <div class="grid" id="spot"></div>
+        <div class="scroll" id="spotSrc" style="margin-top:10px"></div>
+      </div>
+    </section>
+
+    <section class="panel" role="tabpanel" id="panel-members" aria-labelledby="tab-members" hidden>
+      <div class="card">
+        <h2>Wallet lookup</h2>
+        <p class="help">Check any wallet: stake, directs, levels, owed and rank.</p>
+        <div style="display:flex;gap:8px"><input id="lookAddr" placeholder="0x..."><button class="gold" id="lookBtn">Check</button></div>
+        <div class="grid" id="look" style="margin-top:10px"></div>
+        <div id="lookTeam"></div>
+      </div>
+
+      <div class="card">
+        <h2>Commission earners</h2>
+        <p class="help">Everyone who has had commission at least once, with export.</p>
+        <div class="muted" id="earnMeta">Wallets that have earned commission at least once. Not every member is here - use Wallet lookup for anyone else.</div>
+        <div class="bar">
+          <button class="ghost" id="earnBtn">Load next 25</button>
+          <button class="ghost" id="earnAllBtn">Load all</button>
+          <select id="earnSort"><option value="">Order joined</option><option value="owed">Owed</option><option value="paid">Paid</option><option value="volume">Volume</option><option value="stake">Own stake</option><option value="directs">Directs</option><option value="team">Team</option><option value="rnum">Rank proven</option><option value="elig">Eligible rank</option></select>
+          <label class="muted"><input type="checkbox" id="earnOwed" style="width:auto"> Only owed &gt; 0</label>
+          <button class="ghost" id="earnTeamBtn">Add team + eligible rank</button>
+          <button class="ghost" id="earnCsv">Export CSV</button>
+        </div>
+        <div class="scroll"><table><thead><tr><th>#</th><th>Wallet</th><th>Upline</th><th class="num">Own stake</th><th class="num">Directs</th><th class="num">Levels open</th><th class="num">Volume</th><th class="num">Owed</th><th class="num">Paid</th><th>Rank proven</th><th>Eligible</th><th class="num">Team</th></tr></thead><tbody id="earnRows"></tbody></table></div>
+        <div class="muted" style="margin-top:8px">Tap a row to open the full detail in Wallet lookup.</div>
+      </div>
+    </section>
+
+    <section class="panel" role="tabpanel" id="panel-dao" aria-labelledby="tab-dao" hidden>
+      <div class="card">
+        <h2>DAO queue</h2>
+        <p class="help">Timelock actions: what is queued, ready or done.</p>
+        <div class="grid" id="dao"></div><div class="scroll" id="daoList" style="margin-top:10px"></div>
+      </div>
+    </section>
+
+    <section class="panel" role="tabpanel" id="panel-access" aria-labelledby="tab-access" hidden>
+      <div class="card" id="subCard" style="display:none">
+        <h2>Admin access</h2>
+        <p class="help">Give or remove admin permissions for other wallets.</p>
+        <div id="subCtl"></div>
+      </div>
+    </section>
   </div>
 </div>
 
@@ -99,8 +201,14 @@ var A = {
   treasury: "0x4669b2d38098Ae28D0332F03D1630B334aDDDF50",
   term: "0xb3DE3956DF62a069c9AC428Ec58120b3d9CD7cCc",
   lp: "0x1F04F1441208ee8dDD3a124DEfc4a493d768d0fC",
-  spot: "0x7Ee98AE2BeAEf2251A8bBB3810006495F62b7C92"
+  spot: "0x7Ee98AE2BeAEf2251A8bBB3810006495F62b7C92",
+  pool: "0xDc4fE983ed301AD42F4E4C43951aa07A7a182855",  // RewardPool v2
+  tiers: "0x333a6c51Baa2d19Af036f45f32eaCF10234F17C8", // LP 6 & 18 months
+  flexi: "0x048E814C02e85ec1438Ab8C1d2e9150A5289A886"  // old Flexi staking (1%)
 };
+// Contract names for display (governance, DAO targets, Spot sources).
+var NAMES = { "0xba05176748347944cc26900c821abfebebc57415": "OSG token", "0xa0b2dcb18cf0bdf61bcb9d33f538167df501becb": "RewardStorage", "0xdc4fe983ed301ad42f4e4c43951aa07a7a182855": "RewardPool v2", "0xf8acaa5617dff6db3d0cb44ca8de0e50a449bb83": "OSG-MAIN", "0x58383a8171014a8008d28e7cbb509e21412ec52a": "Referral v5", "0x4669b2d38098ae28d0332f03d1630b334adddf50": "Treasury", "0x1f04f1441208ee8ddd3a124defc4a493d768d0fc": "LP Mining", "0xb3de3956df62a069c9ac428ec58120b3d9cd7ccc": "Term staking", "0x333a6c51baa2d19af036f45f32eacf10234f17c8": "LP 6 & 18 months", "0x048e814c02e85ec1438ab8c1d2e9150a5289a886": "Old Flexi staking", "0x7ee98ae2beaef2251a8bbb3810006495f62b7c92": "Spot bonus", "0x7cbfd31fc4ea31d5390f20adbffd0cbfb839912e": "Spot adapter (Term)", "0xdd065840f5bd458dc4e9deeaed7f1946812870a6": "Spot adapter (LP)", "0xe2e82a8acdd3af7fa74eacb3331231a769d80d4c": "DAO timelock" };
+function nameOf(a) { return NAMES[String(a).toLowerCase()] || short(a); }
 // Our own paid route first (/api/rpc, key on the server), public nodes after it.
 var RPCS = [location.origin + "/api/rpc", "https://polygon-bor-rpc.publicnode.com", "https://polygon.drpc.org", "https://1rpc.io/matic"];
 var ABI = {
@@ -156,9 +264,10 @@ function C(name) { return new E.Contract(A[name], ABI[name], pv()); }
 function osg(v, d) { return Number(E.formatUnits(v, 18)).toLocaleString("en-US", { maximumFractionDigits: d === undefined ? 2 : d }); }
 function short(a) { return a.slice(0, 6) + "..." + a.slice(-4); }
 function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
-function stat(k, v, cls) { return '<div class="stat"><div class="k">' + esc(k) + '</div><div class="v ' + (cls || "") + '">' + esc(v) + "</div></div>"; }
+// why = short reason, shown under a "bad" value so it is never colour only.
+function stat(k, v, cls, why) { return '<div class="stat"><div class="k">' + esc(k) + '</div><div class="v ' + (cls || "") + '">' + esc(v) + "</div>" + (why ? '<div class="why">' + esc(why) + "</div>" : "") + "</div>"; }
 function fill(id, html) { document.getElementById(id).innerHTML = html; }
-function fail(id, e) { fill(id, stat("Error", (e && (e.shortMessage || e.message)) || String(e), "bad")); }
+function fail(id, e) { fill(id, stat("Error", (e && (e.shortMessage || e.message)) || String(e), "bad", "Read failed - tap Refresh all to try again.")); }
 
 async function loadProgramme() {
   try {
@@ -167,8 +276,8 @@ async function loadProgramme() {
     var n = await r.usersLength();
     MIN_DIRECT = Number(E.formatUnits(s.minDirectStake, 18));
     fill("prog",
-      stat("Wired", s.wired ? "Yes" : "No", s.wired ? "good" : "bad") +
-      stat("Paused", s.paused ? "Yes" : "No", s.paused ? "bad" : "good") +
+      stat("Wired", s.wired ? "Yes" : "No", s.wired ? "good" : "bad", s.wired ? "" : "Not wired to the reward pool - no commission accrues.") +
+      stat("Paused", s.paused ? "Yes" : "No", s.paused ? "bad" : "good", s.paused ? "Referral programme is paused." : "") +
       stat("Budget today", osg(s.referralBudgetToday) + " OSG") +
       stat("Min direct stake", osg(s.minDirectStake, 0) + " OSG") +
       stat("Stake sources", s.sourceCount.toString()) +
@@ -183,7 +292,7 @@ async function loadToken() {
     var hour = Number(E.formatUnits(res[2], 18));
     var day = Number(E.formatUnits(res[3], 18));
     fill("tok",
-      stat("Paused", res[0] ? "Yes" : "No", res[0] ? "bad" : "good") +
+      stat("Paused", res[0] ? "Yes" : "No", res[0] ? "bad" : "good", res[0] ? "Token is paused - transfers and mints stop." : "") +
       stat("Total supply", osg(res[1], 0) + " / 23,000,000") +
       stat("Minted this hour", hour.toFixed(2) + " / 500", hour > 400 ? "warn" : "") +
       stat("Minted today", day.toFixed(2) + " / 9,000", day > 7200 ? "warn" : ""));
@@ -229,9 +338,9 @@ async function loadLpWeight() {
     fill("lpw",
       stat("100 OSG added now counts as", counts.toFixed(1) + " OSG", abs > 3 ? "warn" : "good") +
       stat("It should count as", "200 OSG") +
-      stat("Off by", (diff > 0 ? "+" : "") + diff.toFixed(2) + "%", abs > 10 ? "bad" : abs > 3 ? "warn" : "good") +
+      stat("Off by", (diff > 0 ? "+" : "") + diff.toFixed(2) + "%", abs > 10 ? "bad" : abs > 3 ? "warn" : "good", abs > 10 ? "LP counting is more than 10% off the pool price." : "") +
       stat("Status", abs <= 1 ? "Correct" : diff > 0 ? "Counts too high - fix" : "Counts too low - fix", abs > 1 ? "warn" : "good") +
-      stat("Can fix in one step", oneCall ? "Yes" : "No - needs two steps", oneCall ? "good" : "bad") +
+      stat("Can fix in one step", oneCall ? "Yes" : "No - needs two steps", oneCall ? "good" : "bad", oneCall ? "" : "Weight may change at most 2x per step.") +
       stat("Total counted in LP mining", osg(a[2], 0) + " OSG") +
       stat("LP daily reward now", rateNow.toFixed(2) + "% (limit " + rateMax.toFixed(2) + "%)", a[4] < a[3] ? "warn" : "good"));
   } catch (e) { fail("lpw", e); }
@@ -540,15 +649,13 @@ function loadSubAdmins() {
       stat("Mining share", (Number(a[2]) / 100).toFixed(2) + "% (max " + (Number(a[3]) / 100).toFixed(2) + "%)") +
       stat("Min deposit", osg(a[8], 0) + " OSG") +
       stat("Deposit deadline", dl === 0 ? "None" : new Date((dl + 19800) * 1000).toISOString().slice(0, 16).replace("T", " ") + " IST") +
-      stat("Paused", a[11] ? "Yes" : "No", a[11] ? "bad" : "good") +
-      stat("Payouts", a[12][0] ? "Ready" : String(a[12][1]), a[12][0] ? "good" : "bad"));
+      stat("Paused", a[11] ? "Yes" : "No", a[11] ? "bad" : "good", a[11] ? "Claims are stopped." : "") +
+      stat("Payouts", a[12][0] ? "Ready" : String(a[12][1]), a[12][0] ? "good" : "bad", a[12][0] ? "" : "Payouts cannot run right now."));
   } catch (e) { fail("term", e); }
 }
 async function loadDao() {
   var DAO = "0xE2E82A8ACdd3Af7FA74Eacb3331231A769d80D4c";
-  var NAMES = { "0xba05176748347944cc26900c821abfebebc57415": "OSG token", "0xa0b2dcb18cf0bdf61bcb9d33f538167df501becb": "RewardStorage", "0xdc4fe983ed301ad42f4e4c43951aa07a7a182855": "RewardPool v2", "0xf8acaa5617dff6db3d0cb44ca8de0e50a449bb83": "OSG-MAIN", "0x58383a8171014a8008d28e7cbb509e21412ec52a": "Referral v5", "0x4669b2d38098ae28d0332f03d1630b334adddf50": "Treasury", "0x1f04f1441208ee8ddd3a124defc4a493d768d0fc": "LP Mining" };
-  function nm(a) { return NAMES[a.toLowerCase()] || short(a); }
-  function ist(t) { return new Date((Number(t) + 19800) * 1000).toISOString().slice(0, 16).replace("T", " ") + " IST"; }
+  function nm(a) { return nameOf(a); }
   try {
     var iface = new E.Interface(["event Queued(bytes32 indexed id, address indexed target, uint256 value, uint256 executeAfter, bytes32 dataHash, string description)", "event Executed(bytes32 indexed id, address indexed target, uint256 value)", "event Cancelled(bytes32 indexed id)", "event TxExpired(bytes32 indexed id)"]);
     var d = new E.Contract(DAO, ["function admin() view returns (address)", "function pendingAdmin() view returns (address)", "function getStats() view returns (uint256 queued, uint256 executed, uint256 cancelled, uint256 minDelay, bool isPaused)", "function getTx(bytes32 id) view returns (address target, uint256 value, bytes data, uint256 executeAfter, bool executed, bool isReady, bool isExpired, string description)"], pv());
@@ -582,7 +689,7 @@ async function loadDao() {
     fill("dao",
       stat("Admin", nm(res[1]), res[1].toLowerCase() === OWNER.toLowerCase() ? "good" : "warn") +
       stat("Pending admin", res[2] === E.ZeroAddress ? "None" : nm(res[2]), res[2] === E.ZeroAddress ? "good" : "warn") +
-      stat("Paused", s.isPaused ? "Yes" : "No", s.isPaused ? "bad" : "good") +
+      stat("Paused", s.isPaused ? "Yes" : "No", s.isPaused ? "bad" : "good", s.isPaused ? "DAO queue is paused." : "") +
       stat("Queued / executed / cancelled", s.queued + " / " + s.executed + " / " + s.cancelled) +
       stat("Can still execute", String(live.length), live.length ? "warn" : "good") +
       stat("POL held by DAO", Number(E.formatEther(res[4])).toFixed(2) + " POL (cannot be spent)", res[4] > 0n ? "warn" : ""));
@@ -676,7 +783,7 @@ async function teamOf(who) {
 
 async function lookup() {
   var addr = document.getElementById("lookAddr").value.trim();
-  if (!E.isAddress(addr)) { fill("look", stat("Error", "Not a valid address", "bad")); return; }
+  if (!E.isAddress(addr)) { fill("look", stat("Error", "Not a valid address", "bad", "Paste a full 0x... wallet address.")); return; }
   document.getElementById("lookTeam").innerHTML = "";
   fill("look", '<div class="muted">Reading...</div>');
   try {
@@ -816,6 +923,243 @@ function earnCsv() {
   a.click();
 }
 
+// ===== Read-only cards: emission, mining shares, LP 6 & 18, Flexi, Spot =====
+// One Promise.allSettled per card. A failed read shows "-" with its reason,
+// never a made-up number.
+function okR(r) { return r && r.status === "fulfilled"; }
+function whyR(r) { return "Read failed: " + String(errText(r && r.reason)).slice(0, 90); }
+function rstat(k, r, fmt, look) {
+  if (!okR(r)) return stat(k, "—", "bad", whyR(r));
+  var v = r.value;
+  var l = look ? look(v) : "";
+  if (Array.isArray(l)) return stat(k, fmt(v), l[0], l[1]);
+  return stat(k, fmt(v), l || "");
+}
+function ist(t) {
+  var d = new Date((Number(t) + 19800) * 1000);
+  return isNaN(d.getTime()) ? String(t) : d.toISOString().slice(0, 16).replace("T", " ") + " IST";
+}
+function inDate(secs) { return ist(Math.floor(Date.now() / 1000) + Number(secs)); }
+function bpsPct(b, d) { return (Number(b) / 100).toFixed(d === undefined ? 2 : d) + "%"; }
+function yesBad(why) { return function (v) { return v ? ["bad", why] : "good"; }; }
+
+var POOL_R = ["function stakingPercent() view returns (uint256)", "function miningPercent() view returns (uint256)", "function referralPercent() view returns (uint256)", "function getDailyBase() view returns (uint256)",
+  "function getEmissionInfo() view returns (uint256 halving, uint256 dailyBase, uint256 nextHalvingIn, uint256 emissionEndsIn, uint256 remainingBudget, bool stopped, uint256 daysBehind, bool needsSync, bool inEmergency)",
+  "function getTodayStats() view returns (uint256 stakingUsedAmt, uint256 miningUsedAmt, uint256 referralUsedAmt, uint256 stakingAvail, uint256 miningAvail, uint256 referralAvail, uint256 dailyBase)",
+  "function distributorCount() view returns (uint256)", "function governance() view returns (address)"];
+async function loadEmission() { try { await loadEmissionRead(); } catch (e) { fail("emi", e); } }
+async function loadEmissionRead() {
+  var p = new E.Contract(A.pool, POOL_R, pv());
+  var r = await Promise.allSettled([p.stakingPercent(), p.miningPercent(), p.referralPercent(), p.getDailyBase(), p.getEmissionInfo(), p.getTodayStats(), p.distributorCount(), p.governance()]);
+  var split = okR(r[0]) && okR(r[1]) && okR(r[2])
+    ? stat("Split", "Staking " + r[0].value + "% · Mining " + r[1].value + "% · Referral " + r[2].value + "%",
+        r[0].value + r[1].value + r[2].value === 100n ? "" : "bad", r[0].value + r[1].value + r[2].value === 100n ? "" : "Shares do not add up to 100%.")
+    : stat("Split", "—", "bad", whyR([r[0], r[1], r[2]].filter(function (x) { return !okR(x); })[0]));
+  var html = split + rstat("Daily release", r[3], function (v) { return osg(v) + " OSG"; });
+  if (okR(r[4])) {
+    var e = r[4].value;
+    html += stat("Halving", String(e.halving)) +
+      stat("Next halving", e.nextHalvingIn > 0n ? inDate(e.nextHalvingIn) : "None left") +
+      stat("Emission ends", e.emissionEndsIn > 0n ? inDate(e.emissionEndsIn) : "Ended", e.emissionEndsIn > 0n ? "" : "bad", e.emissionEndsIn > 0n ? "" : "Emission end time has passed.") +
+      stat("Remaining budget", osg(e.remainingBudget, 0) + " OSG", e.remainingBudget > 0n ? "" : "bad", e.remainingBudget > 0n ? "" : "Emission budget is used up.") +
+      stat("Stopped", e.stopped ? "Yes" : "No", e.stopped ? "bad" : "good", e.stopped ? "Emission has stopped - nothing is released." : "") +
+      stat("Emergency mode", e.inEmergency ? "Yes" : "No", e.inEmergency ? "bad" : "good", e.inEmergency ? "RewardPool is in emergency mode." : "") +
+      (e.needsSync ? stat("Days behind", String(e.daysBehind), "bad", "Too many days behind - the pool needs a sync.") : "");
+  } else html += stat("Emission info", "—", "bad", whyR(r[4]));
+  if (okR(r[5])) {
+    var t = r[5].value;
+    html += stat("Staking today", osg(t.stakingUsedAmt) + " used · " + osg(t.stakingAvail) + " left") +
+      stat("Mining today", osg(t.miningUsedAmt) + " used · " + osg(t.miningAvail) + " left") +
+      stat("Referral today", osg(t.referralUsedAmt) + " used · " + osg(t.referralAvail) + " left");
+  } else html += stat("Today", "—", "bad", whyR(r[5]));
+  html += rstat("Distributors", r[6], function (v) { return v + " / 10"; }, function (v) { return v >= 10n ? "warn" : ""; }) +
+    rstat("Governance", r[7], function (v) { return nameOf(v); }, function (v) { return v.toLowerCase() === OWNER.toLowerCase() ? "good" : "warn"; });
+  fill("emi", html);
+}
+
+var SHARE_R = ["function miningShareBps() view returns (uint256)", "function maxShareBps() view returns (uint256)"];
+async function loadShares() { try { await loadSharesRead(); } catch (e) { fail("shares", e); } }
+async function loadSharesRead() {
+  var progs = [["Term", A.term], ["LP 12 months", A.lp], ["LP 6 & 18 months", A.tiers]];
+  var calls = [];
+  progs.forEach(function (x) { var c = new E.Contract(x[1], SHARE_R, pv()); calls.push(c.miningShareBps(), c.maxShareBps()); });
+  var p = new E.Contract(A.pool, POOL_R, pv());
+  calls.push(p.getDailyBase(), p.miningPercent());
+  var r = await Promise.allSettled(calls);
+  var base = okR(r[6]) ? r[6].value : null, mp = okR(r[7]) ? r[7].value : null;
+  var rows = "", total = 0n, allOk = true, why = [];
+  function day(share) { return base !== null && mp !== null ? osg((base * mp * share) / 100n / 10000n, 0) : "—"; }
+  function ofAll(share) { return mp !== null ? (Number(mp * share) / 10000).toFixed(1) + "%" : "—"; }
+  progs.forEach(function (x, i) {
+    var s = r[i * 2], m = r[i * 2 + 1];
+    if (!okR(s)) { allOk = false; why.push(x[0] + ": " + whyR(s)); rows += "<tr><td>" + esc(x[0]) + '</td><td class="num bad">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td></tr>'; return; }
+    total += s.value;
+    rows += "<tr><td>" + esc(x[0]) + '</td><td class="num">' + s.value + '</td><td class="num">' + bpsPct(s.value) + '</td><td class="num">' + ofAll(s.value) + '</td><td class="num">' + day(s.value) +
+      '</td><td class="num muted">' + (okR(m) ? bpsPct(m.value) : "—") + "</td></tr>";
+  });
+  rows += '<tr class="total"><td>Total</td><td class="num">' + (allOk ? total : "—") + '</td><td class="num">' + (allOk ? bpsPct(total) : "—") + '</td><td class="num">' + (allOk ? ofAll(total) : "—") + '</td><td class="num">' + (allOk ? day(total) : "—") + "</td><td></td></tr>";
+  var msg = "";
+  if (!allOk) msg = '<div class="redline">Total unknown - ' + esc(why.join(" · ")) + "</div>";
+  else if (total > 10000n) msg = '<div class="redline">Shares add up to ' + total.toLocaleString("en-US") + " — must be 10,000 or less. Lower one share now.</div>";
+  else if (total < 10000n) msg = '<div class="muted warn" style="margin-top:8px">Shares add up to ' + total.toLocaleString("en-US") + " — " + (10000n - total).toLocaleString("en-US") + " unused.</div>";
+  if (base === null || mp === null) msg += '<div class="redline">OSG/day unknown - ' + esc(whyR(base === null ? r[6] : r[7])) + "</div>";
+  fill("shares", '<div class="scroll"><table><thead><tr><th>Programme</th><th class="num">Share</th><th class="num">% of Mining</th><th class="num">% of all emission</th><th class="num">OSG/day max</th><th class="num">Ceiling</th></tr></thead><tbody>' + rows + "</tbody></table></div>" + msg +
+    '<div class="goldnote">Lower one share BEFORE raising another.</div>');
+}
+
+var TIERS_R = ["function paused() view returns (bool)", "function payoutHealth() view returns (bool canPayNow, string reason)", "function rateBps(uint256) view returns (uint256)", "function effectiveRateBps(uint8 tier) view returns (uint256)",
+  "function totalLp() view returns (uint256)", "function capacityLp() view returns (uint256)", "function capacityLeft() view returns (uint256)", "function minDeposit() view returns (uint256)", "function lpWeight() view returns (uint256)",
+  "function getDailyBudget() view returns (uint256)", "function miningShareBps() view returns (uint256)", "function maxShareBps() view returns (uint256)", "function depositCount() view returns (uint256)", "function pendingRatesEta() view returns (uint256)"];
+// The Tiers source is not in this repo, so the argument type of totalValue is
+// not known for sure: try uint8 first, then uint256.
+async function tierValue(i) {
+  try { return await new E.Contract(A.tiers, ["function totalValue(uint8) view returns (uint256)"], pv()).totalValue(i); }
+  catch (e) { return await new E.Contract(A.tiers, ["function totalValue(uint256) view returns (uint256)"], pv()).totalValue(i); }
+}
+async function loadTiers() { try { await loadTiersRead(); } catch (e) { fail("tiers", e); } }
+async function loadTiersRead() {
+  var t = new E.Contract(A.tiers, TIERS_R, pv());
+  var r = await Promise.allSettled([t.paused(), t.payoutHealth(), t.rateBps(0), t.rateBps(1), t.effectiveRateBps(0), t.effectiveRateBps(1), tierValue(0), tierValue(1),
+    t.totalLp(), t.capacityLp(), t.capacityLeft(), t.minDeposit(), t.lpWeight(), t.getDailyBudget(), t.miningShareBps(), t.maxShareBps(), t.depositCount(), t.pendingRatesEta()]);
+  function rate(v) { return bpsPct(v) + " / day · " + (Number(v) * 30 / 100).toFixed(2) + "% / 30 days"; }
+  var html =
+    rstat("Paused", r[0], function (v) { return v ? "Yes" : "No"; }, yesBad("Deposits and claims are stopped.")) +
+    (okR(r[1]) ? stat("Payouts", r[1].value[0] ? "Ready" : String(r[1].value[1]), r[1].value[0] ? "good" : "bad", r[1].value[0] ? "" : "Payouts cannot run right now.") : stat("Payouts", "—", "bad", whyR(r[1]))) +
+    rstat("180 d ceiling", r[2], rate) + rstat("540 d ceiling", r[3], rate) +
+    rstat("180 d paying now", r[4], rate, function (v) { return okR(r[2]) && v < r[2].value ? "warn" : "good"; }) +
+    rstat("540 d paying now", r[5], rate, function (v) { return okR(r[3]) && v < r[3].value ? "warn" : "good"; }) +
+    rstat("180 d counted value", r[6], function (v) { return osg(v, 0) + " OSG"; }) +
+    rstat("540 d counted value", r[7], function (v) { return osg(v, 0) + " OSG"; });
+  if (okR(r[8]) && okR(r[9])) {
+    var used = r[9].value > 0n ? Number((r[8].value * 10000n) / r[9].value) / 100 : 0;
+    html += stat("Capacity used (both locks)", osg(r[8].value, 2) + " / " + osg(r[9].value, 0) + " LP (" + used.toFixed(1) + "%)", used > 90 ? "warn" : "");
+  } else html += stat("Capacity used (both locks)", "—", "bad", whyR(okR(r[8]) ? r[9] : r[8]));
+  html += rstat("Capacity left", r[10], function (v) { return osg(v, 2) + " LP"; }, function (v) { return v === 0n ? ["bad", "No room left for new LP."] : ""; }) +
+    rstat("Min deposit", r[11], function (v) { return osg(v, 4) + " LP"; }) +
+    rstat("LP weight", r[12], function (v) { return "1 LP = " + osg(v, 2) + " OSG"; }) +
+    rstat("Daily budget", r[13], function (v) { return osg(v) + " OSG"; }) +
+    (okR(r[14]) ? stat("Mining share", bpsPct(r[14].value) + (okR(r[15]) ? " (max " + bpsPct(r[15].value) + ")" : "")) : stat("Mining share", "—", "bad", whyR(r[14]))) +
+    rstat("Deposits made", r[16], function (v) { return String(v); }) +
+    rstat("Rate change", r[17], function (v) { return v === 0n ? "None pending" : "Rate change pending until " + ist(v); }, function (v) { return v === 0n ? "" : "warn"; });
+  fill("tiers", html);
+}
+
+async function loadFlexi() { try { await loadFlexiRead(); } catch (e) { fail("flexi", e); } }
+async function loadFlexiRead() {
+  var f = new E.Contract(A.flexi, ["function getPoolInfo() view returns (uint256 staked, uint256 totalUsersEver, uint256 currentActiveStakers, uint256 accRPS, uint256 dailyStakingEmission, uint256 rewardDistributed, uint256 referralAccrued, uint256 pendingReferralTotal, uint256 referralReserveAmt, uint256 teamBonusReserveAmt, uint256 teamBonusAmt, bool isPaused, bool emissionActive)"], pv());
+  var r = await Promise.allSettled([f.getPoolInfo()]);
+  if (!okR(r[0])) { fill("flexi", stat("Pool info", "—", "bad", whyR(r[0]))); return; }
+  var i = r[0].value;
+  var rate = i.staked > 0n ? (Number(E.formatUnits(i.dailyStakingEmission, 18)) / Number(E.formatUnits(i.staked, 18))) * 100 : null;
+  fill("flexi",
+    stat("Staked", osg(i.staked, 0) + " OSG") +
+    stat("Active stakers", String(i.currentActiveStakers)) +
+    stat("Stakers ever", String(i.totalUsersEver)) +
+    stat("Daily staking emission", osg(i.dailyStakingEmission) + " OSG") +
+    stat("Rate now ≈", rate === null ? "—" : rate.toFixed(2) + "% / day", rate === null ? "bad" : "", rate === null ? "Nothing staked, so no rate." : "") +
+    stat("Paused", i.isPaused ? "Yes" : "No", i.isPaused ? "bad" : "good", i.isPaused ? "Flexi pool is paused." : "") +
+    '<div class="goldnote" style="grid-column:1/-1;margin-top:0">Fixed 1% of daily release shared by few wallets.</div>');
+}
+
+var SPOT_R = ["function paused() view returns (bool)", "function startAt() view returns (uint256)", "function rateBps() view returns (uint256)", "function minSelfStake() view returns (uint256)", "function stopRank() view returns (uint8)",
+  "function maxPerClaim() view returns (uint256)", "function dailyCap() view returns (uint256)", "function todayLeft() view returns (uint256)", "function sourcesCount() view returns (uint256)",
+  "function pendingSettingsEta() view returns (uint256)", "function pendingSettings() view returns (uint256 rateBps, uint256 minSelfStake, uint256 maxPerClaim, uint8 stopRank)",
+  "function sources(uint256) view returns (address src, uint16 baseBps, bool active)", "function underlyingOf(uint256) view returns (address)", "function pendingBase(uint256) view returns (uint16)", "function pendingBaseEta(uint256) view returns (uint256)"];
+function etaText(eta, what) {
+  var now = BigInt(Math.floor(Date.now() / 1000));
+  return eta <= now ? [what + " ready now", "good"] : [what + " ready on " + ist(eta), "warn"];
+}
+async function loadSpot() { try { await loadSpotRead(); } catch (e) { fail("spot", e); } }
+async function loadSpotRead() {
+  var s = new E.Contract(A.spot, SPOT_R, pv());
+  var r = await Promise.allSettled([s.paused(), s.startAt(), s.rateBps(), s.minSelfStake(), s.stopRank(), s.maxPerClaim(), s.dailyCap(), s.todayLeft(), s.sourcesCount(), s.pendingSettingsEta(), s.pendingSettings()]);
+  var html =
+    rstat("Paused", r[0], function (v) { return v ? "Yes" : "No"; }, yesBad("Spot bonus claims are stopped.")) +
+    rstat("Started", r[1], function (v) { return v === 0n ? "Not started" : ist(v); }, function (v) { return v === 0n ? ["bad", "Claims open only after start()."] : "good"; }) +
+    rstat("Rate", r[2], function (v) { return bpsPct(v); }) +
+    rstat("Min self stake", r[3], function (v) { return osg(v, 0) + " OSG"; }) +
+    rstat("Stops at rank", r[4], function (v) { return RANKS[Number(v)] || String(v); }) +
+    rstat("Max per claim", r[5], function (v) { return osg(v, 0) + " OSG"; }) +
+    rstat("Daily cap", r[6], function (v) { return osg(v, 0) + " OSG"; }) +
+    rstat("Left today", r[7], function (v) { return osg(v) + " OSG"; });
+  if (okR(r[9]) && r[9].value !== 0n) {
+    var t = etaText(r[9].value, "Settings change");
+    var ps = okR(r[10]) ? r[10].value : null;
+    html += stat("Pending settings", t[0] + (ps ? " · rate " + bpsPct(ps.rateBps) + ", min " + osg(ps.minSelfStake, 0) + ", max " + osg(ps.maxPerClaim, 0) + ", stop " + (RANKS[Number(ps.stopRank)] || ps.stopRank) : ""), t[1]);
+  } else html += rstat("Pending settings", r[9], function () { return "None"; });
+  fill("spot", html);
+  // sourcesCount() exists in OSGSpotReward.sol, so it is used instead of
+  // reading sources(i) until a revert. MAX_SOURCES = 10.
+  if (!okR(r[8])) { fill("spotSrc", '<div class="redline">Sources: ' + esc(whyR(r[8])) + "</div>"); return; }
+  var n = Math.min(Number(r[8].value), 10), jobs = [];
+  for (var i = 0; i < n; i++) jobs.push(s.sources(i), s.underlyingOf(i), s.pendingBase(i), s.pendingBaseEta(i));
+  var q = await Promise.allSettled(jobs);
+  var rows = "";
+  for (var k = 0; k < n; k++) {
+    var src = q[k * 4], und = q[k * 4 + 1], pb = q[k * 4 + 2], pe = q[k * 4 + 3];
+    var pend = '<span class="muted">-</span>';
+    if (okR(pe) && pe.value !== 0n) { var tt = etaText(pe.value, "Base change for source " + k + (okR(pb) ? " to " + bpsPct(pb.value, 0) : "")); pend = '<span class="' + tt[1] + '">' + esc(tt[0]) + "</span>"; }
+    else if (!okR(pe)) pend = '<span class="bad">' + esc(whyR(pe)) + "</span>";
+    rows += "<tr><td>" + k + '</td><td class="mono">' + (okR(src) ? esc(nameOf(src.value.src)) : '<span class="bad">—</span>') + "</td><td>" + (okR(und) ? esc(nameOf(und.value)) : '<span class="bad">—</span>') +
+      '</td><td class="num">' + (okR(src) ? bpsPct(src.value.baseBps, 0) : "—") + '</td><td class="' + (okR(src) ? (src.value.active ? "good" : "warn") : "bad") + '">' + (okR(src) ? (src.value.active ? "Active" : "Off") : "—") + "</td><td>" + pend + "</td></tr>";
+  }
+  fill("spotSrc", '<table><thead><tr><th>#</th><th>Source</th><th>Stakes in</th><th class="num">Base</th><th>Active</th><th>Pending</th></tr></thead><tbody>' + (rows || '<tr><td colspan="6" class="muted">No sources yet.</td></tr>') + "</tbody></table>");
+}
+
+// ===== Layout: tabs, role badge, refresh =====
+var TAB_KEY = "osgAdminTab";
+function showTab(name, focus) {
+  var tabs = document.querySelectorAll('.tabs [role="tab"]');
+  var found = false;
+  tabs.forEach(function (b) { if (b.dataset.tab === name && b.style.display !== "none") found = true; });
+  if (!found) name = "overview";
+  tabs.forEach(function (b) {
+    var on = b.dataset.tab === name;
+    b.setAttribute("aria-selected", on ? "true" : "false");
+    b.tabIndex = on ? 0 : -1;
+    if (on && focus) b.focus();
+  });
+  document.querySelectorAll(".panel").forEach(function (p) { p.hidden = p.id !== "panel-" + name; });
+  try { localStorage.setItem(TAB_KEY, name); } catch (e) {}
+}
+function initTabs() {
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('.tabs [role="tab"]'));
+  tabs.forEach(function (b) {
+    b.onclick = function () { showTab(b.dataset.tab); };
+    b.onkeydown = function (ev) {
+      var vis = tabs.filter(function (x) { return x.style.display !== "none"; });
+      var i = vis.indexOf(b), j = -1;
+      if (ev.key === "ArrowRight") j = (i + 1) % vis.length;
+      else if (ev.key === "ArrowLeft") j = (i - 1 + vis.length) % vis.length;
+      else if (ev.key === "Home") j = 0;
+      else if (ev.key === "End") j = vis.length - 1;
+      if (j < 0) return;
+      ev.preventDefault();
+      showTab(vis[j].dataset.tab, true);
+    };
+  });
+  var last = "overview";
+  try { last = localStorage.getItem(TAB_KEY) || "overview"; } catch (e) {}
+  showTab(last);
+}
+function setRole(role, addr) {
+  var b = document.getElementById("roleBadge");
+  b.textContent = role === "owner" ? "Owner" : "Viewer";
+  b.className = "badge " + (role === "owner" ? "owner" : "viewer");
+  b.style.display = "";
+  document.getElementById("whoAddr").textContent = short(addr);
+  document.getElementById("refreshBtn").style.display = "";
+  if (role === "owner") document.getElementById("tab-access").style.display = "";
+}
+async function loadAll() {
+  var btn = document.getElementById("refreshBtn");
+  btn.disabled = true;
+  var jobs = [loadProgramme, loadToken, loadTreasury, loadLpWeight, loadTerm, loadDao, loadEmission, loadShares, loadTiers, loadFlexi, loadSpot];
+  await Promise.allSettled(jobs.map(function (f) { return f(); }));
+  document.getElementById("lastUpd").textContent = "Last updated " + new Date().toTimeString().slice(0, 8);
+  btn.disabled = false;
+}
+
 document.getElementById("connectBtn").onclick = async function () {
   var msg = document.getElementById("gateMsg");
   if (!window.ethereum) { msg.textContent = "No wallet found. Open this page in your wallet browser."; return; }
@@ -833,13 +1177,14 @@ document.getElementById("connectBtn").onclick = async function () {
     IS_OWNER = role === "owner";
     document.getElementById("gate").style.display = "none";
     document.getElementById("app").style.display = "block";
-    loadProgramme();
-    loadToken();
-    loadTreasury(); loadLpWeight(); loadTerm(); loadDao();
+    setRole(role, accts[0]);
+    initTabs();
+    loadAll();
     if (IS_OWNER) { loadTreasuryControls(); loadLpControls(); loadLpMoreControls(); loadTermControls(); loadSubAdmins(); document.getElementById("subCard").style.display = "block"; }
     loadEarners(false);
   } catch (e) { msg.textContent = "Connect failed: " + ((e && e.message) || e); }
 };
+document.getElementById("refreshBtn").onclick = loadAll;
 document.getElementById("lookBtn").onclick = lookup;
 document.getElementById("earnBtn").onclick = function () { loadEarners(false); };
 document.getElementById("earnAllBtn").onclick = function () { loadEarners(true); };
