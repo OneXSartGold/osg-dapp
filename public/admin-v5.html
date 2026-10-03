@@ -207,7 +207,7 @@
     <section class="panel" role="tabpanel" id="panel-access" aria-labelledby="tab-access" hidden>
       <div class="card" id="subCard" style="display:none">
         <h2>Admin access</h2>
-        <p class="help">Give or remove admin permissions for other wallets.</p>
+        <p class="help">Check what a wallet may do, and give or remove its permissions.</p>
         <div id="subCtl"></div>
       </div>
     </section>
@@ -674,42 +674,63 @@ function loadLpMoreControls() {
 function loadSubAdmins() {
   fill("subCtl",
     '<div class="bar"><input id="subAddr" placeholder="Admin wallet 0x..." style="flex:1"><button class="ghost" id="subCheck">Check</button></div>' +
-    '<div class="bar"><label class="muted"><input type="checkbox" id="subGrant" style="width:auto"> Give bonus to members (airdrop)</label></div>' +
-    '<div class="bar"><label class="muted"><input type="checkbox" id="subMark" style="width:auto"> Mark tasks and attendance done</label>' +
+    '<div class="scroll" id="subNow"></div>' +
+    '<div class="bar"><label class="muted"><input type="checkbox" id="subGrant" style="width:auto"> Give bonuses</label>' +
+    '<label class="muted"><input type="checkbox" id="subMark" style="width:auto"> Mark manual tasks</label>' +
     '<label class="muted"><input type="checkbox" id="subTask" style="width:auto"> Create and edit tasks</label></div>' +
-    '<div class="bar"><button class="gold" id="subSave1">Save bonus permission</button><button class="gold" id="subSave2">Save task permissions</button></div>' +
-    '<div class="muted" id="subMsg">Anyone with a permission here can open this page in view-only mode. To let someone only view, add their wallet to public/admins.json. Untick all and save to remove.</div>');
-  var P = ["function adminPerms(address) view returns (uint8)"];
+    '<div class="bar"><button class="gold" id="subSave1">Save</button><button class="ghost" id="subSave2">Remove all permissions</button></div>' +
+    '<div class="muted" id="subMsg">Check a wallet first. Save sends only the permissions that change (Referral v5 and/or the task board), each tested first.</div>' +
+    '<div class="goldnote">View-only access is the list in public/admins.json — edit it on GitHub.</div>');
   function addr() {
     var a = document.getElementById("subAddr").value.trim();
     if (!E.isAddress(a)) throw new Error("Not a valid address");
     if (a.toLowerCase() === OWNER.toLowerCase()) throw new Error("That is the owner");
     return E.getAddress(a);
   }
+  function yn(b) { return b ? '<td class="good">Yes</td>' : '<td class="muted">No</td>'; }
   document.getElementById("subCheck").onclick = async function () {
+    var a; try { a = addr(); } catch (e) { note("subMsg", errText(e), "bad"); return; }
     try {
-      var a = addr();
-      var r = await Promise.all([new E.Contract(A.referral, P, pv()).adminPerms(a), new E.Contract(await taskBoardAddr(), P, pv()).adminPerms(a)]);
-      var g = Number(r[0]), t = Number(r[1]);
-      document.getElementById("subGrant").checked = (g & 1) !== 0;
-      document.getElementById("subMark").checked = (t & 1) !== 0;
-      document.getElementById("subTask").checked = (t & 2) !== 0;
-      note("subMsg", g || t ? "Current permissions ticked above." : "No permissions yet.", g || t ? "good" : "");
+      note("subMsg", "Reading...");
+      var r = await Promise.all([permsOf(a), inAdminsJson(a)]);
+      var p = r[0];
+      document.getElementById("subGrant").checked = p.grant;
+      document.getElementById("subMark").checked = p.mark;
+      document.getElementById("subTask").checked = p.task;
+      fill("subNow", "<table><thead><tr><th>" + esc(short(a)) + " can</th><th>Today</th></tr></thead><tbody>" +
+        "<tr><td>Give bonuses (Referral v5)</td>" + yn(p.grant) + "</tr><tr><td>Mark manual tasks (task board)</td>" + yn(p.mark) + "</tr>" +
+        "<tr><td>Create and edit tasks (task board)</td>" + yn(p.task) + "</tr><tr><td>Listed in admins.json (view only)</td>" + yn(r[1]) + "</tr></tbody></table>");
+      note("subMsg", p.grant || p.mark || p.task ? "Current permissions ticked above." : "No permissions on chain yet.", p.grant || p.mark || p.task ? "good" : "");
     } catch (e) { note("subMsg", errText(e), "bad"); }
   };
+  function names(g, m, t) { var l = [g ? "give bonuses" : "", m ? "mark manual tasks" : "", t ? "create and edit tasks" : ""].filter(Boolean); return l.length ? l.join(", ") : "nothing"; }
+  async function save(g, m, t) {
+    var a; try { a = addr(); } catch (e) { note("subMsg", errText(e), "bad"); return; }
+    var p, tb;
+    try { p = await permsOf(a); tb = await taskBoardAddr(); } catch (e) { note("subMsg", "Could not read the current permissions, nothing sent: " + errText(e), "bad"); return; }
+    // Keep any bits this page does not manage.
+    var newV5 = (p.v5 & ~1) | (g ? 1 : 0);
+    var newTb = (p.tb & ~3) | (m ? 1 : 0) | (t ? 2 : 0);
+    if (newV5 === p.v5 && newTb === p.tb) { note("subMsg", short(a) + " already has exactly these permissions. Nothing sent.", "warn"); return; }
+    if (newV5 !== p.v5) {
+      var ok = await ownerTx({ msg: "subMsg", name: g ? "Allow bonus giving" : "Remove bonus giving", addr: A.referral, abi: "function setAdmin(address who, uint8 perms)", fn: "setAdmin", args: [a, newV5],
+        what: short(a) + " give bonuses: " + (p.grant ? "Yes" : "No") + " -> " + (g ? "Yes" : "No") + ".\n" + (g ? "They may add OSG to any member's airdrop balance." : "They may no longer give bonuses.") });
+      if (!ok) return;
+    }
+    if (newTb !== p.tb) {
+      await ownerTx({ msg: "subMsg", name: "Task board permissions", addr: tb, abi: "function setAdmin(address who, uint8 perms)", fn: "setAdmin", args: [a, newTb],
+        what: short(a) + " on the task board: " + names(false, p.mark, p.task) + " -> " + names(false, m, t) + ".",
+        reload: function () { document.getElementById("subCheck").onclick(); } });
+    } else document.getElementById("subCheck").onclick();
+  }
   document.getElementById("subSave1").onclick = function () {
-    var a; try { a = addr(); } catch (e) { note("subMsg", errText(e), "bad"); return; }
-    var g = document.getElementById("subGrant").checked ? 1 : 0;
-    ownerTx({ msg: "subMsg", name: g ? "Allow bonus giving" : "Remove bonus giving", addr: A.referral, abi: "function setAdmin(address who, uint8 perms)", fn: "setAdmin", args: [a, g],
-      what: short(a) + (g ? " may give airdrop bonus to members from the Treasury." : " may no longer give airdrop bonus.") });
+    save(document.getElementById("subGrant").checked, document.getElementById("subMark").checked, document.getElementById("subTask").checked);
   };
-  document.getElementById("subSave2").onclick = async function () {
-    var a; try { a = addr(); } catch (e) { note("subMsg", errText(e), "bad"); return; }
-    var tb; try { tb = await taskBoardAddr(); } catch (e) { note("subMsg", "Could not read the task board address, nothing sent: " + errText(e), "bad"); return; }
-    var t = (document.getElementById("subMark").checked ? 1 : 0) | (document.getElementById("subTask").checked ? 2 : 0);
-    var list = [t & 1 ? "mark tasks done" : "", t & 2 ? "create and edit tasks" : ""].filter(Boolean).join(" and ");
-    ownerTx({ msg: "subMsg", name: "Task board permissions", addr: tb, abi: "function setAdmin(address who, uint8 perms)", fn: "setAdmin", args: [a, t],
-      what: short(a) + (t ? " may " + list + "." : " loses all task board permissions.") });
+  document.getElementById("subSave2").onclick = function () {
+    document.getElementById("subGrant").checked = false;
+    document.getElementById("subMark").checked = false;
+    document.getElementById("subTask").checked = false;
+    save(false, false, false);
   };
 }
  async function loadTerm() {
