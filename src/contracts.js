@@ -543,6 +543,26 @@ export const LP_MINING_ABI = [
   "event TermLifted(uint256 at)",
 ];
 
+// -- OSGLPMiningTiers v1.2 (ADDRESSES.lpTiers): tier 0 = 180 days, tier 1 = 540 days --
+export const LP_TIERS_ABI = [
+  "function deposit(uint256 lpAmount, uint8 tier)",
+  "function claim(uint256 posId)",
+  "function claimAll()",
+  "function withdraw(uint256 posId)",
+  "function paused() view returns (bool)",
+  "function minDeposit() view returns (uint256)",
+  "function capacityLeft() view returns (uint256)",
+  "function capacityLp() view returns (uint256)",
+  "function totalLp() view returns (uint256)",
+  "function rateBps(uint256) view returns (uint256)",
+  "function effectiveRateBps(uint8 tier) view returns (uint256)",
+  "function lpWeight() view returns (uint256)",
+  "function positionCount(address user) view returns (uint256)",
+  "function positions(address, uint256) view returns (uint256 lpAmount, uint256 osgValue, uint256 rewardDebt, uint256 rewardPaid, uint256 unpaid, uint64 startTime, uint64 unlockAt, uint8 tier, bool closed)",
+  "function pendingReward(address user, uint256 posId) view returns (uint256)",
+  "function openPositionCount(address user) view returns (uint256)",
+];
+
 // QuickSwap swap link
 export const QUICKSWAP_URL =
   "https://quickswap.exchange/#/swap?outputCurrency=" + ADDRESSES.token;
