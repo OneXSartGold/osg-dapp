@@ -2149,6 +2149,41 @@ function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvid
     [halv],
   );
 
+  // Pair price for visitors without a wallet. data.osgPerPol is filled by
+  // loadData, which only runs once a wallet is connected, so read the pair
+  // here with the same read provider, using the same maths as loadData.
+  // A failed read leaves 0, which shows as "Price loading…" / "0.00".
+  const [fallbackPolPerOsg, setFallbackPolPerOsg] = useState(0);
+  useEffect(
+    function () {
+      if (wallet || !getReadProvider) return;
+      var alive = true;
+      function loadPairPrice() {
+        var pair = new Contract(ADDRESSES.lpPair, PAIR_ABI, getReadProvider());
+        Promise.all([pair.getReserves(), pair.token0()])
+          .then(function (r) {
+            if (!alive) return;
+            var r0 = Number(formatUnits(r[0][0], 18));
+            var r1 = Number(formatUnits(r[0][1], 18));
+            var osgIsToken0 = r[1].toLowerCase() === ADDRESSES.token.toLowerCase();
+            var osgRes = osgIsToken0 ? r0 : r1;
+            var polRes = osgIsToken0 ? r1 : r0;
+            if (osgRes > 0 && polRes > 0) setFallbackPolPerOsg(polRes / osgRes);
+          })
+          .catch(function () {});
+      }
+      loadPairPrice();
+      var id = setInterval(loadPairPrice, 60000);
+      return function () {
+        alive = false;
+        clearInterval(id);
+      };
+    },
+    [wallet],
+  );
+  var effectivePolPerOsg =
+    data && Number(data.osgPerPol) > 0 ? Number(data.osgPerPol) : fallbackPolPerOsg;
+
   // ============================================================
   //  OSG MARKET RATE
   //  When the liquidity pool is live, change only the 5 fields below:
@@ -2161,8 +2196,8 @@ function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvid
     price:
       "1 OSG = " +
       (function () {
-        if (!wallet || !(data && data.osgPerPol)) return "0.00";
-        var x = Number(data.osgPerPol);
+        if (!(effectivePolPerOsg > 0)) return "0.00";
+        var x = effectivePolPerOsg;
         return x >= 1 ? x.toFixed(x >= 100 ? 0 : 2) : x.toFixed(4);
       })() +
       " POL",
@@ -2170,8 +2205,8 @@ function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvid
     vol: "—", // live e.g. "12.3K"
     liq: "~3,160 POL",
     priceNum: (function () {
-      if (!wallet || !(data && data.osgPerPol)) return "0.00";
-      var x = Number(data.osgPerPol);
+      if (!(effectivePolPerOsg > 0)) return "0.00";
+      var x = effectivePolPerOsg;
       return x >= 1 ? x.toFixed(x >= 100 ? 0 : 2) : x.toFixed(4);
     })(),
     holders: wallet && holders ? String(holders) : "—",
@@ -2231,7 +2266,7 @@ function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvid
         };
         // LP calculator. Live prices only: polPerOsg from the pair reserves,
         // polUsd from the market feed. An LP deposit is 50 / 50 by value.
-        var polPerOsg = data && Number(data.osgPerPol) > 0 ? Number(data.osgPerPol) : 0;
+        var polPerOsg = effectivePolPerOsg;
         var polUsdLive = typeof polUsd === "number" && polUsd > 0 ? polUsd : 0;
         var osgUsd = polPerOsg * polUsdLive;
         var calcReady = polPerOsg > 0 && polUsdLive > 0;
@@ -2568,11 +2603,7 @@ function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvid
                 }}
               >
                 ≈ $
-                {(
-                  (wallet && data && data.osgPerPol
-                    ? Number(data.osgPerPol)
-                    : 0) * pol
-                ).toFixed(2)}
+                {(effectivePolPerOsg * pol).toFixed(2)}
               </span>
             </div>
             <div style={{ fontSize: 11.5, color: C.txt3, marginTop: 8 }}>
