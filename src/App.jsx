@@ -4211,7 +4211,7 @@ function drawAchieverCard(cv, o) {
   }
   x.font = "500 26px " + CAPTION_FONT;
   x.fillStyle = "rgba(255,255,255,0.5)";
-  x.fillText("Team OSG  ·  onexsmartgold.vercel.app", cx, 1294);
+  x.fillText("Team OSG  ·  onexsmartgold.com", cx, 1294);
 }
 
 function AchieverCard({ rank, onClose }) {
