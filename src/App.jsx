@@ -3393,18 +3393,7 @@ function Staking({
                 marginBottom: 10,
               }}
             >
-              <span
-                style={{
-                  fontSize: 10,
-                  letterSpacing: ".09em",
-                  textTransform: "uppercase",
-                  color: "#08080B",
-                  background: C.grad,
-                  padding: "4px 9px",
-                  borderRadius: 999,
-                  fontWeight: 700,
-                }}
-              >
+              <span className="chip bad" style={{ textTransform: "uppercase", letterSpacing: ".09em", fontSize: 10 }}>
                 Closed
               </span>
               <span style={{ fontSize: 15, fontWeight: 600 }}>
@@ -4807,7 +4796,7 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
         <div className="card" style={{ marginTop: 14, border: "1px solid " + (pass.qualified ? C.gold2 : C.line2) }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
             <div className="sec" style={{ color: pass.qualified ? C.gold1 : undefined }}>Event pass</div>
-            {pass.qualified && <span style={{ fontSize: 12, color: C.green }}>✓ Ready</span>}
+            {pass.qualified && <span className="chip good">✓ Ready</span>}
           </div>
           {pass.steps.map(function (st, i) {
             var isCount = st.kind === "directs";
@@ -6673,15 +6662,8 @@ function Earn({ wallet, ensureReady, showToast }) {
                     Position {r.id}
                   </div>
                   <span
-                    style={{
-                      fontSize: 10,
-                      letterSpacing: ".6px",
-                      textTransform: "uppercase",
-                      color: r.closed ? C.txt3 : C.green,
-                      border: "1px solid " + (r.closed ? C.line : "rgba(70,208,138,.35)"),
-                      borderRadius: 99,
-                      padding: "3px 9px",
-                    }}
+                    className={"chip " + (r.closed ? "muted" : r.capped ? "osg" : "good")}
+                    style={{ fontSize: 10, letterSpacing: ".6px", textTransform: "uppercase" }}
                   >
                     {r.closed ? "closed" : r.capped ? "cap reached" : "distributing"}
                   </span>
@@ -10596,7 +10578,7 @@ function AIAssistant({ wallet, staked, liveData, holders, polUsd, getReadProvide
                     </span>
                   ) : null}
                 </div>
-                <div style={{ fontSize: 10, color: C.green }}>● Online</div>
+                <div><span className="chip good" style={{ fontSize: 10, padding: "1px 7px", marginTop: 2 }}>● Online</span></div>
               </div>
               <div
                 onClick={function () {
@@ -12624,10 +12606,8 @@ function YourOrders({ wallet, ensureReady, showToast, poolRate, polUsd }) {
               }}
             >
               <span
-                style={{
-                  fontSize: 10, fontWeight: 700, letterSpacing: "1.2px",
-                  color: gone ? C.red : C.green,
-                }}
+                className={"chip " + (gone ? "bad" : "good")}
+                style={{ fontSize: 10, letterSpacing: "1.2px" }}
               >
                 {gone ? "EXPIRED" : "OPEN"}
               </span>
