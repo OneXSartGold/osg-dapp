@@ -4034,6 +4034,305 @@ function RankBadge({ rank, size, lit }) {
     </div>
   );
 }
+
+// ── Achiever card: a rank holder's own photo on a share card ──
+// The photo is read only in this browser to draw the card. It is never
+// uploaded, sent to an API or stored; its object URL is dropped once read.
+var ACHIEVER_GREETINGS = [
+  { id: "en", name: "English", text: "Congratulations" },
+  { id: "mr", name: "मराठी", text: "हार्दिक अभिनंदन" },
+  { id: "hi", name: "हिंदी", text: "हार्दिक बधाई" },
+  { id: "kn", name: "ಕನ್ನಡ", text: "ಹಾರ್ದಿಕ ಅಭಿನಂದನೆಗಳು" },
+  { id: "te", name: "తెలుగు", text: "హృదయపూర్వక అభినందనలు" },
+  { id: "gu", name: "ગુજરાતી", text: "હાર્દિક અભિનંદન" },
+  { id: "ta", name: "தமிழ்", text: "மனமார்ந்த வாழ்த்துகள்" },
+];
+function loadCardImg(src) {
+  return new Promise(function (ok) {
+    var im = new Image();
+    im.onload = function () { ok(im); };
+    im.onerror = function () { ok(null); };
+    im.src = src;
+  });
+}
+// Draws the 1080 x 1350 card. photo: an Image or null (silhouette).
+// fit: { zoom 1-3, ox -1..1, oy -1..1 }.
+function drawAchieverCard(cv, o) {
+  var W = 1080, H = 1350, m = RANK_META[o.rank - 1];
+  cv.width = W;
+  cv.height = H;
+  var x = cv.getContext("2d");
+  var cx = W / 2, cy = 560, R = 280;
+  x.fillStyle = m.d2;
+  x.fillRect(0, 0, W, H);
+  var g = x.createRadialGradient(cx, cy, 40, cx, cy, 920);
+  g.addColorStop(0, m.c3);
+  g.addColorStop(0.38, m.d1);
+  g.addColorStop(1, m.d2);
+  x.fillStyle = g;
+  x.fillRect(0, 0, W, H);
+  // soft light rays from the centre
+  x.save();
+  x.globalAlpha = 0.07;
+  x.fillStyle = m.c1;
+  for (var i = 0; i < 18; i++) {
+    var a = (i / 18) * Math.PI * 2;
+    x.beginPath();
+    x.moveTo(cx, cy);
+    x.arc(cx, cy, 1150, a, a + Math.PI / 36);
+    x.closePath();
+    x.fill();
+  }
+  x.restore();
+  var glow = x.createRadialGradient(cx, cy, R * 0.6, cx, cy, R * 1.9);
+  glow.addColorStop(0, m.c2 + "66");
+  glow.addColorStop(1, m.c2 + "00");
+  x.fillStyle = glow;
+  x.fillRect(0, 0, W, H);
+  // a few small sparkles
+  var sp = [[150, 300, 9], [930, 260, 11], [110, 820, 7], [970, 760, 9], [240, 1010, 6], [860, 1040, 7], [520, 205, 5], [70, 540, 5], [1010, 520, 6]];
+  x.fillStyle = m.c1;
+  sp.forEach(function (s) {
+    x.save();
+    x.globalAlpha = 0.75;
+    x.beginPath();
+    x.moveTo(s[0], s[1] - s[2] * 2);
+    x.quadraticCurveTo(s[0], s[1], s[0] + s[2] * 2, s[1]);
+    x.quadraticCurveTo(s[0], s[1], s[0], s[1] + s[2] * 2);
+    x.quadraticCurveTo(s[0], s[1], s[0] - s[2] * 2, s[1]);
+    x.quadraticCurveTo(s[0], s[1], s[0], s[1] - s[2] * 2);
+    x.fill();
+    x.restore();
+  });
+  // thin gold-tinted border, inset 24px
+  var rr = function (px, py, w, h, r) {
+    x.beginPath();
+    x.moveTo(px + r, py);
+    x.arcTo(px + w, py, px + w, py + h, r);
+    x.arcTo(px + w, py + h, px, py + h, r);
+    x.arcTo(px, py + h, px, py, r);
+    x.arcTo(px, py, px + w, py, r);
+    x.closePath();
+  };
+  x.lineWidth = 3;
+  x.strokeStyle = "rgba(233,185,73,0.6)";
+  rr(24, 24, W - 48, H - 48, 36);
+  x.stroke();
+  // top: real logo + name
+  x.font = "700 44px " + CAPTION_FONT;
+  x.textBaseline = "middle";
+  x.textAlign = "left";
+  var tw = x.measureText("OneX Smart Gold").width, ls = 72, gx = cx - (ls + 18 + tw) / 2;
+  if (o.logo) {
+    x.save();
+    rr(gx, 64, ls, ls, 18);
+    x.clip();
+    x.drawImage(o.logo, gx, 64, ls, ls);
+    x.restore();
+  }
+  x.fillStyle = "#F7D27A";
+  x.fillText("OneX Smart Gold", gx + ls + 18, 100);
+  // photo circle with glow and ring
+  x.save();
+  x.shadowColor = m.c2;
+  x.shadowBlur = 70;
+  x.beginPath();
+  x.arc(cx, cy, R, 0, Math.PI * 2);
+  x.fillStyle = m.d2;
+  x.fill();
+  x.restore();
+  x.save();
+  x.beginPath();
+  x.arc(cx, cy, R, 0, Math.PI * 2);
+  x.clip();
+  if (o.photo) {
+    var pw = o.photo.naturalWidth, ph = o.photo.naturalHeight;
+    var sc = Math.max((2 * R) / pw, (2 * R) / ph) * o.fit.zoom;
+    var dw = pw * sc, dh = ph * sc;
+    var mx = Math.max(0, (dw - 2 * R) / 2), my = Math.max(0, (dh - 2 * R) / 2);
+    x.drawImage(o.photo, cx - dw / 2 + o.fit.ox * mx, cy - dh / 2 + o.fit.oy * my, dw, dh);
+  } else {
+    x.fillStyle = "rgba(255,255,255,0.08)";
+    x.fillRect(cx - R, cy - R, 2 * R, 2 * R);
+    x.fillStyle = "rgba(255,255,255,0.28)";
+    x.beginPath();
+    x.arc(cx, cy - 60, 105, 0, Math.PI * 2);
+    x.fill();
+    x.beginPath();
+    x.ellipse(cx, cy + 230, 210, 170, 0, Math.PI, 0);
+    x.fill();
+  }
+  x.restore();
+  var ring = x.createLinearGradient(cx - R, cy - R, cx + R, cy + R);
+  ring.addColorStop(0, m.c1);
+  ring.addColorStop(0.5, m.c2);
+  ring.addColorStop(1, m.c3);
+  x.lineWidth = 14;
+  x.strokeStyle = ring;
+  x.beginPath();
+  x.arc(cx, cy, R + 7, 0, Math.PI * 2);
+  x.stroke();
+  // rank badge overlapping the bottom of the circle
+  if (o.badge) {
+    x.save();
+    x.shadowColor = "rgba(0,0,0,0.55)";
+    x.shadowBlur = 30;
+    x.drawImage(o.badge, cx - 180, cy + R - 190, 360, 360);
+    x.restore();
+  }
+  // greeting, rank line, name
+  x.textAlign = "center";
+  var fitFont = function (txt, size, weight, maxW) {
+    for (; size > 24; size -= 2) {
+      x.font = weight + " " + size + "px " + CAPTION_FONT;
+      if (x.measureText(txt).width <= maxW) break;
+    }
+    return size;
+  };
+  fitFont(o.greeting, 78, "700", W * 0.9);
+  x.save();
+  x.shadowColor = "rgba(0,0,0,0.6)";
+  x.shadowBlur = 12;
+  x.lineJoin = "round";
+  x.lineWidth = 5;
+  x.strokeStyle = "rgba(0,0,0,0.55)";
+  x.strokeText(o.greeting, cx, 1088, W * 0.9);
+  x.fillStyle = "#F7D27A";
+  x.fillText(o.greeting, cx, 1088, W * 0.9);
+  x.restore();
+  var rl = "R" + o.rank + " · " + m.nm + " Achiever";
+  fitFont(rl, 46, "700", W * 0.9);
+  x.fillStyle = m.c1;
+  x.fillText(rl, cx, 1160, W * 0.9);
+  if (o.name) {
+    fitFont(o.name, 48, "700", W * 0.86);
+    x.fillStyle = "#FFFFFF";
+    x.fillText(o.name, cx, 1224, W * 0.86);
+  }
+  x.font = "500 26px " + CAPTION_FONT;
+  x.fillStyle = "rgba(255,255,255,0.5)";
+  x.fillText("Team OSG  ·  onexsmartgold.vercel.app", cx, 1294);
+}
+
+function AchieverCard({ rank, onClose }) {
+  var r = Math.max(1, Math.min(5, Number(rank) || 1));
+  var startLang = (function () {
+    var l = (typeof document !== "undefined" && document.documentElement.lang) || "en";
+    return ACHIEVER_GREETINGS.some(function (g) { return g.id === l; }) ? l : "en";
+  })();
+  const [photo, setPhoto] = useState(null);
+  const [photoErr, setPhotoErr] = useState("");
+  const [zoom, setZoom] = useState(1);
+  const [ox, setOx] = useState(0);
+  const [oy, setOy] = useState(0);
+  const [name, setName] = useState("");
+  const [gl, setGl] = useState(startLang);
+  const [art, setArt] = useState({ logo: null, badge: null });
+  const [canShare] = useState(canShareImage);
+  const cvRef = useRef(null);
+
+  useEffect(function () {
+    var alive = true;
+    Promise.all([loadCardImg(LOGO), loadCardImg("/rank/r" + r + ".png")]).then(function (a) {
+      if (alive) setArt({ logo: a[0], badge: a[1] });
+    });
+    return function () { alive = false; };
+  }, [r]);
+
+  useEffect(function () {
+    if (!cvRef.current) return;
+    var g = ACHIEVER_GREETINGS.find(function (x) { return x.id === gl; }) || ACHIEVER_GREETINGS[0];
+    drawAchieverCard(cvRef.current, {
+      rank: r, photo: photo, fit: { zoom: zoom, ox: ox, oy: oy },
+      greeting: g.text, name: name.trim(), logo: art.logo, badge: art.badge,
+    });
+  }, [r, photo, zoom, ox, oy, name, gl, art]);
+
+  var pick = function (e) {
+    var f = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!f) return;
+    var url = URL.createObjectURL(f);
+    var im = new Image();
+    im.onload = function () {
+      URL.revokeObjectURL(url);
+      setPhoto(im);
+      setPhotoErr("");
+      setZoom(1); setOx(0); setOy(0);
+    };
+    im.onerror = function () {
+      URL.revokeObjectURL(url);
+      setPhoto(null);
+      setPhotoErr("Photo could not be read — try another one");
+    };
+    im.src = url;
+  };
+  var cardUrl = function () {
+    return cvRef.current ? cvRef.current.toDataURL("image/jpeg", 0.92) : "";
+  };
+  var download = function () {
+    var a = document.createElement("a");
+    a.href = cardUrl();
+    a.download = "osg-achiever-card.jpg";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
+  var lbl = { fontSize: 11.5, color: C.txt2, marginTop: 12, marginBottom: 4, display: "block" };
+  var btn = { minHeight: 44, flex: 1, borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: "pointer" };
+  var slider = function (label, v, set, min, max, step) {
+    return (
+      <label style={{ display: "block", fontSize: 11, color: C.txt3, marginTop: 6 }}>
+        {label}
+        <input type="range" min={min} max={max} step={step} value={v} disabled={!photo}
+          onChange={function (e) { set(Number(e.target.value)); }}
+          style={{ display: "block", width: "100%", minHeight: 32, accentColor: RANK_META[r - 1].c2 }} />
+      </label>
+    );
+  };
+  return (
+    <div role="dialog" aria-modal="true" aria-label="Achiever card"
+      onClick={onClose}
+      style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.72)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+      <div onClick={function (e) { e.stopPropagation(); }}
+        style={{ width: "100%", maxWidth: 440, maxHeight: "94vh", overflowY: "auto", overflowX: "hidden", boxSizing: "border-box", background: C.card, borderRadius: "18px 18px 0 0", padding: "14px 16px 20px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: C.txt }}>{"Achiever card · R" + r + " " + RANK_META[r - 1].nm}</div>
+          <button type="button" onClick={onClose} aria-label="Close"
+            style={{ minWidth: 44, minHeight: 44, background: "none", border: "none", color: C.txt2, fontSize: 20, cursor: "pointer" }}>✕</button>
+        </div>
+        <canvas ref={cvRef} style={{ display: "block", width: "100%", maxWidth: 300, height: "auto", aspectRatio: "1080 / 1350", borderRadius: 12, margin: "4px auto 0" }} />
+        {photoErr ? <div style={{ fontSize: 12, color: "#F87171", marginTop: 8 }}>{photoErr}</div> : null}
+        <label style={Object.assign({}, btn, { display: "flex", alignItems: "center", justifyContent: "center", marginTop: 12, border: "1px solid " + C.line2, color: C.gold1 })}>
+          {photo ? "Choose another photo" : "Choose photo"}
+          <input type="file" accept="image/*" onChange={pick} style={{ display: "none" }} />
+        </label>
+        <div style={{ fontSize: 10.5, color: C.txt3, marginTop: 6, lineHeight: 1.5 }}>
+          Your photo stays on this phone. It is only used to draw the card and is never uploaded.
+        </div>
+        {slider("Zoom", zoom, setZoom, 1, 3, 0.01)}
+        {slider("Left / Right", ox, setOx, -1, 1, 0.01)}
+        {slider("Up / Down", oy, setOy, -1, 1, 0.01)}
+        <span style={lbl}>Name on the card (optional)</span>
+        <input type="text" maxLength={24} value={name} placeholder="Your name"
+          onChange={function (e) { setName(e.target.value.slice(0, 24)); }}
+          style={{ width: "100%", boxSizing: "border-box", minHeight: 44, borderRadius: 10, border: "1px solid " + C.line2, background: C.bg2, color: C.txt, padding: "0 12px", fontSize: 14 }} />
+        <span style={lbl}>Greeting language</span>
+        <select value={gl} onChange={function (e) { setGl(e.target.value); }}
+          style={{ width: "100%", boxSizing: "border-box", minHeight: 44, borderRadius: 10, border: "1px solid " + C.line2, background: C.bg2, color: C.txt, padding: "0 10px", fontSize: 14 }}>
+          {ACHIEVER_GREETINGS.map(function (g) { return <option key={g.id} value={g.id}>{g.name + " — " + g.text}</option>; })}
+        </select>
+        <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+          <button type="button" className="btn-gold" onClick={download} style={btn}>Download</button>
+          {canShare ? (
+            <button type="button" onClick={function () { shareImage(cardUrl()); }}
+              style={Object.assign({}, btn, { background: "none", border: "1px solid " + C.gold2, color: C.gold1 })}>Share</button>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
 // ── Spot bonus (OSGSpotReward, live since 1 Oct 2026) ──────────────────
 // The direct sponsor collects a share of every new stake their directs
 // open after the start, paid from the Treasury airdrop pool. The
@@ -4184,6 +4483,19 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
   const [chainRows, setChainRows] = useState(null);
   const [directRows, setDirectRows] = useState(null);
   const [card, setCard] = useState(null);
+  // Proved rank straight from Referral v5 rankOf: the Achiever card shows this rank only.
+  const [provedRank, setProvedRank] = useState(0);
+  const [achieverOpen, setAchieverOpen] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    setProvedRank(0);
+    if (!wallet || !getReadProvider) return;
+    new Contract(ADDRESSES.referralV42, REFERRAL_V42_ABI, getReadProvider())
+      .rankOf(wallet)
+      .then((v) => { if (alive) setProvedRank(Number(v)); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [wallet, card]);
 // Spot bonus: what this wallet can collect from its directs' new stakes.
   const [spot, setSpot] = useState(null);
   const [spotTick, setSpotTick] = useState(0);
@@ -4633,6 +4945,19 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
                 </div>
               </div>
             </div>
+            {provedRank >= 1 && (
+              <button
+                type="button"
+                className="btn-gold"
+                style={{ marginTop: 12, minHeight: 44 }}
+                onClick={function () { setAchieverOpen(true); }}
+              >
+                Make my Achiever card
+              </button>
+            )}
+            {achieverOpen && provedRank >= 1 && (
+              <AchieverCard rank={Math.min(5, provedRank)} onClose={function () { setAchieverOpen(false); }} />
+            )}
 
                         {have > 0 && (
               <div style={{ marginTop: 14, padding: "12px 14px", borderRadius: 12, background: "rgba(255,255,255,0.035)" }}>
