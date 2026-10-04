@@ -1,0 +1,923 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OSG · OneX Smart Gold</title>
+<meta name="description" content="OneX Smart Gold (OSG) is a community token ecosystem on Polygon: LP mining, a P2P exchange, an encrypted messenger and a public scanner. Every contract verified, every number on-chain.">
+<meta property="og:title" content="OneX Smart Gold (OSG)">
+<meta property="og:description" content="A community token ecosystem on Polygon. Every contract verified, every number on-chain.">
+<meta property="og:image" content="logo.png">
+<meta name="theme-color" content="#0A0907">
+<link rel="icon" href="favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700;9..144,800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.2/ethers.umd.min.js" defer></script>
+<style>
+/* ---------- tokens ---------- */
+:root{
+  --ink:#0A0907;            /* warm black, like an unlit vault */
+  --ink2:#13110D;           /* raised surface */
+  --ink3:#1C1913;           /* inner surface */
+  --rule:rgba(233,185,73,.16);
+  --txt:#F6F1E6;            /* warm white */
+  --txt2:#B3AA98;           /* parchment grey */
+  --txt3:#7A725F;
+  --gold:#E9B949;
+  --gold-hi:#FFF2C6;
+  --gold-deep:#9A6A1C;
+  --metal:linear-gradient(100deg,#8A5E1A 0%,#D9A43A 18%,#FFF2C6 34%,#E9B949 48%,#A87422 68%,#F7D27A 86%,#C4912E 100%);
+  --metal-flat:linear-gradient(135deg,#F7D27A 0%,#E9B949 45%,#B9832A 100%);
+  --green:#46D08A;--red:#F2675C;--blue:#38BDF8;--purple:#A78BFA;
+  --r-lg:28px;--r-md:18px;--r-sm:12px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;scroll-padding-top:84px}
+html,body{overflow-x:clip}
+body{font-family:'Manrope',system-ui,sans-serif;background:var(--ink);color:var(--txt);line-height:1.6;font-size:16px;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:
+    radial-gradient(900px 520px at 78% -8%,rgba(233,185,73,.16),transparent 65%),
+    radial-gradient(700px 500px at -10% 40%,rgba(154,106,28,.10),transparent 70%),
+    radial-gradient(900px 600px at 50% 120%,rgba(233,185,73,.08),transparent 70%)}
+a{color:inherit}
+img{display:block}
+.wrap{max-width:1160px;margin:0 auto;padding-left:20px;padding-right:20px}
+.serif{font-family:'Fraunces',Georgia,serif;font-optical-sizing:auto}
+.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+:focus-visible{outline:2px solid var(--gold);outline-offset:3px;border-radius:6px}
+
+/* metallic text with a light sweep */
+.metal{background:var(--metal);background-size:250% 100%;background-position:42% 0;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:var(--gold)}
+.metal.sweep{animation:sweep 2.6s cubic-bezier(.6,.1,.3,1) .5s both}
+@keyframes sweep{from{background-position:100% 0}to{background-position:42% 0}}
+
+/* gold hairline frame (gradient border) */
+.frame{position:relative;background:linear-gradient(170deg,#17140E 0%,#100E0B 70%);border-radius:var(--r-md)}
+.frame::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;pointer-events:none;
+  background:linear-gradient(160deg,rgba(255,242,198,.55),rgba(233,185,73,.18) 30%,rgba(233,185,73,.06) 60%,rgba(233,185,73,.28));
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:48px;padding:0 24px;border-radius:999px;font:700 15px/1 'Manrope',sans-serif;text-decoration:none;cursor:pointer;border:0;position:relative;overflow:hidden;white-space:nowrap}
+.btn-gold{color:#241703;background:var(--metal-flat);box-shadow:0 10px 30px -8px rgba(233,185,73,.55),inset 0 1px 0 rgba(255,255,255,.5)}
+.btn-gold::after{content:"";position:absolute;top:0;bottom:0;left:-60%;width:40%;transform:skewX(-20deg);background:linear-gradient(90deg,transparent,rgba(255,255,255,.65),transparent);transition:left .7s ease}
+.btn-gold:hover::after{left:130%}
+.btn-line{color:var(--gold-hi);background:rgba(233,185,73,.06);box-shadow:inset 0 0 0 1px rgba(233,185,73,.38)}
+.btn-line:hover{background:rgba(233,185,73,.12)}
+
+
+/* colour meaning: gold = OSG & value · blue = POL/USD, dates, exchange · purple = community & privacy · green = live, verified, success · red = down, failed, risk */
+.c-gold{color:var(--gold-hi)}.c-blue{color:var(--blue)}.c-purple{color:var(--purple)}.c-green{color:var(--green)}.c-red{color:var(--red)}
+b.c-gold,b.c-blue,b.c-purple,b.c-green,b.c-red{font-weight:700}
+.glyph.g-blue{color:var(--blue);background:rgba(56,189,248,.08);box-shadow:inset 0 0 0 1px rgba(56,189,248,.28)}
+.glyph.g-green{color:var(--green);background:rgba(70,208,138,.08);box-shadow:inset 0 0 0 1px rgba(70,208,138,.28)}
+.glyph.g-purple{color:var(--purple);background:rgba(167,139,250,.08);box-shadow:inset 0 0 0 1px rgba(167,139,250,.28)}
+.lock:nth-child(1) b{color:var(--blue)}.lock:nth-child(2) b{color:var(--gold-hi)}.lock:nth-child(3) b{color:var(--purple)}
+.lock:nth-child(1) .bar i{background:var(--blue)}.lock:nth-child(3) .bar i{background:var(--purple)}
+.step:nth-child(2) .n{background:linear-gradient(135deg,#7dd3fc,#38BDF8)}.step:nth-child(3) .n{background:linear-gradient(135deg,#c4b5fd,#A78BFA)}.step:nth-child(4) .n{background:linear-gradient(135deg,#86efac,#46D08A)}
+
+/* ---------- nav ---------- */
+nav{position:sticky;top:0;z-index:60;background:rgba(10,9,7,.72);backdrop-filter:saturate(140%) blur(14px);-webkit-backdrop-filter:saturate(140%) blur(14px);border-bottom:1px solid var(--rule)}
+nav .wrap{display:flex;align-items:center;gap:16px;height:68px}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none}
+.brand img{width:36px;height:36px}
+.brand span{font:700 20px/1 'Fraunces',serif;letter-spacing:.06em}
+.links{display:flex;gap:2px;margin-left:auto}
+.links a{font-size:14px;font-weight:600;color:var(--txt2);text-decoration:none;padding:9px 12px;border-radius:999px}
+.links a:hover{color:var(--gold-hi);background:rgba(233,185,73,.07)}
+.navcta{min-height:40px;padding:0 18px;font-size:14px}
+.menu{display:none;margin-left:auto;width:44px;height:44px;border-radius:12px;border:1px solid var(--rule);background:transparent;color:var(--txt);cursor:pointer}
+.menu i{display:block;width:18px;height:2px;background:currentColor;margin:4px auto;border-radius:2px}
+@media(max-width:900px){
+  .links{display:none;position:absolute;top:68px;left:0;right:0;flex-direction:column;background:#0d0b08;border-bottom:1px solid var(--rule);padding:8px 20px 16px}
+  .links.open{display:flex}
+  .links a{font-size:16px;padding:13px 4px;border-radius:0;border-bottom:1px solid rgba(255,255,255,.04)}
+  .menu{display:block}
+  nav .navcta{display:none}
+}
+
+/* ---------- hero ---------- */
+.hero{display:grid;grid-template-columns:1.15fr .85fr;gap:40px;align-items:center;padding-top:72px;padding-bottom:40px}
+.live{display:inline-flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:var(--txt2);padding:7px 14px 7px 10px;border-radius:999px;background:rgba(70,208,138,.06);box-shadow:inset 0 0 0 1px rgba(70,208,138,.22)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 0 rgba(70,208,138,.6);animation:pulse 2.2s infinite}
+@keyframes pulse{70%{box-shadow:0 0 0 9px rgba(70,208,138,0)}100%{box-shadow:0 0 0 0 rgba(70,208,138,0)}}
+.hero h1{font-family:'Fraunces',serif;font-weight:700;font-size:clamp(46px,6.6vw,86px);line-height:.98;letter-spacing:-.025em;margin-top:22px}
+.hero h1 .metal{display:block}
+.hero h1 .after{display:block;font-size:.5em;font-weight:600;letter-spacing:-.01em;color:var(--txt);margin-top:.35em}
+.hero .lede{font-size:clamp(16px,1.9vw,19px);color:var(--txt2);max-width:30em;margin-top:22px}
+.ctas{display:flex;gap:12px;flex-wrap:wrap;margin-top:32px}
+
+/* the emblem — the one memorable object: the logo itself, lit from behind */
+.emblem-wrap{position:relative;display:flex;justify-content:center;align-items:center}
+.emblem{position:relative;width:min(420px,80vw);aspect-ratio:1;display:grid;place-items:center;animation:emIn 1.3s cubic-bezier(.2,.8,.2,1) both}
+@keyframes emIn{from{transform:translateY(24px) scale(.92);opacity:0}to{transform:none;opacity:1}}
+.emblem::before{content:"";position:absolute;inset:6%;border-radius:50%;
+  background:radial-gradient(circle,rgba(255,226,150,.30) 0%,rgba(233,185,73,.14) 35%,transparent 68%);filter:blur(6px);animation:breathe 6s ease-in-out infinite}
+@keyframes breathe{50%{transform:scale(1.07);opacity:.75}}
+.emblem img{position:relative;width:82%;height:82%;object-fit:contain;filter:drop-shadow(0 30px 40px rgba(0,0,0,.6)) drop-shadow(0 0 30px rgba(233,185,73,.28));animation:float 7s ease-in-out infinite}
+@keyframes float{50%{transform:translateY(-10px)}}
+.emblem .glint{position:absolute;inset:9%;pointer-events:none;
+  -webkit-mask:url(logo.png) center/contain no-repeat;mask:url(logo.png) center/contain no-repeat;
+  background:linear-gradient(105deg,transparent 35%,rgba(255,250,230,.75) 50%,transparent 65%);background-size:300% 100%;background-position:120% 0;
+  animation:glint 6s ease-in-out 1.4s infinite,float 7s ease-in-out infinite}
+@keyframes glint{0%{background-position:120% 0}25%,100%{background-position:-60% 0}}
+@media(max-width:900px){
+  .hero{grid-template-columns:1fr;text-align:center;padding-top:40px;gap:28px}
+  .hero .lede{margin-left:auto;margin-right:auto}
+  .ctas{justify-content:center}
+  .emblem-wrap{order:-1}
+  .emblem{width:min(260px,66vw)}
+}
+
+/* ---------- ticker band ---------- */
+.band{display:grid;grid-template-columns:repeat(5,1fr);margin-top:28px;border-radius:var(--r-lg);overflow:hidden}
+.band>div{padding:22px 22px 20px;position:relative}
+.band>div+div::after{content:"";position:absolute;left:0;top:22px;bottom:22px;width:1px;background:var(--rule)}
+.band .k{font-size:13px;color:var(--txt3);font-weight:600}
+.band .v{font-family:'Fraunces',serif;font-weight:600;font-size:clamp(22px,2.6vw,30px);margin-top:4px;line-height:1.15;white-space:nowrap}
+.band .s{font-size:12.5px;color:var(--txt3);margin-top:2px}
+@media(max-width:900px){.band{grid-template-columns:repeat(2,1fr)}.band>div:nth-child(odd)::after{display:none}.band>div:last-child{grid-column:1/-1}.band>div{border-top:1px solid var(--rule)}.band>div:nth-child(-n+2){border-top:0}}
+
+/* ---------- sections ---------- */
+section.wrap{padding-top:112px}
+.sec-title{font-family:'Fraunces',serif;font-weight:700;font-size:clamp(32px,4.6vw,54px);line-height:1.04;letter-spacing:-.02em;max-width:16em}
+.sec-lede{color:var(--txt2);margin-top:14px;max-width:38em;font-size:17px}
+.sec-head{margin-bottom:40px}
+.split-head{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap;margin-bottom:40px}
+
+
+/* ---------- about ---------- */
+.about{display:grid;grid-template-columns:1.1fr .9fr;gap:16px}
+.about .frame{padding:32px 30px}
+.about .lead{font-family:'Fraunces',serif;font-size:clamp(22px,2.6vw,30px);line-height:1.3;font-weight:500}
+.about p.body{color:var(--txt2);margin-top:16px;font-size:16px}
+.values{display:grid;gap:14px}
+.value{display:grid;grid-template-columns:40px 1fr;gap:14px;align-items:start;padding:18px 20px}
+.value .vi{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-weight:800}
+.value h4{font-size:16.5px;font-weight:800}
+.value p{color:var(--txt2);font-size:14.5px;margin-top:2px}
+.social{display:flex;gap:10px;flex-wrap:wrap;margin-top:24px}
+.btn-tg{color:#fff;background:linear-gradient(135deg,#37aee2,#1e96c8);box-shadow:0 10px 26px -10px rgba(55,174,226,.7)}
+.btn-x{color:#fff;background:#14120f;box-shadow:inset 0 0 0 1px rgba(255,255,255,.22)}
+.btn svg{width:18px;height:18px;fill:currentColor}
+@media(max-width:900px){.about{grid-template-columns:1fr}}
+
+/* ---------- explorer ---------- */
+.explorer{padding:26px}
+.search{display:flex;gap:10px}
+.search input{flex:1;min-width:0;min-height:56px;border-radius:999px;border:0;background:rgba(0,0,0,.4);box-shadow:inset 0 0 0 1px rgba(233,185,73,.3);color:var(--txt);padding:0 22px;font:500 14.5px 'Manrope',sans-serif}
+.search input:focus{outline:none;box-shadow:inset 0 0 0 1.5px var(--gold)}
+.hint{font-size:13px;color:var(--txt3);margin-top:10px}
+.hint button{background:none;border:0;color:var(--gold);font:600 13px 'Manrope',sans-serif;cursor:pointer;text-decoration:underline;text-underline-offset:3px;padding:0 2px}
+.detail{margin-top:20px;display:none}
+.detail.on{display:block}
+.dhead{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding-bottom:16px;border-bottom:1px solid var(--rule)}
+.dhead h4{font-family:'Fraunces',serif;font-size:22px;font-weight:600}
+.dgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px}
+.dcell{padding:16px;border-radius:14px;background:rgba(0,0,0,.28);box-shadow:inset 0 0 0 1px rgba(255,255,255,.05);min-width:0}
+.dcell small{display:block;font-size:12.5px;color:var(--txt3);font-weight:600}
+.dcell b{display:block;font-size:17px;margin-top:4px;overflow-wrap:anywhere}
+.dcell.wide{grid-column:1/-1}
+.hash{font:500 13px ui-monospace,SFMono-Regular,Menlo,monospace;overflow-wrap:anywhere}
+.subt{font-size:15px;font-weight:800;margin:22px 0 4px}
+@media(max-width:760px){.dgrid{grid-template-columns:1fr 1fr}}
+@media(max-width:440px){.dgrid{grid-template-columns:1fr}}
+
+/* ---------- bento ---------- */
+.bento{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.tile{padding:26px 24px}
+.tile h3{font-family:'Fraunces',serif;font-weight:600;font-size:22px;line-height:1.2}
+.tile p{color:var(--txt2);font-size:15px;margin-top:8px}
+.tile.big{grid-column:span 2;grid-row:span 2;padding:34px 32px;display:flex;flex-direction:column}
+.tile.big h3{font-size:clamp(28px,3.2vw,38px)}
+.tile.wide{grid-column:span 2}
+.glyph{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;margin-bottom:18px;background:rgba(233,185,73,.08);box-shadow:inset 0 0 0 1px rgba(233,185,73,.22);color:var(--gold-hi)}
+.glyph svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.locks{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:auto;padding-top:28px}
+.lock{padding:16px 14px;border-radius:14px;background:rgba(0,0,0,.3);box-shadow:inset 0 0 0 1px rgba(233,185,73,.16)}
+.lock b{display:block;font-family:'Fraunces',serif;font-size:30px;font-weight:600;line-height:1}
+.lock small{color:var(--txt3);font-size:12.5px}
+.lock .bar{height:4px;border-radius:4px;margin-top:12px;background:rgba(255,255,255,.06);overflow:hidden}
+.lock .bar i{display:block;height:100%;background:var(--metal-flat)}
+.status{display:inline-flex;align-items:center;gap:7px;margin-top:16px;font-size:12.5px;font-weight:700;color:var(--green)}
+.status::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+@media(max-width:980px){.bento{grid-template-columns:repeat(2,1fr)}.tile.big{grid-row:auto}}
+@media(max-width:600px){.bento{grid-template-columns:1fr}.tile.big,.tile.wide{grid-column:auto}.tile.big{padding:28px 22px}}
+
+/* ---------- steps (a real sequence) ---------- */
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;position:relative}
+.steps::before{content:"";position:absolute;left:24px;right:24px;top:24px;height:1px;background:linear-gradient(90deg,var(--gold),rgba(233,185,73,.1))}
+.step{position:relative}
+.step .n{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;font:700 18px 'Fraunces',serif;color:#241703;background:var(--metal-flat);box-shadow:0 0 0 6px var(--ink),0 8px 20px -6px rgba(233,185,73,.6)}
+.step h4{font-family:'Fraunces',serif;font-size:21px;font-weight:600;margin-top:20px}
+.step p{color:var(--txt2);font-size:15px;margin-top:6px;max-width:16em}
+@media(max-width:900px){.steps{grid-template-columns:1fr 1fr;row-gap:36px}.steps::before{display:none}}
+@media(max-width:520px){.steps{grid-template-columns:1fr}.step{display:grid;grid-template-columns:48px 1fr;column-gap:16px}.step h4{margin-top:8px}.step p{grid-column:2}}
+
+/* ---------- deck ---------- */
+.deck{overflow:hidden;border-radius:var(--r-lg)}
+.slides{position:relative;aspect-ratio:16/9}
+@media(max-width:640px){.slides{aspect-ratio:4/5}}
+.slide{position:absolute;inset:0;padding:clamp(24px,5vw,64px);display:flex;flex-direction:column;justify-content:center;opacity:0;transform:translateX(24px);transition:opacity .5s ease,transform .5s ease;pointer-events:none;
+  background:radial-gradient(70% 80% at 88% 8%,rgba(233,185,73,.16),transparent 60%),radial-gradient(60% 60% at 0% 100%,rgba(154,106,28,.12),transparent 60%),linear-gradient(160deg,#18140c,#0d0b08)}
+.slide.on{opacity:1;transform:none;pointer-events:auto}
+.slide .tag{font-size:13px;font-weight:700;color:var(--gold)}
+.slide h3{font-family:'Fraunces',serif;font-weight:700;font-size:clamp(28px,5vw,58px);line-height:1.04;letter-spacing:-.02em;margin-top:10px;max-width:14em}
+.slide p{color:var(--txt2);font-size:clamp(14.5px,1.7vw,18px);margin-top:14px;max-width:34em}
+.slide ul{list-style:none;margin-top:18px;display:grid;gap:10px;max-width:36em}
+.slide li{display:flex;gap:12px;font-size:clamp(14.5px,1.7vw,18px)}
+.slide li::before{content:"";flex:0 0 8px;height:8px;margin-top:.6em;transform:rotate(45deg);background:var(--metal-flat)}
+.facts{display:flex;gap:clamp(18px,4vw,48px);flex-wrap:wrap;margin-top:24px}
+.facts small{display:block;font-size:13px;color:var(--txt3);font-weight:600}
+.facts b{font-family:'Fraunces',serif;font-size:clamp(20px,2.8vw,32px);font-weight:600}
+.splitbar{display:flex;height:14px;border-radius:999px;overflow:hidden;margin-top:22px;max-width:620px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
+.deckbar{display:flex;align-items:center;gap:12px;padding:14px 16px;border-top:1px solid var(--rule);background:rgba(0,0,0,.25)}
+.dots{display:flex;gap:7px;flex:1;justify-content:center;flex-wrap:wrap}
+.dots button{width:8px;height:8px;border-radius:999px;border:0;background:rgba(255,255,255,.16);cursor:pointer;padding:0;transition:width .3s,background .3s}
+.dots button.on{width:26px;background:var(--gold)}
+.arrow{width:44px;height:44px;border-radius:50%;border:0;box-shadow:inset 0 0 0 1px var(--rule);background:transparent;color:var(--gold-hi);font-size:20px;cursor:pointer}
+.arrow:hover{background:rgba(233,185,73,.08)}
+.deck-actions{display:flex;gap:12px;flex-wrap:wrap}
+
+/* ---------- scan ---------- */
+.scan{display:grid;grid-template-columns:1.25fr 1fr;gap:16px}
+.scan .frame{padding:28px 26px}
+.scan h3{font-family:'Fraunces',serif;font-size:22px;font-weight:600}
+.big-num{font-family:'Fraunces',serif;font-weight:600;font-size:clamp(40px,6vw,64px);line-height:1;margin-top:14px}
+.meter{height:10px;border-radius:999px;background:rgba(255,255,255,.06);overflow:hidden;margin-top:16px}
+.meter i{display:block;height:100%;width:0;background:var(--metal);background-size:200% 100%;transition:width 1.4s cubic-bezier(.2,.8,.2,1)}
+.rows{margin-top:18px}
+.kv{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-top:1px solid rgba(255,255,255,.05);font-size:15px}
+.kv span:first-child{color:var(--txt2)}
+.kv b{font-weight:700;text-align:right}
+.field{display:flex;gap:10px;margin-top:16px}
+.field input{flex:1;min-width:0;min-height:50px;border-radius:999px;border:0;box-shadow:inset 0 0 0 1px rgba(233,185,73,.25);background:rgba(0,0,0,.35);color:var(--txt);padding:0 20px;font:500 14px 'Manrope',sans-serif}
+.field input:focus{outline:none;box-shadow:inset 0 0 0 1px var(--gold)}
+.result{margin-top:16px;min-height:28px}
+.tx{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:12px 0;border-top:1px solid rgba(255,255,255,.05);font-size:14px}
+.tx .ad{color:var(--txt2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:999px;font-size:12px;font-weight:700}
+.p-gold{color:var(--gold-hi);background:rgba(233,185,73,.12)}
+.p-blue{color:var(--blue);background:rgba(56,189,248,.12)}
+.p-green{color:var(--green);background:rgba(70,208,138,.12)}
+.p-red{color:var(--red);background:rgba(242,103,92,.12)}
+.p-purple{color:var(--purple);background:rgba(167,139,250,.12)}
+.muted{color:var(--txt2)}
+@media(max-width:900px){.scan{grid-template-columns:1fr}}
+
+/* ---------- tokenomics ---------- */
+.tok{display:grid;grid-template-columns:.9fr 1.1fr;gap:16px}
+.tok .frame{padding:30px 28px}
+.donut{width:min(300px,72vw);aspect-ratio:1;margin:0 auto;border-radius:50%;position:relative;
+  background:conic-gradient(#E9B949 0 68%,var(--purple) 68% 99%,var(--blue) 99% 100%);
+  box-shadow:0 30px 70px -30px rgba(233,185,73,.5)}
+.donut::after{content:"";position:absolute;inset:16%;border-radius:50%;background:radial-gradient(circle at 50% 40%,#1c170f,#0d0b08);box-shadow:inset 0 0 0 1px rgba(233,185,73,.18)}
+.donut .c{position:absolute;inset:0;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.legend{display:grid;gap:14px;margin-top:4px}
+.legend div{display:grid;grid-template-columns:14px 1fr auto;gap:12px;align-items:center;font-size:15.5px}
+.legend i{width:14px;height:14px;border-radius:4px}
+.legend b{font-family:'Fraunces',serif;font-size:22px;font-weight:600}
+@media(max-width:900px){.tok{grid-template-columns:1fr}}
+
+/* ---------- contracts ---------- */
+.ctbox{padding:10px 26px 14px}
+.filters{display:flex;gap:8px;flex-wrap:wrap;padding:16px 0 10px}
+.filters button{min-height:40px;padding:0 16px;border-radius:999px;border:0;box-shadow:inset 0 0 0 1px var(--rule);background:transparent;color:var(--txt2);font:700 13.5px 'Manrope',sans-serif;cursor:pointer}
+.filters button.on{color:#241703;background:var(--metal-flat);box-shadow:none}
+.ct{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 14px;align-items:center;padding:16px 0;border-top:1px solid rgba(255,255,255,.05)}
+.ct .nm{font-weight:700;font-size:16px}
+.ct .ds{font-size:13.5px;color:var(--txt3)}
+.ct .ad{grid-column:1/-1;font:500 13px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--gold);word-break:break-all;margin-top:4px}
+.ct .acts{display:flex;gap:8px}
+.icbtn{width:42px;height:42px;border-radius:50%;border:0;box-shadow:inset 0 0 0 1px var(--rule);background:transparent;color:var(--txt2);display:inline-grid;place-items:center;cursor:pointer;text-decoration:none}
+.icbtn:hover{color:var(--gold-hi);box-shadow:inset 0 0 0 1px rgba(233,185,73,.5)}
+.icbtn svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* ---------- roadmap ---------- */
+.road{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.road .frame{padding:28px 26px}
+.road h3{font-family:'Fraunces',serif;font-size:24px;font-weight:600;display:flex;align-items:center;gap:12px}
+.road ul{list-style:none;margin-top:18px;display:grid;gap:12px}
+.road li{display:grid;grid-template-columns:20px 1fr;gap:10px;font-size:15px;color:var(--txt2)}
+.road li i{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-style:normal;font-size:11px;font-weight:800;margin-top:2px}
+.road .done li{color:var(--txt)}
+@media(max-width:900px){.road{grid-template-columns:1fr}}
+
+/* ---------- faq ---------- */
+.faq{display:grid;grid-template-columns:.8fr 1.2fr;gap:40px;align-items:start}
+.faq .frame{padding:6px 26px}
+details{border-top:1px solid rgba(255,255,255,.06)}
+details:first-child{border-top:0}
+summary{cursor:pointer;list-style:none;padding:20px 40px 20px 0;font-weight:700;font-size:16.5px;position:relative}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"";position:absolute;right:6px;top:50%;width:10px;height:10px;border-right:2px solid var(--gold);border-bottom:2px solid var(--gold);transform:translateY(-70%) rotate(45deg);transition:transform .25s}
+details[open] summary::after{transform:translateY(-30%) rotate(-135deg)}
+details p{color:var(--txt2);font-size:15px;padding:0 0 20px;max-width:40em}
+@media(max-width:900px){.faq{grid-template-columns:1fr;gap:24px}}
+
+/* ---------- cta + footer ---------- */
+.final{margin-top:112px;padding:clamp(36px,6vw,72px);border-radius:var(--r-lg);text-align:center;overflow:hidden}
+.final h2{font-family:'Fraunces',serif;font-weight:700;font-size:clamp(34px,5vw,60px);line-height:1.04;letter-spacing:-.02em}
+.final p{color:var(--txt2);margin:14px auto 0;max-width:34em}
+.final .ctas{justify-content:center}
+footer{margin-top:72px;border-top:1px solid var(--rule);padding:44px 0 48px}
+.foot{display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:28px}
+.foot h5{font-size:13px;color:var(--txt3);font-weight:700;margin-bottom:12px}
+.foot a{display:block;color:var(--txt2);text-decoration:none;font-size:15px;padding:6px 0}
+.foot a:hover{color:var(--gold-hi)}
+.foot a.brand{display:flex;padding:0}
+.risk{font-size:13px;color:var(--txt3);margin-top:32px;line-height:1.7;max-width:70em}
+@media(max-width:760px){.foot{grid-template-columns:1fr 1fr}.foot>div:first-child{grid-column:1/-1}}
+
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);opacity:0;background:#1c1810;box-shadow:inset 0 0 0 1px rgba(233,185,73,.4),0 10px 30px rgba(0,0,0,.5);color:var(--txt);padding:12px 18px;border-radius:999px;font-size:14px;font-weight:600;transition:all .25s ease;z-index:99;pointer-events:none}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}.metal{background-position:30% 0}}
+@media print{
+  nav,.hero,.band,section:not(#deck),.final,footer,.deckbar,.deck-actions,.split-head .sec-lede{display:none!important}
+  body{background:#0A0907;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  section#deck{padding-top:0}
+  .slides{aspect-ratio:auto}
+  .slide{position:relative;opacity:1;transform:none;height:100vh;break-after:page}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a class="brand" href="#top"><img src="logo.png" alt=""><span class="metal">OSG</span></a>
+    <div class="links" id="links">
+      <a href="#about">About</a>
+      <a href="#ecosystem">Ecosystem</a>
+      <a href="#deck">Deck</a>
+      <a href="#scan">OSGScan</a>
+      <a href="#tokenomics">Tokenomics</a>
+      <a href="#contracts">Contracts</a>
+      <a href="#roadmap">Roadmap</a>
+      <a href="#faq">FAQ</a>
+    </div>
+    <a class="btn btn-gold navcta" href="https://osg-dapp.vercel.app" target="_blank" rel="noopener">Open DApp</a>
+    <button class="menu" id="menu" aria-label="Open menu"><i></i><i></i><i></i></button>
+  </div>
+</nav>
+
+<main id="top">
+<header class="wrap hero">
+  <div>
+    <span class="live"><span class="dot"></span>Live on Polygon</span>
+    <h1><span class="metal sweep">OneX Smart Gold</span><span class="after">On-chain, in the open.</span></h1>
+    <p class="lede">A community token ecosystem with <b class="c-gold">LP mining</b>, a <b class="c-blue">peer-to-peer exchange</b>, an <b class="c-purple">encrypted messenger</b> and a <b class="c-green">public scanner</b>. Every contract is <b class="c-green">verified</b> and every number can be checked by anyone.</p>
+    <div class="ctas">
+      <a class="btn btn-gold" href="https://osg-dapp.vercel.app" target="_blank" rel="noopener">Open the DApp</a>
+      <button class="btn btn-line" id="addToken">Add OSG to wallet</button>
+    </div>
+  </div>
+  <div class="emblem-wrap" aria-hidden="true">
+    <div class="emblem"><img src="logo.png" alt=""><span class="glint"></span></div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="band frame">
+    <div><div class="k">OSG price</div><div class="v num metal" id="sPrice">—</div><div class="s" id="sPricePol">Loading</div></div>
+    <div><div class="k">Market cap</div><div class="v num" id="sMcap" style="color:var(--blue)">—</div><div class="s">Price × supply</div></div>
+    <div><div class="k">Liquidity</div><div class="v num" id="sLiq" style="color:var(--blue)">—</div><div class="s">QuickSwap V2</div></div>
+    <div><div class="k">24 hours</div><div class="v num" id="sChg">—</div><div class="s">OSG / WPOL</div></div>
+    <div><div class="k">Max supply</div><div class="v num metal">23M</div><div class="s">Fixed in the contract</div></div>
+  </div>
+</div>
+
+
+<!-- ABOUT -->
+<section id="about" class="wrap">
+  <div class="sec-head"><h2 class="sec-title">About OSG.</h2></div>
+  <div class="about">
+    <div class="frame">
+      <p class="lead">OneX Smart Gold began with a simple idea: a community token should be <span class="c-gold">as easy to check as it is to use</span>.</p>
+      <p class="body">OSG is built and run by the <b class="c-gold">OSG Team</b> together with its community. Instead of asking people to trust a website, every rule — how much OSG is released each day, how it is shared, how long LP is locked — lives in a <b class="c-green">verified smart contract on Polygon</b>. The DApp, OSGScan and this site all read the same public data.</p>
+      <p class="body">We ship in small, careful steps: each change is tested, reviewed and announced before it goes live, and rate changes are posted on-chain <b class="c-gold">48 hours</b> in advance.</p>
+      <div class="social" id="social">
+        <a class="btn btn-tg" data-social="telegram" href="#" target="_blank" rel="noopener"><svg viewBox="0 0 24 24"><path d="M21.9 4.3l-3.1 14.6c-.2 1-.8 1.3-1.7.8l-4.7-3.5-2.3 2.2c-.3.3-.5.5-1 .5l.3-4.8 8.8-7.9c.4-.3-.1-.5-.6-.2L6.8 12.8l-4.7-1.5c-1-.3-1-1 .2-1.5l18.3-7c.9-.3 1.6.2 1.3 1.5z"/></svg>Join Telegram</a>
+        <a class="btn btn-x" data-social="x" href="#" target="_blank" rel="noopener"><svg viewBox="0 0 24 24"><path d="M17.8 3h3.1l-6.8 7.8L22 21h-6.2l-4.9-6.4L5.3 21H2.2l7.3-8.3L1.9 3h6.4l4.4 5.8zm-1.1 16.2h1.7L7.4 4.7H5.6z"/></svg>Follow on X</a>
+        <a class="btn btn-line" href="https://onexsartgold.github.io/osg-whitepaper/OSGWhitepaper.pdf" target="_blank" rel="noopener">Read the whitepaper</a>
+      </div>
+    </div>
+    <div class="values">
+      <div class="frame value"><span class="vi" style="color:var(--green);background:rgba(70,208,138,.1)">✓</span><div><h4 class="c-green">Transparent</h4><p>Verified code, public addresses, live on-chain numbers.</p></div></div>
+      <div class="frame value"><span class="vi" style="color:var(--purple);background:rgba(167,139,250,.1)">◎</span><div><h4 class="c-purple">Community-first</h4><p>Community rewards come from a fixed budget, never from another member's balance.</p></div></div>
+      <div class="frame value"><span class="vi" style="color:var(--gold-hi);background:rgba(233,185,73,.12)">◆</span><div><h4 class="c-gold">Fixed supply</h4><p>23,000,000 OSG at most, released on a halving schedule.</p></div></div>
+      <div class="frame value"><span class="vi" style="color:var(--blue);background:rgba(56,189,248,.1)">↗</span><div><h4 class="c-blue">Open to all</h4><p>Any Polygon wallet can join — no account, no sign-up form.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ECOSYSTEM -->
+<section id="ecosystem" class="wrap">
+  <div class="sec-head">
+    <h2 class="sec-title">One token, a full set of tools.</h2>
+    <p class="sec-lede">Everything runs from one DApp and is backed by verified smart contracts on Polygon.</p>
+  </div>
+  <div class="bento">
+    <article class="tile big frame">
+      <div class="glyph"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg></div>
+      <h3 class="metal">LP Mining</h3>
+      <p>Pair OSG with POL on QuickSwap, then lock the LP for the period that suits you. A fixed <b class="c-gold">68% Mining share</b> of each day's release is set aside for mining programmes.</p>
+      <div class="locks">
+        <div class="lock"><b class="num">180</b><small>days</small><div class="bar"><i style="width:33%"></i></div></div>
+        <div class="lock"><b class="num">365</b><small>days</small><div class="bar"><i style="width:67%"></i></div></div>
+        <div class="lock"><b class="num">540</b><small>days</small><div class="bar"><i style="width:100%"></i></div></div>
+      </div>
+    </article>
+    <article class="tile frame">
+      <div class="glyph g-blue"><svg viewBox="0 0 24 24"><path d="M7 7h12l-3-3M17 17H5l3 3"/></svg></div>
+      <h3 class="c-blue">Swap &amp; P2P</h3><p>Swap through the pool, or trade peer-to-peer in <b class="c-blue">POL</b> or <b class="c-green">USDT</b>.</p><span class="status">Open</span>
+    </article>
+    <article class="tile frame">
+      <div class="glyph g-green"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg></div>
+      <h3 class="c-green">OSGScan</h3><p>Supply, holders, transfers and contracts — readable by anyone.</p><span class="status">Live</span>
+    </article>
+    <article class="tile frame">
+      <div class="glyph g-purple"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 0 1-11.5 7.2L4 20l.9-4.3A8 8 0 1 1 20 12z"/></svg></div>
+      <h3 class="c-purple">Messenger</h3><p>Encrypted wallet-to-wallet chat. Messages on Polygon, media on IPFS.</p><span class="status">Live</span>
+    </article>
+    <article class="tile frame">
+      <div class="glyph g-blue"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="4"/><path d="M9 11h.01M15 11h.01M9.5 15c1.4.8 3.6.8 5 0"/></svg></div>
+      <h3 class="c-blue">AI Assistant</h3><p>Ask about OSG in plain words; answers use live chain data.</p><span class="status">Live</span>
+    </article>
+    <article class="tile wide frame">
+      <div class="glyph g-purple"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.5 19c0-3 2.5-5.5 5.5-5.5s5.5 2.5 5.5 5.5M16 5.5a3 3 0 0 1 0 5.6M20.5 19c0-2.3-1.4-4.3-3.5-5.1"/></svg></div>
+      <h3 class="c-purple">Community &amp; ranks</h3><p>Members grow a network with levels and <b class="c-purple">R1–R5 ranks</b>. Community rewards come from a fixed <b class="c-purple">31%</b> slice of the daily release — never from another member's balance.</p><span class="status">Live</span>
+    </article>
+    <article class="tile wide frame">
+      <div class="glyph g-green"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg></div>
+      <h3 class="c-green">Rules you can see</h3><p>Rate changes are posted on-chain <b class="c-gold">48 hours</b> before they apply. Ownership moves in two steps and can never be renounced by mistake. Governance actions pass through a timelock.</p>
+    </article>
+  </div>
+</section>
+
+<!-- STEPS -->
+<section class="wrap">
+  <div class="sec-head"><h2 class="sec-title">Start in four steps.</h2></div>
+  <div class="steps">
+    <div class="step"><span class="n">1</span><h4>Connect</h4><p>Open the DApp in MetaMask or any Polygon wallet. Keep a little <b class="c-blue">POL</b> for gas.</p></div>
+    <div class="step"><span class="n">2</span><h4>Get OSG</h4><p>Swap <b class="c-blue">POL</b> for <b class="c-gold">OSG</b> in the DApp, or fill a P2P order.</p></div>
+    <div class="step"><span class="n">3</span><h4>Add LP and lock</h4><p>Pair OSG with POL, then choose <b class="c-blue">180</b>, <b class="c-gold">365</b> or <b class="c-purple">540</b> days.</p></div>
+    <div class="step"><span class="n">4</span><h4>Follow it on-chain</h4><p>Track your position in the DApp; verify it on <b class="c-green">OSGScan</b>.</p></div>
+  </div>
+</section>
+
+<!-- DECK -->
+<section id="deck" class="wrap">
+  <div class="split-head">
+    <div><h2 class="sec-title">The OSG deck.</h2><p class="sec-lede">Nine slides. Swipe, use the arrows, or present it full screen.</p></div>
+    <div class="deck-actions"><button class="btn btn-line" id="fullDeck">Present</button><button class="btn btn-line" id="printDeck">Save as PDF</button></div>
+  </div>
+  <div class="deck frame">
+    <div class="slides" id="slides">
+      <div class="slide on">
+        <span class="tag">Overview</span>
+        <h3><span class="metal">OneX Smart Gold</span> on Polygon</h3>
+        <p>A community token ecosystem where every rule lives in a verified smart contract and every number can be checked by anyone.</p>
+        <div class="facts"><div><small>Network</small><b style="color:var(--blue)">Polygon PoS</b></div><div><small>Max supply</small><b class="metal num">23,000,000</b></div><div><small>Core contracts</small><b style="color:var(--purple)">10 verified</b></div></div>
+      </div>
+      <div class="slide">
+        <span class="tag">Why OSG</span>
+        <h3>Transparent by design</h3>
+        <ul><li>Source code verified on Polygonscan for every core contract</li><li>Rate changes posted on-chain 48 hours before they apply</li><li>A public scanner shows supply, holders and transfers live</li><li>Two-step ownership; renouncing is disabled</li></ul>
+      </div>
+      <div class="slide">
+        <span class="tag">Daily release</span>
+        <h3>A fixed daily budget, shared three ways</h3>
+        <p>The Reward Pool releases a set amount of OSG each day and halves it on a fixed schedule until the budget ends.</p>
+        <div class="splitbar"><i style="width:68%;background:var(--metal-flat)"></i><i style="width:31%;background:var(--purple)"></i><i style="width:1%;background:var(--blue)"></i></div>
+        <div class="facts"><div><small>Mining</small><b class="metal">68%</b></div><div><small>Community</small><b style="color:var(--purple)">31%</b></div><div><small>Legacy staking</small><b style="color:var(--blue)">1%</b></div></div>
+      </div>
+      <div class="slide">
+        <span class="tag">LP mining</span>
+        <h3>Three lock periods</h3>
+        <p>LP providers lock QuickSwap OSG/POL LP tokens. The Mining budget is shared between programmes by fixed on-chain shares. Daily figures in the DApp are ceilings and fall as more LP joins.</p>
+        <div class="facts"><div><small>Short</small><b class="metal">180 days</b></div><div><small>Standard</small><b class="metal">365 days</b></div><div><small>Long</small><b class="metal">540 days</b></div></div>
+      </div>
+      <div class="slide">
+        <span class="tag">Exchange</span>
+        <h3>Swap and peer-to-peer</h3>
+        <ul><li>Instant swaps through the QuickSwap V2 OSG/WPOL pool</li><li>P2P order book in POL and USDT, settled by contract</li><li>Live last-trade price and order history in the DApp</li></ul>
+      </div>
+      <div class="slide">
+        <span class="tag">Community</span>
+        <h3>Network, levels and ranks</h3>
+        <p>Community rewards come from the 31% community slice of the daily release — a fixed budget, not from any member's balance. Levels open with direct members; ranks R1–R5 follow team activity.</p>
+      </div>
+      <div class="slide">
+        <span class="tag">Tools</span>
+        <h3>More than a token</h3>
+        <ul><li>OSGScan for public, on-chain transparency</li><li>Encrypted wallet-to-wallet messenger (Polygon + IPFS)</li><li>AI assistant that reads live chain data</li><li>Owner and sub-admin console with on-chain permissions</li></ul>
+      </div>
+      <div class="slide">
+        <span class="tag">Roadmap</span>
+        <h3>What comes next</h3>
+        <ul><li>Community contract upgrade with deeper levels and ranks</li><li>BNB Chain: token, staking and LP</li><li>Robinhood Chain</li><li>Wider listings and wallet integrations</li></ul>
+        <p style="font-size:14px">Planned work; timing may change.</p>
+      </div>
+      <div class="slide">
+        <span class="tag">Start</span>
+        <h3 class="metal">osg-dapp.vercel.app</h3>
+        <p>Connect a Polygon wallet, keep a little POL for gas, and explore. Always check contract addresses before you sign.</p>
+        <div class="facts"><div><small>Token</small><b class="num" style="font-size:20px;color:var(--gold)">0xba05…7415</b></div><div><small>Pair</small><b class="num" style="font-size:20px;color:var(--blue)">0xA152…1Cd2</b></div></div>
+      </div>
+    </div>
+    <div class="deckbar">
+      <button class="arrow" id="prev" aria-label="Previous slide">‹</button>
+      <div class="dots" id="dots"></div>
+      <button class="arrow" id="next" aria-label="Next slide">›</button>
+    </div>
+  </div>
+</section>
+
+<!-- SCAN -->
+<section id="scan" class="wrap">
+  <div class="sec-head"><h2 class="sec-title">Check it yourself.</h2><p class="sec-lede">Read straight from Polygon. No account, no sign-in.</p></div>
+  <div class="frame explorer" style="margin-bottom:16px">
+    <h3 class="serif" style="font-size:24px;font-weight:600">Search the chain</h3>
+    <p class="muted" style="font-size:14.5px;margin:6px 0 16px">Enter a <b class="c-gold">wallet or contract address</b> or a <b class="c-blue">transaction ID</b> (hash).</p>
+    <div class="search"><input id="q" placeholder="0x… address or transaction hash" autocomplete="off" spellcheck="false" aria-label="Address or transaction hash"><button class="btn btn-gold" id="qGo">Search</button></div>
+    <div class="hint">Try: <button data-try="0xba05176748347944CC26900c821AbFeBeBC57415">OSG token</button> · <button data-try="0xDc4fE983ed301AD42F4E4C43951aa07A7a182855">Reward Pool</button> · <button data-try="0x4669b2d38098Ae28D0332F03D1630B334aDDDF50">Treasury</button></div>
+    <div class="detail" id="detail" aria-live="polite"></div>
+  </div>
+  <div class="scan">
+    <div class="frame">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><h3>Supply in circulation</h3><span class="pill p-gold">of 23,000,000</span></div>
+      <div class="big-num num metal" id="supply">—</div>
+      <div class="muted" style="font-size:14px;margin-top:6px"><span id="supplyPct">—</span> of the maximum has been released</div>
+      <div class="meter"><i id="supplyBar"></i></div>
+      <div class="rows">
+        <div class="kv"><span>Released today (base)</span><b class="num" id="daily" style="color:var(--gold-hi)">—</b></div>
+        <div class="kv"><span>Split</span><b id="split" style="color:var(--purple)">—</b></div>
+        <div class="kv"><span>1 OSG in POL</span><b class="num" id="pricePol" style="color:var(--blue)">—</b></div>
+      </div>
+    </div>
+    <div class="frame" style="padding:28px 26px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><h3 class="serif" style="font-size:22px;font-weight:600">Latest transfers</h3><span class="pill p-green" id="txState"><span class="dot" style="width:6px;height:6px"></span>Live</span></div>
+    <div id="txs" style="margin-top:10px"><p class="muted" style="font-size:14px;padding:12px 0">Reading recent blocks…</p></div>
+    <div style="margin-top:16px"><a class="btn btn-line" href="https://osg-dapp.vercel.app" target="_blank" rel="noopener">Open full OSGScan</a></div>
+  </div>
+  </div>
+</section>
+
+<!-- TOKENOMICS -->
+<section id="tokenomics" class="wrap">
+  <div class="sec-head"><h2 class="sec-title">How new OSG is released.</h2><p class="sec-lede">New OSG enters circulation only through the Reward Pool's daily release, which halves on a fixed schedule.</p></div>
+  <div class="tok">
+    <div class="frame" style="display:grid;place-items:center">
+      <div class="donut"><div class="c"><div class="muted" style="font-size:13px;font-weight:600">Released per day</div><div class="serif num metal" id="dailyDonut" style="font-size:40px;font-weight:600;line-height:1.1">—</div><div class="muted" style="font-size:13px">OSG</div></div></div>
+    </div>
+    <div class="frame">
+      <h3 class="serif" style="font-size:24px;font-weight:600">Where each day's release goes</h3>
+      <div class="legend" style="margin-top:20px">
+        <div><i style="background:var(--metal-flat)"></i><span>Mining — LP programmes and Term</span><b class="metal">68%</b></div>
+        <div><i style="background:var(--purple)"></i><span>Community — levels, ranks, bonuses</span><b style="color:var(--purple)">31%</b></div>
+        <div><i style="background:var(--blue)"></i><span>Legacy staking pool</span><b style="color:var(--blue)">1%</b></div>
+      </div>
+      <div class="rows" style="margin-top:24px">
+        <div class="kv"><span>Maximum supply</span><b class="num" style="color:var(--gold-hi)">23,000,000 OSG</b></div>
+        <div class="kv"><span>Next halving</span><b class="num" id="halving">—</b></div>
+        <div class="kv"><span>Rate changes</span><b>48-hour on-chain notice</b></div>
+        <div class="kv"><span>Network</span><b style="color:var(--blue)">Polygon PoS · 137</b></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CONTRACTS -->
+<section id="contracts" class="wrap">
+  <div class="sec-head"><h2 class="sec-title">Verified contracts.</h2><p class="sec-lede">Compare any address here with the one your wallet shows before you sign. <b class="c-red">OSG will never ask for your seed phrase.</b></p></div>
+  <div class="frame ctbox">
+    <div class="filters" id="filters">
+      <button class="on" data-f="all">All</button><button data-f="core">Core</button><button data-f="mining">Mining</button><button data-f="community">Community</button><button data-f="tools">Tools</button><button data-f="gov">Governance</button>
+    </div>
+    <div id="ctList"></div>
+  </div>
+</section>
+
+<!-- ROADMAP -->
+<section id="roadmap" class="wrap">
+  <div class="sec-head"><h2 class="sec-title">Built one step at a time.</h2></div>
+  <div class="road">
+    <div class="frame done"><h3><span class="pill p-green">Done</span></h3>
+      <ul>
+        <li><i class="p-green">✓</i>OSG token, Reward Pool and Timelock DAO</li>
+        <li><i class="p-green">✓</i>Swap and P2P exchange in POL and USDT</li>
+        <li><i class="p-green">✓</i>Encrypted messenger and AI assistant</li>
+        <li><i class="p-green">✓</i>365-day LP mining</li>
+        <li><i class="p-green">✓</i>180 and 540-day LP locks</li>
+        <li><i class="p-green">✓</i>OSGScan and the admin console</li>
+      </ul>
+    </div>
+    <div class="frame"><h3><span class="pill p-gold">In progress</span></h3>
+      <ul>
+        <li><i class="p-gold">●</i>Community contract upgrade with more levels and ranks</li>
+        <li><i class="p-gold">●</i>Rank achievement cards</li>
+        <li><i class="p-gold">●</i>Listing applications</li>
+      </ul>
+    </div>
+    <div class="frame"><h3><span class="pill p-purple">Planned</span></h3>
+      <ul>
+        <li><i class="p-purple">○</i>BNB Chain: token, staking and LP</li>
+        <li><i class="p-purple">○</i>Robinhood Chain</li>
+        <li><i class="p-purple">○</i>More wallet integrations</li>
+      </ul>
+      <p class="muted" style="font-size:13.5px;margin-top:16px">Planned work; timing may change.</p>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section id="faq" class="wrap">
+  <div class="faq">
+    <div><h2 class="sec-title">Questions people ask.</h2><p class="sec-lede">Still unsure? The AI assistant inside the DApp can explain any part in plain words.</p></div>
+    <div class="frame">
+      <details><summary>Which network is OSG on?</summary><p>Polygon PoS (chain id 137). You need a little POL in your wallet to pay network fees.</p></details>
+      <details><summary>How do I add OSG to my wallet?</summary><p>Use "Add OSG to wallet" at the top of this page, or add it by hand: address 0xba05176748347944CC26900c821AbFeBeBC57415, symbol OSG, 18 decimals.</p></details>
+      <details><summary>Where do LP mining rewards come from?</summary><p>From the Reward Pool's fixed daily release. The 68% Mining share is divided between the LP programmes by on-chain shares. The figures shown are <b class="c-gold">ceilings</b> and fall when more LP joins.</p></details>
+      <details><summary>Can I take my LP out before the lock ends?</summary><p>No. LP stays locked until the end of the period you chose (180, 365 or 540 days). Rewards can be claimed along the way.</p></details>
+      <details><summary>Can the rates change?</summary><p>Yes. The owner can change rates, but every change is posted on-chain at least 48 hours before it applies, so anyone can see it coming.</p></details>
+      <details><summary>Is it safe?</summary><p>All crypto carries risk. The contracts are verified and public, but smart contracts can have bugs and token prices move. Only use what you can afford to lose, and <b class="c-red">never share your seed phrase</b>.</p></details>
+    </div>
+  </div>
+</section>
+
+<div class="wrap">
+  <div class="final frame">
+    <h2><span class="metal">Smart gold</span> starts with one connection.</h2>
+    <p>Open the DApp in your wallet browser and see every number for yourself.</p>
+    <div class="ctas"><a class="btn btn-gold" href="https://osg-dapp.vercel.app" target="_blank" rel="noopener">Open the DApp</a><a class="btn btn-line" href="#contracts">Check the contracts</a></div>
+  </div>
+</div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot">
+      <div>
+        <a class="brand" href="#top"><img src="logo.png" alt="" style="width:44px;height:44px"><span class="metal">OSG</span></a>
+        <p class="muted" style="font-size:14.5px;margin-top:12px;max-width:24em">OneX Smart Gold — a community token ecosystem on Polygon, maintained by the OSG Team.</p>
+      </div>
+      <div><h5>Use</h5><a href="https://osg-dapp.vercel.app" target="_blank" rel="noopener">Open DApp</a><a href="#scan">OSGScan</a><a href="#deck">Deck</a><a href="#contracts">Contracts</a></div>
+      <div><h5>Community</h5><a data-social="telegram" href="#" target="_blank" rel="noopener">Telegram</a><a data-social="x" href="#" target="_blank" rel="noopener">X (Twitter)</a><a href="#about">About OSG</a><a href="https://onexsartgold.github.io/osg-whitepaper/OSGWhitepaper.pdf" target="_blank" rel="noopener">Whitepaper</a></div>
+      <div><h5>Verify</h5><a href="https://polygonscan.com/token/0xba05176748347944CC26900c821AbFeBeBC57415" target="_blank" rel="noopener">Polygonscan</a><a href="https://dexscreener.com/polygon/0xA15214B09a9b3E1c821B94fB97d6d3BcA8201Cd2" target="_blank" rel="noopener">DexScreener</a><a href="https://info.quickswap.exchange/#/pair/0xa15214b09a9b3e1c821b94fb97d6d3bca8201cd2" target="_blank" rel="noopener">QuickSwap pool</a></div>
+    </div>
+    <p class="risk"><b class="c-red">Risk notice.</b> OSG is a crypto token. Its price can rise or fall and can reach zero. Nothing on this site is financial, legal or tax advice, and no outcome is promised. Figures are read from public blockchain data and may be delayed or change. Smart contracts can contain bugs. Check the rules where you live before taking part, and only use funds you can afford to lose.</p>
+    <p class="risk" style="margin-top:12px">© <span id="yr"></span> OSG Team</p>
+  </div>
+</footer>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script>
+(function(){
+"use strict";
+var TOKEN="0xba05176748347944CC26900c821AbFeBeBC57415";
+var PAIR="0xA15214B09a9b3E1c821B94fB97d6d3BcA8201Cd2";
+var POOL="0xDc4fE983ed301AD42F4E4C43951aa07A7a182855";
+var RPCS=["https://polygon-rpc.com","https://polygon.drpc.org","https://1rpc.io/matic","https://polygon-bor-rpc.publicnode.com"];
+var CONTRACTS=[
+  ["OSG Token","ERC-20 token · 18 decimals","core",TOKEN],
+  ["OSG / WPOL Pair","QuickSwap V2 liquidity pool","core",PAIR],
+  ["Reward Pool","Daily release & split","core",POOL],
+  ["Treasury","Bonus & reserve funds","core","0x4669b2d38098Ae28D0332F03D1630B334aDDDF50"],
+  ["LP Mining · 12 months","365-day LP lock","mining","0x1F04F1441208ee8dDD3a124DEfc4a493d768d0fC"],
+  ["LP Mining · 6 & 18 months","180 / 540-day LP locks","mining","0x333a6c51Baa2d19Af036f45f32eaCF10234F17C8"],
+  ["Term Staking","Closed to new stakes","mining","0xb3DE3956DF62a069c9AC428Ec58120b3d9CD7cCc"],
+  ["Staking (legacy)","Original flexible pool","mining","0x048E814C02e85ec1438Ab8C1d2e9150A5289A886"],
+  ["Community","Levels & ranks","community","0x58383A8171014a8008d28e7CbB509e21412ec52A"],
+  ["Spot Reward","One-time sponsor bonus","community","0x7Ee98AE2BeAEf2251A8bBB3810006495F62b7C92"],
+  ["P2P Exchange","Order book in POL & USDT","tools","0x269EcA6aDb7c9c1beFDc6c0be48a545b1920E1bb"],
+  ["Messenger","Encrypted wallet chat","tools","0x29c63cd4C3F03B1f64e929b0b8baC691DEB5FA5c"],
+  ["Media Storage","IPFS media index","tools","0x88E64Cbc22a35c2928038f2bc13F06630C93D07A"],
+  ["Timelock DAO","Delayed governance actions","gov","0xE2E82A8ACdd3Af7FA74Eacb3331231A769d80D4c"]
+];
+var TAG={core:["Core","p-gold"],mining:["Mining","p-gold"],community:["Community","p-purple"],tools:["Tools","p-blue"],gov:["Governance","p-green"]};
+var $=function(id){return document.getElementById(id)};
+function toast(m){var t=$("toast");t.textContent=m;t.classList.add("on");clearTimeout(toast.h);toast.h=setTimeout(function(){t.classList.remove("on")},2200)}
+function short(a){return a.slice(0,6)+"…"+a.slice(-4)}
+function nf(n,d){return Number(n).toLocaleString("en-US",{maximumFractionDigits:d==null?0:d,minimumFractionDigits:d==null?0:Math.min(d,2)})}
+function usdK(n){if(!(n>0))return"—";if(n>=1e6)return"$"+(n/1e6).toFixed(2)+"M";if(n>=1e3)return"$"+(n/1e3).toFixed(2)+"K";return"$"+n.toFixed(2)}
+$("yr").textContent=new Date().getFullYear();
+
+/* nav */
+$("menu").onclick=function(){$("links").classList.toggle("open")};
+document.querySelectorAll("#links a").forEach(function(a){a.onclick=function(){$("links").classList.remove("open")}});
+
+/* reveal */
+var io="IntersectionObserver" in window?new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add("in");io.unobserve(e.target)}})},{threshold:.12}):null;
+document.querySelectorAll(".reveal").forEach(function(el){io?io.observe(el):el.classList.add("in")});
+
+/* contracts */
+var copySvg='<svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg>';
+var extSvg='<svg viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>';
+function renderCt(f){
+  $("ctList").innerHTML=CONTRACTS.filter(function(c){return f==="all"||c[2]===f}).map(function(c){
+    var t=TAG[c[2]];
+    return '<div class="ct"><div><div class="nm">'+c[0]+' <span class="pill '+t[1]+'" style="margin-left:8px">'+t[0]+'</span></div><div class="ds">'+c[1]+'</div></div>'+
+      '<div class="acts"><button class="icbtn" data-copy="'+c[3]+'" aria-label="Copy address">'+copySvg+'</button><a class="icbtn" href="https://polygonscan.com/address/'+c[3]+'#code" target="_blank" rel="noopener" aria-label="Open on Polygonscan">'+extSvg+'</a></div>'+
+      '<div class="ad">'+c[3]+'</div></div>';
+  }).join("");
+}
+renderCt("all");
+$("filters").onclick=function(e){var b=e.target.closest("button");if(!b)return;document.querySelectorAll("#filters button").forEach(function(x){x.classList.toggle("on",x===b)});renderCt(b.dataset.f)};
+document.addEventListener("click",function(e){var b=e.target.closest("[data-copy]");if(!b)return;var v=b.getAttribute("data-copy");
+  (navigator.clipboard?navigator.clipboard.writeText(v):Promise.reject()).then(function(){toast("Address copied")},function(){toast(v)})});
+
+/* deck */
+var slides=[].slice.call(document.querySelectorAll(".slide")),cur=0,dots=$("dots");
+slides.forEach(function(_,i){var b=document.createElement("button");b.setAttribute("aria-label","Slide "+(i+1));b.onclick=function(){go(i)};dots.appendChild(b)});
+function go(i){cur=(i+slides.length)%slides.length;slides.forEach(function(s,j){s.classList.toggle("on",j===cur)});[].forEach.call(dots.children,function(d,j){d.classList.toggle("on",j===cur)})}
+go(0);
+$("prev").onclick=function(){go(cur-1)};$("next").onclick=function(){go(cur+1)};
+document.addEventListener("keydown",function(e){var r=$("deck").getBoundingClientRect();if(r.top<innerHeight&&r.bottom>0){if(e.key==="ArrowRight")go(cur+1);if(e.key==="ArrowLeft")go(cur-1)}});
+var sx=null;$("slides").addEventListener("touchstart",function(e){sx=e.touches[0].clientX},{passive:true});
+$("slides").addEventListener("touchend",function(e){if(sx==null)return;var dx=e.changedTouches[0].clientX-sx;if(Math.abs(dx)>40)go(cur+(dx<0?1:-1));sx=null});
+$("printDeck").onclick=function(){window.print()};
+$("fullDeck").onclick=function(){var el=document.querySelector(".deck");(el.requestFullscreen||el.webkitRequestFullscreen||function(){}).call(el)};
+
+/* add token */
+$("addToken").onclick=function(){
+  if(!window.ethereum){toast("Open this page in a wallet browser (MetaMask, Trust…)");return}
+  window.ethereum.request({method:"wallet_watchAsset",params:{type:"ERC20",options:{address:TOKEN,symbol:"OSG",decimals:18,image:location.origin+location.pathname.replace(/[^/]*$/,"")+"logo.png"}}})
+    .then(function(ok){toast(ok?"OSG added to your wallet":"Not added")},function(){toast("Not added")});
+};
+
+/* market data (DexScreener) */
+var priceUsd=0,circ=0;
+function paintMcap(){if(priceUsd>0&&circ>0)$("sMcap").textContent=usdK(priceUsd*circ)}
+fetch("https://api.dexscreener.com/latest/dex/pairs/polygon/"+PAIR).then(function(r){return r.json()}).then(function(d){
+  var p=d&&(d.pair||(d.pairs&&d.pairs[0]));if(!p)return;
+  priceUsd=Number(p.priceUsd)||0;
+  $("sPrice").textContent=priceUsd>0?"$"+priceUsd.toFixed(priceUsd>=1?2:4):"—";
+  var pn=Number(p.priceNative);$("sPricePol").textContent=pn>0?nf(pn,2)+" POL":"—";
+  $("pricePol").textContent=pn>0?nf(pn,4)+" POL":"—";
+  var liq=p.liquidity&&Number(p.liquidity.usd);$("sLiq").textContent=usdK(liq);
+  var c=p.priceChange&&Number(p.priceChange.h24);
+  if(isFinite(c)){$("sChg").textContent=(c>=0?"▲ +":"▼ ")+c.toFixed(2)+"%";$("sChg").style.color=c>=0?"var(--green)":"var(--red)"}
+  paintMcap();
+}).catch(function(){$("sPricePol").textContent="Price feed unavailable"});
+
+/* chain reads */
+function provider(){
+  var list=RPCS.map(function(u){return new ethers.JsonRpcProvider(u,137,{staticNetwork:true})});
+  return list;
+}
+async function withRpc(fn){
+  var ps=provider();
+  for(var i=0;i<ps.length;i++){try{return await fn(ps[i])}catch(e){}}
+  throw new Error("all RPCs failed");
+}
+var ERC20=["function totalSupply() view returns (uint256)","function balanceOf(address) view returns (uint256)","event Transfer(address indexed from,address indexed to,uint256 value)"];
+var POOLABI=["function getDailyBase() view returns (uint256)","function stakingPercent() view returns (uint256)","function miningPercent() view returns (uint256)","function referralPercent() view returns (uint256)",
+  "function getEmissionInfo() view returns (uint256 halving,uint256 dailyBase,uint256 nextHalvingIn,uint256 emissionEndsIn,uint256 remainingBudget,bool stopped,uint256 daysBehind,bool needsSync,bool inEmergency)"];
+
+function chain(){
+  withRpc(function(p){return new ethers.Contract(TOKEN,ERC20,p).totalSupply()}).then(function(ts){
+    circ=Number(ethers.formatUnits(ts,18));
+    $("supply").textContent=nf(circ);
+    var pct=circ/23e6*100;$("supplyPct").textContent=pct.toFixed(2)+"%";
+    setTimeout(function(){$("supplyBar").style.width=Math.max(pct,1.2)+"%"},200);
+    paintMcap();
+  }).catch(function(){$("supply").textContent="—"});
+
+  withRpc(function(p){var c=new ethers.Contract(POOL,POOLABI,p);return Promise.all([c.getDailyBase(),c.stakingPercent(),c.miningPercent(),c.referralPercent()])}).then(function(r){
+    var d=Number(ethers.formatUnits(r[0],18));
+    $("daily").textContent=nf(d)+" OSG";$("dailyDonut").textContent=nf(d);
+    $("split").textContent="Mining "+r[2]+"% · Community "+r[3]+"% · Staking "+r[1]+"%";
+  }).catch(function(){});
+
+  withRpc(function(p){return new ethers.Contract(POOL,POOLABI,p).getEmissionInfo()}).then(function(e){
+    var s=Number(e.nextHalvingIn);if(!(s>0))return;
+    var days=Math.floor(s/86400),dt=new Date(Date.now()+s*1000);
+    $("halving").textContent="in "+nf(days)+" days · "+dt.toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
+    $("halving").style.color="var(--blue)";
+  }).catch(function(){});
+
+  loadTx();
+}
+var seen={};
+function loadTx(){
+  withRpc(async function(p){
+    var bn=await p.getBlockNumber();
+    var c=new ethers.Contract(TOKEN,ERC20,p);
+    var logs=await c.queryFilter("Transfer",bn-3000,bn);
+    return logs.slice(-8).reverse();
+  }).then(function(logs){
+    if(!logs.length){$("txs").innerHTML='<p class="muted" style="font-size:14px;padding:12px 0">No transfers in the last ~2 hours.</p>';return}
+    $("txs").innerHTML=logs.map(function(l){
+      var v=Number(ethers.formatUnits(l.args[2],18));
+      var fr=l.args[0],to=l.args[1],mint=/^0x0{40}$/i.test(fr);
+      return '<div class="tx"><span class="pill '+(mint?"p-gold":"p-blue")+'">'+(mint?"Released":"Transfer")+'</span>'+
+        '<span class="ad">'+(mint?"Reward Pool":short(fr))+' → '+short(to)+'</span>'+
+        '<a class="num" style="color:var(--gold-hi);font-weight:700;text-decoration:none" href="https://polygonscan.com/tx/'+l.transactionHash+'" target="_blank" rel="noopener">'+nf(v,2)+'</a></div>';
+    }).join("");
+  }).catch(function(){$("txs").innerHTML='<p class="muted" style="font-size:14px;padding:12px 0">Could not reach a public Polygon node right now. Try again in a minute.</p>';$("txState").className="pill p-red";$("txState").textContent="Offline"});
+}
+
+
+
+/* ---------- socials: fill these two links ---------- */
+var SOCIAL={telegram:"https://t.me/onexgoldofficial",x:"https://x.com/OneXSmartGold"};
+document.querySelectorAll("[data-social]").forEach(function(a){var u=SOCIAL[a.getAttribute("data-social")];if(u){a.href=u}else{a.style.display="none"}});
+if(!SOCIAL.telegram&&!SOCIAL.x){var so=document.getElementById("social");if(so)so.style.display="none"}
+
+/* ---------- explorer ---------- */
+var LABELS={};CONTRACTS.forEach(function(c){LABELS[c[3].toLowerCase()]=c[0]});
+LABELS["0xf8acaa5617dff6db3d0cb44ca8de0e50a449bb83"]="OSG-MAIN (owner)";
+LABELS["0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270"]="WPOL";
+LABELS["0xa5e0829caced8ffdd4de3c43696c57f7d7a678ff"]="QuickSwap Router";
+LABELS["0xc2132d05d31c914a87c6611c10748aeb04b58e8f"]="USDT";
+var METHODS={"0xa9059cbb":"Transfer","0x095ea7b3":"Approve","0x23b872dd":"Transfer from","0x4e71d92d":"Claim","0xb6b55f25":"Deposit","0x2e1a7d4d":"Withdraw","0xe8e33700":"Add liquidity","0xf305d719":"Add liquidity (POL)","0x38ed1739":"Swap","0x7ff36ab5":"Swap POL → token","0x18cbafe5":"Swap token → POL","0x791ac947":"Swap token → POL","0xb6f9de95":"Swap POL → token"};
+function esc(t){return String(t).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function addrHtml(a){if(!a)return'<span class="muted">—</span>';var l=LABELS[a.toLowerCase()];return'<a class="hash" style="color:var(--gold-hi);text-decoration:none" href="#" data-q="'+a+'">'+(l?'<span style="font-family:Manrope;font-weight:700;color:var(--purple)">'+esc(l)+'</span><br>':'')+a+'</a>'}
+function cell(k,v,wide){return'<div class="dcell'+(wide?" wide":"")+'"><small>'+k+'</small><b>'+v+'</b></div>'}
+function showDetail(h){var d=$("detail");d.innerHTML=h;d.classList.add("on")}
+function fmtTime(ts){var dt=new Date(ts*1000);return dt.toLocaleString("en-GB",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"})}
+function ago(ts){var s=Math.max(0,Date.now()/1000-ts);if(s<60)return Math.floor(s)+" sec ago";if(s<3600)return Math.floor(s/60)+" min ago";if(s<86400)return Math.floor(s/3600)+" h ago";return Math.floor(s/86400)+" days ago"}
+var TRANSFER_TOPIC="0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
+
+async function lookAddress(a,p){
+  var tok=new ethers.Contract(TOKEN,ERC20,p);
+  var r=await Promise.all([tok.balanceOf(a),p.getBalance(a),p.getTransactionCount(a),p.getCode(a),p.getBlockNumber()]);
+  var osg=Number(ethers.formatUnits(r[0],18)),pol=Number(ethers.formatEther(r[1])),isC=r[3]&&r[3]!=="0x";
+  var pad=ethers.zeroPadValue(a,32),bn=r[4],from=bn-5000;
+  var logs=[];try{var l1=await p.getLogs({address:TOKEN,topics:[TRANSFER_TOPIC,pad],fromBlock:from,toBlock:bn});var l2=await p.getLogs({address:TOKEN,topics:[TRANSFER_TOPIC,null,pad],fromBlock:from,toBlock:bn});logs=l1.concat(l2).sort(function(x,y){return y.blockNumber-x.blockNumber||y.index-x.index}).slice(0,8)}catch(e){logs=null}
+  return {osg:osg,pol:pol,n:r[2],isC:isC,logs:logs};
+}
+async function lookTx(h,p){
+  var r=await Promise.all([p.getTransaction(h),p.getTransactionReceipt(h)]);
+  if(!r[0])return null;
+  var blk=r[0].blockNumber!=null?await p.getBlock(r[0].blockNumber):null;
+  return {tx:r[0],rc:r[1],blk:blk};
+}
+function renderAddress(a,x){
+  var label=LABELS[a.toLowerCase()];
+  var h='<div class="dhead"><span class="pill '+(x.isC?"p-purple":"p-blue")+'">'+(x.isC?"Contract":"Wallet")+'</span><h4>'+(label?esc(label):"Address")+'</h4>'+(label?'<span class="pill p-green">Known OSG address</span>':'')+'</div>';
+  h+='<div class="dgrid">'+cell("Address",'<span class="hash" style="color:var(--gold-hi)">'+a+'</span>',true)+
+     cell("OSG balance",'<span class="serif num" style="font-size:24px;color:'+(x.osg>0?"var(--gold-hi)":"var(--txt2)")+'">'+nf(x.osg,2)+'</span>')+
+     cell("Value in USD",priceUsd>0&&x.osg>0?'<span class="num c-blue">$'+nf(x.osg*priceUsd,2)+'</span>':'<span class="muted">—</span>')+
+     cell("POL balance",'<span class="num '+(x.pol>0?"c-blue":"muted")+'">'+nf(x.pol,4)+' POL</span>')+
+     cell("Transactions sent",'<span class="num '+(x.n>0?"c-purple":"muted")+'">'+nf(x.n)+'</span>')+
+     cell("Type",x.isC?'<span class="c-purple">Smart contract</span>':'<span class="c-blue">Wallet (EOA)</span>')+
+     cell("Explorer",'<a class="c-green" href="https://polygonscan.com/address/'+a+'" target="_blank" rel="noopener">Open on Polygonscan</a>')+'</div>';
+  h+='<div class="subt">Recent OSG transfers <span class="muted" style="font-weight:500;font-size:13px">(last ~3 hours)</span></div>';
+  if(x.logs===null)h+='<p class="muted" style="font-size:14px">The public node limited this query. Open Polygonscan for the full history.</p>';
+  else if(!x.logs.length)h+='<p class="muted" style="font-size:14px">No OSG transfers in the last ~3 hours.</p>';
+  else h+=x.logs.map(function(l){var fr=ethers.getAddress("0x"+l.topics[1].slice(26)),to=ethers.getAddress("0x"+l.topics[2].slice(26)),v=Number(ethers.formatUnits(l.data,18)),out=fr.toLowerCase()===a.toLowerCase();
+     return'<div class="tx"><span class="pill '+(out?"p-red":"p-green")+'">'+(out?"Out":"In")+'</span><span class="ad">'+(out?"to "+short(to):"from "+short(fr))+'</span><a class="num" href="#" data-q="'+l.transactionHash+'" style="color:'+(out?"var(--red)":"var(--green)")+';font-weight:700;text-decoration:none">'+(out?"−":"+")+nf(v,2)+' OSG</a></div>'}).join("");
+  showDetail(h);
+}
+function renderTx(h,x){
+  var tx=x.tx,rc=x.rc,blk=x.blk;
+  var st=!rc?["Pending","p-gold"]:rc.status===1?["Success","p-green"]:["Failed","p-red"];
+  var sel=tx.data&&tx.data.length>=10?tx.data.slice(0,10):"";
+  var method=sel?(METHODS[sel]||"Contract call"):"POL transfer";
+  var fee=rc&&rc.gasUsed!=null?Number(ethers.formatEther(rc.gasUsed*(rc.gasPrice||tx.gasPrice||0n))):null;
+  var out='<div class="dhead"><span class="pill '+st[1]+'">'+st[0]+'</span><h4>'+esc(method)+'</h4>'+(blk?'<span class="pill p-blue">'+ago(blk.timestamp)+'</span>':'')+'</div>';
+  out+='<div class="dgrid">'+cell("Transaction ID",'<span class="hash" style="color:var(--gold-hi)">'+h+'</span>',true)+
+    cell("From",addrHtml(tx.from))+cell("To",addrHtml(tx.to))+
+    cell("Block",tx.blockNumber!=null?'<span class="num c-blue">'+nf(tx.blockNumber)+'</span>':'<span class="c-gold">Not yet in a block</span>')+
+    cell("Time",blk?'<span class="c-blue">'+fmtTime(blk.timestamp)+'</span>':'<span class="muted">—</span>')+
+    cell("POL sent",'<span class="num '+(tx.value>0n?"c-blue":"muted")+'">'+nf(Number(ethers.formatEther(tx.value)),4)+' POL</span>')+
+    cell("Network fee",fee!=null?'<span class="num muted">'+nf(fee,5)+' POL</span>':'<span class="muted">—</span>')+
+    cell("Explorer",'<a class="c-green" href="https://polygonscan.com/tx/'+h+'" target="_blank" rel="noopener">Open on Polygonscan</a>')+'</div>';
+  var osgLogs=rc?rc.logs.filter(function(l){return l.address.toLowerCase()===TOKEN.toLowerCase()&&l.topics[0]===TRANSFER_TOPIC}):[];
+  out+='<div class="subt">OSG moved in this transaction</div>';
+  if(!osgLogs.length)out+='<p class="muted" style="font-size:14px">No OSG token transfer in this transaction.</p>';
+  else out+=osgLogs.map(function(l){var fr=ethers.getAddress("0x"+l.topics[1].slice(26)),to=ethers.getAddress("0x"+l.topics[2].slice(26)),v=Number(ethers.formatUnits(l.data,18)),mint=/^0x0{40}$/i.test(fr);
+     return'<div class="tx"><span class="pill '+(mint?"p-gold":"p-blue")+'">'+(mint?"Released":"Transfer")+'</span><span class="ad">'+(mint?"Reward Pool":(LABELS[fr.toLowerCase()]||short(fr)))+' → '+(LABELS[to.toLowerCase()]||short(to))+'</span><b class="num c-gold">'+nf(v,4)+' OSG</b></div>'}).join("");
+  showDetail(out);
+}
+async function search(q){
+  q=(q||"").trim();
+  if(typeof ethers==="undefined"){showDetail('<p class="muted">Still loading, try again in a second.</p>');return}
+  if(/^0x[0-9a-fA-F]{64}$/.test(q)){
+    showDetail('<p class="muted">Reading the transaction from Polygon…</p>');
+    try{var x=await withRpc(function(p){return lookTx(q,p)});if(!x){showDetail('<p class="c-red">No transaction found with this ID on Polygon. Check that you copied the full hash.</p>');return}renderTx(q,x)}
+    catch(e){showDetail('<p class="c-red">Could not reach a Polygon node. Try again in a minute.</p>')}
+  }else if(ethers.isAddress(q)){
+    var a=ethers.getAddress(q);
+    showDetail('<p class="muted">Reading the address from Polygon…</p>');
+    try{var y=await withRpc(function(p){return lookAddress(a,p)});renderAddress(a,y)}
+    catch(e){showDetail('<p class="c-red">Could not reach a Polygon node. Try again in a minute.</p>')}
+  }else{
+    showDetail('<p class="c-red">Enter a 42-character address (0x…) or a 66-character transaction ID.</p>');
+  }
+}
+$("qGo").onclick=function(){search($("q").value)};
+$("q").addEventListener("keydown",function(e){if(e.key==="Enter")search($("q").value)});
+document.addEventListener("click",function(e){var t=e.target.closest("[data-try],[data-q]");if(!t)return;e.preventDefault();var v=t.getAttribute("data-try")||t.getAttribute("data-q");$("q").value=v;search(v);document.getElementById("q").scrollIntoView({behavior:"smooth",block:"center"})});
+
+function start(){if(typeof ethers==="undefined")return setTimeout(start,150);chain();setInterval(loadTx,60000)}
+start();
+})();
+</script>
+</body>
+</html>
