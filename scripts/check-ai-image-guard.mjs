@@ -5,6 +5,11 @@
 
 import { readPlan } from "../api/ai-image.js";
 
+// Fixed "random" so the fallback lines are the same on every run.
+const FIRST = function () {
+  return 0;
+};
+
 const CASES = [
   ["ok, Marathi caption", '{"ok":true,"prompt":"Sunrise over green Sahyadri hills, watercolor","caption":"शुभ सकाळ"}'],
   ["ok, Kannada caption", '{"ok":true,"prompt":"Rows of glowing diyas on a courtyard at dusk","caption":"ದೀಪಾವಳಿ ಹಬ್ಬದ ಶುಭಾಶಯಗಳು"}'],
@@ -24,6 +29,11 @@ const CASES = [
   ["wish without caption", '{"ok":true,"prompt":"Misty mountains at dawn","caption":"","wish":"Have a calm day"}'],
   ["wish with money words", '{"ok":true,"prompt":"Golden sunrise","caption":"Good Morning","wish":"Start the day with profit"}'],
   ["empty caption, text given", '{"ok":true,"prompt":"Evening sky over a village","caption":"","wish":""}', "Good Evening"],
+  ["wish 'learning' kept", '{"ok":true,"prompt":"Books by a window","caption":"Good Morning","wish":"Keep learning and keep shining"}'],
+  ["wish 'Earn more' dropped", '{"ok":true,"prompt":"Golden sunrise","caption":"Good Morning","wish":"Earn more every day"}'],
+  ["wish 'Hearts' kept", '{"ok":true,"prompt":"Diyas at night","caption":"Happy Diwali","wish":"Hearts full of light"}'],
+  ["fallback, Marathi", '{"ok":true,"prompt":"Sunset over hills","caption":"शुभ संध्याकाळ","wish":""}', "", "Good evening ची इमेज बनवुन दे"],
+  ["fallback, English", '{"ok":true,"prompt":"Sunset over a lake","caption":"Good Evening","wish":"Big profit tonight"}', "", "good evening picture"],
 ];
 
 function len(t) {
@@ -31,7 +41,7 @@ function len(t) {
 }
 
 CASES.forEach(function (c, i) {
-  const r = readPlan(c[1], c[2]);
+  const r = readPlan(c[1], c[2], c[3], FIRST);
   let out;
   if (r.bad) out = "502 Could not prepare the picture";
   else if (r.refused) out = "refused -> " + JSON.stringify(r.reason);
