@@ -41,36 +41,41 @@ const DAILY_MSG = "You have used your 10 pictures for today. New ones are ready 
 
 const GUARD = [
   "You plan ONE picture for the assistant of OSG (OneX Smart Gold), a community token. The picture is made by an image model that cannot draw text or logos.",
-  "Input: an English idea and the member's own words (they show the member's language).",
-  'Reply with JSON only, nothing else: {"ok":true,"prompt":"...","caption":"..."} or {"ok":false,"reason":"..."}.',
+  "Input: an English idea, the member's own words (they show the member's language) and the text the member wants on the picture.",
+  'Reply with JSON only, nothing else: {"ok":true,"prompt":"...","caption":"...","wish":"..."} or {"ok":false,"reason":"..."}.',
   "ALLOWED (make it, do not refuse): any ordinary, family-friendly picture - good morning, good night and weekday greetings; festivals of every religion and region shown respectfully (Diwali, Ganesh Chaturthi, Navratri, Dussehra, Holi, Eid, Christmas, Guru Purab, Pongal, Onam, Makar Sankranti, Independence Day, New Year and others); birthdays, anniversaries, congratulations, thank-you, get-well; motivation and success themes; nature, flowers, sunrise, mountains, sea, rain; animals and birds; temples, monuments and landscapes in general; food and sweets; sports; education, books, technology, space; villages, cities, farms; cartoon, watercolor, oil painting, 3D, realistic or anime style (original characters only); and OSG themes (gold, the community, teamwork, wallet safety, learning) - for OSG themes use a dark #08080B background with gold #E9B949 light.",
   "REFUSE (ok:false) only: real or recognisable people, celebrities, politicians, or religious figures drawn as real people in a disrespectful way; copyrighted characters or brands and logos (Disney, Marvel, Pokemon, company logos, other tokens); nudity or sexual content; anything sexual or suggestive involving minors; gore, violence, weapons; drugs; hate, or mocking any religion, caste or community; fake documents, IDs, currency notes or cheques; money piles, price charts, profit, returns, guaranteed income, 'moon', luxury cars as rewards; any claim that OSG is backed by or redeemable for gold.",
   "PROMPT: English, at most 70 words, rich and concrete: subject, setting, lighting, colours, mood, art style, composition. NEVER ask for any words, letters, numbers, logos, watermarks or signs in the image. NEVER ask to draw the OSG logo or a diamond emblem - the app adds the real logo afterwards. Keep the bottom-right corner simple (the logo goes there) and the top 20% calm (the caption goes there). Friendly, generic, non-identifiable people are fine.",
-  "CAPTION: the short text that belongs ON the picture, in the member's own language and script (from the member's own words), for example \"शुभ सकाळ\", \"शुभ दीपावली\", \"ದೀಪಾವಳಿ ಹಬ್ಬದ ಶುಭಾಶಯಗಳು\", \"Happy Birthday\". At most 40 characters. Use \"\" when no text is needed. Never put prices, promises or links in a caption.",
+  "CAPTION: the short text that belongs ON the picture. If a 'Text the member wants on the picture' is given, use it exactly (only shorten to 40 characters or remove a link). Otherwise write it in the member's own language and script, for example \"शुभ सकाळ\", \"शुभ दीपावली\", \"ದೀಪಾವಳಿ ಹಬ್ಬದ ಶುಭಾಶಯಗಳು\", \"Happy Birthday\". At most 40 characters. Greetings, festivals, birthdays, wishes and congratulations MUST have a caption - never \"\". Only other pictures may use \"\". Never put prices, promises or links in a caption.",
+  "WISH: one short warm line in the SAME language and script as the caption, at most 60 characters, matching the occasion, for example \"तुमची संध्याकाळ आनंदी आणि शांत जावो\", \"Have a peaceful evening\", \"ಬೆಳಕಿನ ಹಬ್ಬ ನಿಮ್ಮ ಮನೆಗೆ ಸಂತೋಷ ತರಲಿ\". Use \"\" when the caption is \"\". No prices, promises, links, or earn, profit or income words.",
   "REASON (when ok:false): one short, polite sentence in the member's language that says what can be made instead.",
 ].join("\n");
 
 const NO_TEXT =
   ". No text, no letters, no numbers, no logos, no watermark. Calm top area and calm bottom-right corner. Sharp, highly detailed, high resolution.";
 
-/** Cleans the caption for drawing: one line, no links, at most 40 characters. */
-export function cleanCaption(c) {
+// A wish line must never talk about money.
+const MONEY_WORDS = /earn|profit|income|returns|guarantee|\bmoon\b|उत्पन्न|कमाई|नफा|[₹$€]/i;
+
+/** Cleans the caption (or wish) for drawing: one line, no links, at most max characters. */
+export function cleanCaption(c, max = 40) {
   let t = typeof c === "string" ? c : "";
   t = t.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim();
   t = t.replace(/^["'\u201c\u201d]+|["'\u201c\u201d]+$/g, "").trim();
   if (/https?:|www\.|\.(com|app|io|org|net|in)\b/i.test(t)) return "";
   if (typeof Intl !== "undefined" && Intl.Segmenter) {
     const parts = Array.from(new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(t), (x) => x.segment);
-    return parts.length > 40 ? parts.slice(0, 40).join("").trim() : t;
+    return parts.length > max ? parts.slice(0, max).join("").trim() : t;
   }
-  return Array.from(t).slice(0, 40).join("").trim();
+  return Array.from(t).slice(0, max).join("").trim();
 }
 
 /**
- * Reads the guard's reply. Returns { prompt, caption }, { refused, reason }
- * or { bad: true } when the reply cannot be used.
+ * Reads the guard's reply. Returns { prompt, caption, wish }, { refused, reason }
+ * or { bad: true } when the reply cannot be used. `given` is the text the
+ * member asked for; it is used when the guard leaves the caption empty.
  */
-export function readPlan(txt) {
+export function readPlan(txt, given) {
   const s = String(txt || "");
   let plan = null;
   try {
@@ -87,7 +92,10 @@ export function readPlan(txt) {
   }
   const prompt = String(plan.prompt || "").slice(0, 600);
   if (!prompt) return { bad: true };
-  return { prompt, caption: cleanCaption(plan.caption) };
+  const caption = cleanCaption(plan.caption) || cleanCaption(given);
+  let wish = caption ? cleanCaption(plan.wish, 60) : "";
+  if (MONEY_WORDS.test(wish)) wish = "";
+  return { prompt, caption, wish };
 }
 
 async function isMember(w) {
@@ -138,6 +146,7 @@ export default async function handler(req, res) {
     const body = req.body || {};
     const idea = typeof body.prompt === "string" ? body.prompt.trim().slice(0, 400) : "";
     const original = typeof body.original === "string" ? body.original.trim().slice(0, 300) : "";
+    const wanted = typeof body.text === "string" ? body.text.trim().slice(0, 60) : "";
     if (idea.length < 3) {
       return res.status(400).json({ error: "Please describe the picture you want." });
     }
@@ -206,7 +215,7 @@ export default async function handler(req, res) {
         model: "openai/gpt-oss-120b",
         messages: [
           { role: "system", content: GUARD },
-          { role: "user", content: "Idea (English): " + idea + "\nMember's own words: " + (original || "same") },
+          { role: "user", content: "Idea (English): " + idea + "\nMember's own words: " + (original || "same") + "\nText the member wants on the picture: " + (wanted || "none given") },
         ],
         temperature: 0.2,
         max_tokens: 1000,
@@ -218,7 +227,7 @@ export default async function handler(req, res) {
     }
     const gd = await g.json();
     const txt = String(gd?.choices?.[0]?.message?.content || "");
-    const plan = readPlan(txt);
+    const plan = readPlan(txt, wanted);
     if (plan.bad) {
       return res.status(502).json({ error: "Could not prepare the picture, please try again." });
     }
@@ -263,7 +272,7 @@ export default async function handler(req, res) {
     if (!b64 || typeof b64 !== "string") {
       return res.status(502).json({ error: "The picture service is busy, please try again later." });
     }
-    return res.status(200).json({ image: "data:image/jpeg;base64," + b64, caption: plan.caption });
+    return res.status(200).json({ image: "data:image/jpeg;base64," + b64, caption: plan.caption, wish: plan.wish });
   } catch (e) {
     console.error("ai-image:", e?.message || e);
     return res.status(500).json({ error: "Something went wrong, please try again." });
