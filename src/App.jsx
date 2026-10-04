@@ -5686,7 +5686,7 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t, poo
         <div className="p">
           {lastPrice ? lastPrice.toFixed(4) + " " + quoteSym : "—"}
         </div>{" "}
-        <div className="s">{priceLabel} · updates every 20s</div>{PAIR_ID === 1 && poolRate > 0 && (<div className="s" style={{ marginTop: 4, color: rateDir < 0 ? C.red : C.green, fontWeight: 600 }}>{"Last trade " + poolRate.toFixed(2) + " POL · $" + (poolRate * (polUsd || 0)).toFixed(2)}</div>)}{" "}
+        <div className="s">{priceLabel} · updates every 20s</div>{PAIR_ID === 1 && poolRate > 0 && (<div className="s" style={{ marginTop: 4, color: rateDir < 0 ? C.red : C.green, fontWeight: 600 }}>{"Last trade " + poolRate.toFixed(2) + " POL · " + (polUsd > 0 ? "$" + (poolRate * polUsd).toFixed(2) : "$ —")}</div>)}{" "}
         {book.lastTrade && (
           <div
             style={{
@@ -5848,9 +5848,9 @@ function Swap({
   var hasRate = wallet && data && data.osgPerPol;
   var osgPol = hasRate ? Number(data.osgPerPol) : 0;
   var priceUsd = hasRate ? osgPol * polUsd : 0;
-  var priceUsdStr = hasRate
+  var priceUsdStr = hasRate && priceUsd > 0
     ? "$" + (priceUsd >= 1 ? priceUsd.toFixed(2) : priceUsd.toFixed(4))
-    : "$0.00";
+    : "$ —";
   var rateStr = hasRate
     ? "1 OSG = " +
       (osgPol >= 1 ? osgPol.toFixed(2) : osgPol.toFixed(4)) +
@@ -10318,9 +10318,9 @@ function AIAssistant({ wallet, staked, liveData, holders, polUsd, getReadProvide
           (liveData && liveData.osgPerPol
             ? "1 OSG = " +
               Number(liveData.osgPerPol).toFixed(4) +
-              " POL (~$" +
-              (Number(liveData.osgPerPol) * (polUsd || 0)).toFixed(4) +
-              " USD)"
+              (polUsd > 0
+                ? " POL (~$" + (Number(liveData.osgPerPol) * polUsd).toFixed(4) + " USD)"
+                : " POL (USD price not loaded yet)")
             : "not available right now") +
           ", " +
           "Total OSG Holders: " +
@@ -12534,6 +12534,9 @@ function YourOrders({ wallet, ensureReady, showToast, poolRate, polUsd }) {
   rows.forEach(function (o) {
     totalLocked += o.isBuy ? quoteUsd(o.quoteSym, o.cost) : o.osg * osgUsd;
   });
+  // A POL-priced order needs the live POL price; without it the USD total
+  // would be partial, so it shows "$ —" instead.
+  const totalNeedsPol = !(polUsd > 0) && rows.some(function (o) { return !o.isBuy || o.quoteSym === "POL"; });
 
   return (
     <div
@@ -12596,11 +12599,9 @@ function YourOrders({ wallet, ensureReady, showToast, poolRate, polUsd }) {
                 {o.isBuy ? "Buy" : "Sell"}
               </span>{" "}
               <b>{num(o.osg, 2)} OSG</b>
-              {osgUsd > 0 && (
-                <span style={{ color: C.txt3, fontSize: 12 }}>
-                  {"  " + usd(o.osg * osgUsd)}
-                </span>
-              )}
+              <span style={{ color: C.txt3, fontSize: 12 }}>
+                {"  " + (osgUsd > 0 ? usd(o.osg * osgUsd) : "$ —")}
+              </span>
             </div>
 
             <div style={{ fontSize: 12, color: C.txt2, marginTop: 4 }}>
@@ -12609,7 +12610,7 @@ function YourOrders({ wallet, ensureReady, showToast, poolRate, polUsd }) {
                 {num(o.isBuy ? o.cost : o.price, o.isBuy ? 2 : 4) + " " + o.quoteSym}
               </span>
               <span style={{ color: C.txt3 }}>
-                {"  " + usd(quoteUsd(o.quoteSym, o.cost))}
+                {"  " + (o.quoteSym === "POL" && !(polUsd > 0) ? "$ —" : usd(quoteUsd(o.quoteSym, o.cost)))}
               </span>
             </div>
 
@@ -12644,7 +12645,7 @@ function YourOrders({ wallet, ensureReady, showToast, poolRate, polUsd }) {
         );
       })}
 
-      {totalLocked > 0 && (
+      {(totalLocked > 0 || totalNeedsPol) && (
         <div
           style={{
             display: "flex", justifyContent: "space-between",
@@ -12654,7 +12655,7 @@ function YourOrders({ wallet, ensureReady, showToast, poolRate, polUsd }) {
           }}
         >
           <span>Total locked</span>
-          <span style={{ color: C.gold2, fontWeight: 600 }}>{usd(totalLocked)}</span>
+          <span style={{ color: C.gold2, fontWeight: 600 }}>{totalNeedsPol ? "$ —" : usd(totalLocked)}</span>
         </div>
       )}
     </div>
