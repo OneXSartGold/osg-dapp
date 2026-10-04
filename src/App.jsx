@@ -8433,18 +8433,19 @@ async function uploadToIpfsAuth(content, signer, wallet) {
 var CAPTION_FONT = '"Noto Sans", "Noto Sans Devanagari", "Noto Sans Kannada", "Noto Sans Telugu", "Noto Sans Tamil", "Noto Sans Gujarati", system-ui, sans-serif';
 // Draws the caption in a soft dark band across the top ~22% of the picture.
 // The font shrinks until the text fits 90% of the width, on one or two lines.
-function drawCaption(x, w, h, caption) {
+// With a wish line the band grows to ~28% and the wish sits under the caption.
+function drawCaption(x, w, h, caption, wish) {
   var band = Math.round(h * 0.22);
-  var g = x.createLinearGradient(0, 0, 0, band);
+  var g = x.createLinearGradient(0, 0, 0, wish ? Math.round(h * 0.28) : band);
   g.addColorStop(0, "rgba(0,0,0,0.55)");
   g.addColorStop(1, "rgba(0,0,0,0)");
   x.fillStyle = g;
-  x.fillRect(0, 0, w, band);
+  x.fillRect(0, 0, w, wish ? Math.round(h * 0.28) : band);
   var maxW = w * 0.9;
-  var words = caption.split(" ");
-  var fit = function (size) {
-    x.font = "700 " + size + "px " + CAPTION_FONT;
-    if (x.measureText(caption).width <= maxW) return [caption];
+  var fitText = function (text, weight, size) {
+    var words = text.split(" ");
+    x.font = weight + " " + size + "px " + CAPTION_FONT;
+    if (x.measureText(text).width <= maxW) return [text];
     var best = null, bestW = Infinity;
     for (var i = 1; i < words.length; i++) {
       var a = words.slice(0, i).join(" "), b = words.slice(i).join(" ");
@@ -8453,6 +8454,7 @@ function drawCaption(x, w, h, caption) {
     }
     return best && bestW <= maxW ? best : null;
   };
+  var fit = function (size) { return fitText(caption, "700", size); };
   var size = Math.round(h * 0.075), minSize = Math.max(12, Math.round(h * 0.03)), lines = null;
   for (; size > minSize; size -= 2) {
     lines = fit(size);
@@ -8465,22 +8467,33 @@ function drawCaption(x, w, h, caption) {
   x.textBaseline = "middle";
   x.lineJoin = "round";
   var lh = size * 1.2, y0 = band * 0.45 - ((lines.length - 1) * lh) / 2;
-  for (var k = 0; k < lines.length; k++) {
-    var y = y0 + k * lh;
+  var outlined = function (text, y, sz, color) {
     x.save();
     x.shadowColor = "rgba(0,0,0,0.6)";
-    x.shadowBlur = Math.round(size * 0.15);
-    x.lineWidth = Math.max(2, Math.round(size * 0.08));
+    x.shadowBlur = Math.round(sz * 0.15);
+    x.lineWidth = Math.max(2, Math.round(sz * 0.08));
     x.strokeStyle = "rgba(0,0,0,0.75)";
-    x.strokeText(lines[k], w / 2, y, maxW);
+    x.strokeText(text, w / 2, y, maxW);
     x.restore();
-    x.fillStyle = "#F7D27A";
-    x.fillText(lines[k], w / 2, y, maxW);
+    x.fillStyle = color;
+    x.fillText(text, w / 2, y, maxW);
+  };
+  for (var k = 0; k < lines.length; k++) outlined(lines[k], y0 + k * lh, size, "#F7D27A");
+  if (!wish) return;
+  // Wish: warm white, regular weight, ~45% of the caption size, one line (two if needed).
+  var ws = Math.max(12, Math.round(size * 0.45)), wMin = Math.max(12, Math.round(h * 0.018)), wl = null;
+  for (; ws > wMin; ws -= 1) {
+    x.font = "400 " + ws + "px " + CAPTION_FONT;
+    if (x.measureText(wish).width <= maxW) { wl = [wish]; break; }
   }
+  if (!wl) { ws = Math.max(wMin, Math.round(size * 0.4)); wl = fitText(wish, "400", ws) || [wish]; }
+  x.font = "400 " + ws + "px " + CAPTION_FONT;
+  var wy = y0 + (lines.length - 1) * lh + size * 0.55 + ws * 0.85;
+  for (var j = 0; j < wl.length; j++) outlined(wl[j], wy + j * ws * 1.25, ws, "#FFF6E0");
 }
 // Stamps the real OSG logo (LOGO) in the bottom-right corner of a generated
-// picture. When a caption is given it is drawn first, across the top.
-function stampLogo(src, caption) {
+// picture. When a caption (and wish) is given it is drawn first, across the top.
+function stampLogo(src, caption, wish) {
   return new Promise(function (resolve) {
     var bg = new Image();
     bg.onerror = function () { resolve(src); };
@@ -8494,7 +8507,7 @@ function stampLogo(src, caption) {
           c.height = bg.naturalHeight;
           var x = c.getContext("2d");
           x.drawImage(bg, 0, 0);
-          if (caption) drawCaption(x, c.width, c.height, caption);
+          if (caption) drawCaption(x, c.width, c.height, caption, wish);
           var s = Math.round(c.width * 0.16), m = Math.round(c.width * 0.03);
           var px = c.width - s - m, py = c.height - s - m, r = Math.round(s * 0.22);
           var box = function () {
@@ -8525,16 +8538,35 @@ function stampLogo(src, caption) {
     bg.src = src;
   });
 }
-// Picture: same daily upload pass, then /api/ai-image (3 per wallet per hour).
-// `original` is the member's own words, so the caption keeps their language.
-async function makeOsgImage(idea, wallet, original) {
+// Cuts text to at most n graphemes, so a Devanagari or Kannada letter is never split.
+function cutGraphemes(t, n) {
+  t = String(t || "");
+  if (typeof Intl !== "undefined" && Intl.Segmenter) {
+    var parts = Array.from(new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(t), function (x) { return x.segment; });
+    return parts.length > n ? parts.slice(0, n).join("").trim() : t;
+  }
+  return Array.from(t).slice(0, n).join("").trim();
+}
+// Splits "idea || TEXT: words" (assistant) or "idea || words" (/image) into
+// the idea and the text to print. No "||" means no text.
+function splitImageLine(line) {
+  var s = String(line || "");
+  var k = s.indexOf("||");
+  if (k < 0) return { idea: s.trim(), text: "" };
+  var text = s.slice(k + 2).split("\n")[0].replace(/^\s*TEXT\s*:/i, "").trim().replace(/^["'\u201c\u201d]+|["'\u201c\u201d]+$/g, "").trim();
+  return { idea: s.slice(0, k).trim(), text: cutGraphemes(text, 40) };
+}
+// Picture: same daily upload pass, then /api/ai-image (10 per wallet per day, 5 per hour).
+// `original` is the member's own words, so the caption keeps their language;
+// `text` is the greeting the assistant wants printed on the picture.
+async function makeOsgImage(idea, wallet, original, text) {
   if (!window.ethereum) throw new Error("Wallet not found");
   var signer = await new BrowserProvider(window.ethereum).getSigner();
   var auth = await getUploadAuth(signer, wallet);
   var r = await fetch("/api/ai-image", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ prompt: idea, original: original || "", auth: auth }),
+    body: JSON.stringify({ prompt: idea, original: original || "", text: text || "", auth: auth }),
   });
   if (r.status === 401) {
     uploadAuthCache = null;
@@ -8544,7 +8576,8 @@ async function makeOsgImage(idea, wallet, original) {
   try { d = await r.json(); } catch (e) {}
   if (d.image) {
     var cap = typeof d.caption === "string" ? d.caption.trim().slice(0, 200) : "";
-    return { image: await stampLogo(d.image, cap) };
+    var wish = cap && typeof d.wish === "string" ? d.wish.trim().slice(0, 300) : "";
+    return { image: await stampLogo(d.image, cap, wish) };
   }
   if (d.refused) return { text: d.reason || "This picture cannot be made. Please try a different idea." };
   return { text: d.error || "Could not make the picture right now. Please try again." };
@@ -10873,7 +10906,11 @@ function AIAssistant({ wallet, staked, liveData, holders, polUsd, getReadProvide
       var imgM = /^\s*IMAGE:\s*([\s\S]+)/i.exec(reply);
       if (imgM) {
         var pic = null;
-        try { pic = await makeOsgImage(imgM[1].trim().slice(0, 300), wallet, text.trim().slice(0, 300)); }
+        // The last 3 member messages (newest last), so a follow-up like
+        // "हो बनव" still carries the original request.
+        var said = msgs.filter(function (mm) { return mm.role === "user"; }).slice(-2).map(function (mm) { return String(mm.content || "").trim(); }).concat([text.trim()]).filter(Boolean).join(" / ");
+        var line = splitImageLine(imgM[1]);
+        try { pic = await makeOsgImage(line.idea.slice(0, 300), wallet, said.slice(-300), line.text); }
         catch (ie) { pic = { text: "The picture was not made: " + ((ie && (ie.shortMessage || ie.message)) || "please try again") }; }
         setMsgs(function (m) { return m.concat([{ role: "assistant", content: pic.image ? "Here is your picture." : pic.text, image: pic.image || null }]); });
         return;
@@ -10908,13 +10945,14 @@ function AIAssistant({ wallet, staked, liveData, holders, polUsd, getReadProvide
   };
 
     var draw = async function (text) {
-    var idea = text.replace(/^\s*\/(img|image)\s*/i, "").trim();
+    var cmd = splitImageLine(text.replace(/^\s*\/(img|image)\s*/i, ""));
+    var idea = cmd.idea;
     if (!wallet || !idea || sending) return;
     setMsgs(function (m) { return m.concat([{ role: "user", content: text.trim() }]); });
     setInput("");
     setSending(true);
     try {
-      var out = await makeOsgImage(idea, wallet, idea.slice(0, 300));
+      var out = await makeOsgImage(idea, wallet, idea.slice(0, 300), cmd.text);
       setMsgs(function (m) { return m.concat([{ role: "assistant", content: out.image ? "Here is your picture." : out.text, image: out.image || null }]); });
     } catch (e) {
       setMsgs(function (m) { return m.concat([{ role: "assistant", content: "The picture was not made: " + ((e && (e.shortMessage || e.message)) || "please try again") }]); });
