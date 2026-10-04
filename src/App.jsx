@@ -10176,6 +10176,35 @@ function AIAssistant({ wallet, staked, liveData, holders, polUsd, getReadProvide
   // Each section fails on its own: one unreachable contract must never
   // blank out the others.
   // -------------------------------------------------------------------
+  // Emission split and mining shares, no wallet needed. One allSettled;
+  // a value that fails to read is left out, never guessed.
+  var loadGlobalFacts = async function () {
+    if (!getReadProvider) return "";
+    try {
+      var p = getReadProvider();
+      var share = ["function miningShareBps() view returns (uint256)"];
+      var pool = new Contract(ADDRESSES.pool, ["function stakingPercent() view returns (uint256)", "function miningPercent() view returns (uint256)", "function referralPercent() view returns (uint256)"], p);
+      var tiersC = new Contract(ADDRESSES.lpTiers, ["function rateBps(uint256) view returns (uint256)"], p);
+      var r = await Promise.allSettled([
+        pool.miningPercent(), pool.referralPercent(), pool.stakingPercent(),
+        new Contract(ADDRESSES.lpTiers, share, p).miningShareBps(),
+        new Contract(ADDRESSES.lpMining, share, p).miningShareBps(),
+        new Contract(ADDRESSES.termStaking, share, p).miningShareBps(),
+        tiersC.rateBps(0), tiersC.rateBps(1),
+      ]);
+      var v = function (i) { return r[i].status === "fulfilled" ? Number(r[i].value) : null; };
+      var parts = [];
+      var split = [["Mining", v(0)], ["Referral", v(1)], ["legacy Staking", v(2)]].filter(function (x) { return x[1] !== null; });
+      if (split.length) parts.push("Daily emission split now: " + split.map(function (x) { return x[0] + " " + x[1] + "%"; }).join(", "));
+      var inMine = [["LP 6 & 18 months", v(3)], ["LP 12 months", v(4)], ["Term Staking", v(5)]].filter(function (x) { return x[1] !== null; });
+      if (inMine.length) parts.push("Inside Mining: " + inMine.map(function (x) { return x[0] + " " + (x[1] / 100).toFixed(2) + "%"; }).join(", "));
+      var rates = [["180-day lock", v(6)], ["540-day lock", v(7)]].filter(function (x) { return x[1] !== null; });
+      if (rates.length) parts.push("LP lock ceiling rates: " + rates.map(function (x) { return x[0] + " up to " + (x[1] / 100).toFixed(2) + "% per day"; }).join(", "));
+      return parts.length ? parts.join(". ") + "." : "";
+    } catch (e) {
+      return "";
+    }
+  };
   var loadWalletFacts = async function () {
     if (!wallet || !getReadProvider) return "";
     var p = getReadProvider();
@@ -10228,7 +10257,7 @@ function AIAssistant({ wallet, staked, liveData, holders, polUsd, getReadProvide
       out.push("Their Term Staking positions could not be read just now");
     }
 
-    // ---- LP Mining v7 (Mining tab) ----
+    // ---- LP Mining 12 months (Miner tab) ----
     try {
       var mine = new Contract(ADDRESSES.lpMining, LP_MINING_ABI, p);
       var mCount = Number(await mine.positionCount(wallet));
@@ -10262,11 +10291,48 @@ function AIAssistant({ wallet, staked, liveData, holders, polUsd, getReadProvide
         );
       }
       out.push(
-        "Their LP Mining (Mining tab) open positions: " +
+        "Their LP Mining 12 months (the Miner tab) open positions: " +
           (mLines.length ? mLines.join(" || ") : "none"),
       );
     } catch (e) {
       out.push("Their LP Mining positions could not be read just now");
+    }
+
+    // ---- LP Mining 6 & 18 months (Miner tab), same read as the Mining page ----
+    try {
+      var tc = new Contract(ADDRESSES.lpTiers, LP_TIERS_ABI, p);
+      var tn = Number(await tc.positionCount(wallet));
+      var tlLines = [];
+      for (var k = 0; k < tn; k++) {
+        var tr = await Promise.all([
+          tc.positions(wallet, k),
+          tc.pendingReward(wallet, k).catch(function () { return 0n; }),
+        ]);
+        var tp = tr[0];
+        if (tp.closed) continue;
+        var unlockAt = Number(tp.unlockAt);
+        tlLines.push(
+          "#" +
+            k +
+            " " +
+            (Number(tp.tier) === 1 ? 540 : 180) +
+            "-day lock, " +
+            Number(f18(tp.lpAmount)).toFixed(4) +
+            " LP (counted as " +
+            Number(f18(tp.osgValue)).toFixed(2) +
+            " OSG), claimable now " +
+            Number(f18(tr[1])).toFixed(2) +
+            ", unlocks " +
+            new Date(unlockAt * 1000).toISOString().slice(0, 10) +
+            (unlockAt > nowSec ? " (" + Math.ceil((unlockAt - nowSec) / DAY) + " days left)" : " (unlocked)"),
+        );
+      }
+      out.push(
+        "Their LP Mining 6 & 18 months (the Miner tab) open positions: " +
+          (tlLines.length ? tlLines.join(" || ") : "none"),
+      );
+    } catch (e) {
+      out.push("Their LP 6 & 18 month positions could not be read just now");
     }
 
     // ---- Referral v4.2, read through the lens ----
@@ -10386,6 +10452,8 @@ function AIAssistant({ wallet, staked, liveData, holders, polUsd, getReadProvide
               " OSG."
             : "")
         : "";
+      var globalFacts = await loadGlobalFacts();
+      if (globalFacts) liveContext = liveContext + " " + globalFacts;
       var walletFacts = await loadWalletFacts();
       if (walletFacts) liveContext = liveContext + " " + walletFacts;
       var r = await fetch("/api/ai-assistant", {
