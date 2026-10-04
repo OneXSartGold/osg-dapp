@@ -34,6 +34,7 @@ const CASES = [
   ["wish 'Hearts' kept", '{"ok":true,"prompt":"Diyas at night","caption":"Happy Diwali","wish":"Hearts full of light"}'],
   ["fallback, Marathi", '{"ok":true,"prompt":"Sunset over hills","caption":"शुभ संध्याकाळ","wish":""}', "", "Good evening ची इमेज बनवुन दे"],
   ["fallback, English", '{"ok":true,"prompt":"Sunset over a lake","caption":"Good Evening","wish":"Big profit tonight"}', "", "good evening picture"],
+  ["caption with new domain", '{"ok":true,"prompt":"Golden light over a dark background","caption":"Visit app.onexsmartgold.com","wish":"Have a bright day"}'],
 ];
 
 function len(t) {
