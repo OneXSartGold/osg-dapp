@@ -8525,16 +8525,35 @@ function stampLogo(src, caption) {
     bg.src = src;
   });
 }
-// Picture: same daily upload pass, then /api/ai-image (3 per wallet per hour).
-// `original` is the member's own words, so the caption keeps their language.
-async function makeOsgImage(idea, wallet, original) {
+// Cuts text to at most n graphemes, so a Devanagari or Kannada letter is never split.
+function cutGraphemes(t, n) {
+  t = String(t || "");
+  if (typeof Intl !== "undefined" && Intl.Segmenter) {
+    var parts = Array.from(new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(t), function (x) { return x.segment; });
+    return parts.length > n ? parts.slice(0, n).join("").trim() : t;
+  }
+  return Array.from(t).slice(0, n).join("").trim();
+}
+// Splits "idea || TEXT: words" (assistant) or "idea || words" (/image) into
+// the idea and the text to print. No "||" means no text.
+function splitImageLine(line) {
+  var s = String(line || "");
+  var k = s.indexOf("||");
+  if (k < 0) return { idea: s.trim(), text: "" };
+  var text = s.slice(k + 2).split("\n")[0].replace(/^\s*TEXT\s*:/i, "").trim().replace(/^["'\u201c\u201d]+|["'\u201c\u201d]+$/g, "").trim();
+  return { idea: s.slice(0, k).trim(), text: cutGraphemes(text, 40) };
+}
+// Picture: same daily upload pass, then /api/ai-image (10 per wallet per day, 5 per hour).
+// `original` is the member's own words, so the caption keeps their language;
+// `text` is the greeting the assistant wants printed on the picture.
+async function makeOsgImage(idea, wallet, original, text) {
   if (!window.ethereum) throw new Error("Wallet not found");
   var signer = await new BrowserProvider(window.ethereum).getSigner();
   var auth = await getUploadAuth(signer, wallet);
   var r = await fetch("/api/ai-image", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ prompt: idea, original: original || "", auth: auth }),
+    body: JSON.stringify({ prompt: idea, original: original || "", text: text || "", auth: auth }),
   });
   if (r.status === 401) {
     uploadAuthCache = null;
@@ -10873,7 +10892,11 @@ function AIAssistant({ wallet, staked, liveData, holders, polUsd, getReadProvide
       var imgM = /^\s*IMAGE:\s*([\s\S]+)/i.exec(reply);
       if (imgM) {
         var pic = null;
-        try { pic = await makeOsgImage(imgM[1].trim().slice(0, 300), wallet, text.trim().slice(0, 300)); }
+        // The last 3 member messages (newest last), so a follow-up like
+        // "हो बनव" still carries the original request.
+        var said = msgs.filter(function (mm) { return mm.role === "user"; }).slice(-2).map(function (mm) { return String(mm.content || "").trim(); }).concat([text.trim()]).filter(Boolean).join(" / ");
+        var line = splitImageLine(imgM[1]);
+        try { pic = await makeOsgImage(line.idea.slice(0, 300), wallet, said.slice(-300), line.text); }
         catch (ie) { pic = { text: "The picture was not made: " + ((ie && (ie.shortMessage || ie.message)) || "please try again") }; }
         setMsgs(function (m) { return m.concat([{ role: "assistant", content: pic.image ? "Here is your picture." : pic.text, image: pic.image || null }]); });
         return;
@@ -10908,13 +10931,14 @@ function AIAssistant({ wallet, staked, liveData, holders, polUsd, getReadProvide
   };
 
     var draw = async function (text) {
-    var idea = text.replace(/^\s*\/(img|image)\s*/i, "").trim();
+    var cmd = splitImageLine(text.replace(/^\s*\/(img|image)\s*/i, ""));
+    var idea = cmd.idea;
     if (!wallet || !idea || sending) return;
     setMsgs(function (m) { return m.concat([{ role: "user", content: text.trim() }]); });
     setInput("");
     setSending(true);
     try {
-      var out = await makeOsgImage(idea, wallet, idea.slice(0, 300));
+      var out = await makeOsgImage(idea, wallet, idea.slice(0, 300), cmd.text);
       setMsgs(function (m) { return m.concat([{ role: "assistant", content: out.image ? "Here is your picture." : out.text, image: out.image || null }]); });
     } catch (e) {
       setMsgs(function (m) { return m.concat([{ role: "assistant", content: "The picture was not made: " + ((e && (e.shortMessage || e.message)) || "please try again") }]); });
