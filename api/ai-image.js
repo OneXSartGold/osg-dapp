@@ -4,9 +4,14 @@
 //
 //  Who:    OSG members only. Same upload pass as pinata-upload:
 //          the wallet signs  OSG-UPLOAD|137|<wallet>|<expiry>  once a day.
-//  Limits: 3 images per wallet per UTC hour, and DAILY_CAP images for
-//          everyone together per UTC day (Upstash). The Cloudflare
-//          Workers AI free plan gives roughly 170 images a day.
+//  Limits: WALLET_DAILY (10) pictures per wallet per UTC day, a burst
+//          limit of WALLET_HOURLY (5) per UTC hour, and DAILY_CAP (160) for
+//          everyone together per UTC day (Upstash). UTC day = 05:30 IST.
+//  Quota:  Cloudflare Workers AI free plan = 10,000 neurons a day.
+//          flux-1-schnell = 4.80 neurons per 512x512 tile + 9.60 per step;
+//          one 1024x1024 picture = 4 tiles. At 8 steps: 19.2 + 76.8 = 96
+//          neurons (~104 a day). At 4 steps: 19.2 + 38.4 = 57.6 neurons
+//          (~173 a day), so 160 keeps a margin.
 //  Guard:  Groq first turns the request into a safe image prompt plus a
 //          short caption in the member's own language, or refuses it.
 //          FLUX draws no text or logo; the app adds the caption and the
@@ -22,9 +27,17 @@ const TOKEN = "0xba05176748347944CC26900c821AbFeBeBC57415";
 const REFERRAL = "0x58383A8171014a8008d28e7CbB509e21412ec52A";
 const MIN_OSG = 100000000000000000n; // 0.1 OSG, same rule as uploads
 const MAX_LIFE = 90000; // a pass may not live longer than 25 hours
-const WALLET_HOURLY = 3; // images per wallet per UTC hour
-const DAILY_CAP = 100; // images for everyone together per UTC day
+const WALLET_DAILY = 10; // pictures per wallet per UTC day
+const WALLET_HOURLY = 5; // burst limit: pictures per wallet per UTC hour
+const DAILY_CAP = 160; // pictures for everyone together per UTC day (57.6 neurons each)
+// FLUX.1 schnell is a 4-step distilled model, so 4 steps is its native
+// setting: 57.6 neurons per 1024x1024 picture instead of 96 at 8 steps.
+const STEPS = 4;
 const MODEL = "@cf/black-forest-labs/flux-1-schnell";
+const HOURLY_MSG = function () {
+  return "You have made 5 pictures this hour. Please try again in " + minutesLeftInHour() + " minutes.";
+};
+const DAILY_MSG = "You have used your 10 pictures for today. New ones are ready after 05:30 IST.";
 
 const GUARD = [
   "You plan ONE picture for the assistant of OSG (OneX Smart Gold), a community token. The picture is made by an image model that cannot draw text or logos.",
@@ -163,19 +176,23 @@ export default async function handler(req, res) {
     const hour = Math.floor(Date.now() / 3600000);
     const day = Math.floor(Date.now() / 86400000);
     const wKey = "img:" + w + ":" + hour;
+    const wdKey = "img:d:" + w + ":" + day;
     const dKey = "img:all:" + day;
     let used = 0;
+    let usedMine = 0;
     let usedDay = 0;
     try {
       used = Number(await redis(["GET", wKey])) || 0;
+      usedMine = Number(await redis(["GET", wdKey])) || 0;
       usedDay = Number(await redis(["GET", dKey])) || 0;
     } catch (e) {
       return res.status(503).json({ error: "Limit check is unavailable, please try again." });
     }
+    if (usedMine >= WALLET_DAILY) {
+      return res.status(429).json({ error: DAILY_MSG });
+    }
     if (used >= WALLET_HOURLY) {
-      return res.status(429).json({
-        error: "You have made 3 images this hour. Please try again in " + minutesLeftInHour() + " minutes.",
-      });
+      return res.status(429).json({ error: HOURLY_MSG() });
     }
     if (usedDay >= DAILY_CAP) {
       return res.status(429).json({ error: "Today's picture limit for the community is reached. Please try again tomorrow." });
@@ -216,9 +233,14 @@ export default async function handler(req, res) {
       if (n === 1) await redis(["EXPIRE", wKey, 3600]);
       if (n > WALLET_HOURLY) {
         await redis(["DECR", wKey]);
-        return res.status(429).json({
-          error: "You have made 3 images this hour. Please try again in " + minutesLeftInHour() + " minutes.",
-        });
+        return res.status(429).json({ error: HOURLY_MSG() });
+      }
+      const m = Number(await redis(["INCR", wdKey]));
+      if (m === 1) await redis(["EXPIRE", wdKey, 86400]);
+      if (m > WALLET_DAILY) {
+        await redis(["DECR", wdKey]);
+        await redis(["DECR", wKey]);
+        return res.status(429).json({ error: DAILY_MSG });
       }
       const d = Number(await redis(["INCR", dKey]));
       if (d === 1) await redis(["EXPIRE", dKey, 86400]);
@@ -229,7 +251,7 @@ export default async function handler(req, res) {
     const cf = await fetch("https://api.cloudflare.com/client/v4/accounts/" + acct + "/ai/run/" + MODEL, {
       method: "POST",
       headers: { Authorization: "Bearer " + cfToken, "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt: prompt + NO_TEXT, steps: 8 }),
+      body: JSON.stringify({ prompt: prompt + NO_TEXT, steps: STEPS }),
     });
     if (!cf.ok) {
       const t = await cf.text();
