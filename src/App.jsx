@@ -641,6 +641,42 @@ const C = {
   grad: "linear-gradient(135deg,#F7D27A 0%,#E9B949 45%,#C4912E 100%)",
 };
 
+// Colour meaning, the same on every page (colour the value, never the label;
+// the words always stay, colour only adds to them):
+//   good  green  ready / positive: claimable > 0, Active, Open, Done, up / day
+//   bad   red    stop / attention: Closed, Paused, blocking locks, errors, <= 2 days left
+//   osg   gold   OSG amounts and a card's main number, rank name, next-step hints
+//   team  purple directs, levels, team size / stake, rank badges, event-pass steps
+//   info  blue   POL / USDT amounts, prices, dates, links, volume
+//   muted txt2   any value that is 0 or "—", and all labels
+function tone(kind) {
+  return { good: C.green, bad: C.red, osg: C.gold1, team: C.purple, info: C.blue, muted: C.txt2 }[kind] || C.txt;
+}
+function isZeroish(v) {
+  if (v === null || v === undefined || v === "—" || v === "") return true;
+  // The first number in the text decides ("0 of 15" is zero, "1,250 OSG" is not).
+  var m = String(v).replace(/,/g, "").match(/-?\d*\.?\d+/);
+  if (!m) return true;
+  var n = Number(m[0]);
+  return !isFinite(n) || n === 0;
+}
+// A value's colour: muted for 0 / NaN / "—", otherwise the kind's colour.
+function toneNum(value, kind) {
+  return isZeroish(value) ? C.txt2 : tone(kind);
+}
+// Days-left countdown: > 7 normal, 3–7 gold, <= 2 red, ended muted.
+function daysTone(daysLeft) {
+  var d = Number(daysLeft);
+  if (!isFinite(d) || d <= 0) return C.txt3;
+  if (d <= 2) return C.red;
+  if (d <= 7) return C.gold1;
+  return C.txt;
+}
+// Class for a .mini stat box: adds the left accent only when the value is not 0.
+function miniCls(value, kind) {
+  return isZeroish(value) ? "mini" : "mini " + kind;
+}
+
 const STYLES = `
 /* ---- emission hero (Home) ---- */
 .emit-hero{position:relative;height:318px;overflow:hidden;margin:-2px -2px 12px;
@@ -913,6 +949,17 @@ body{font-family:'Hanken Grotesk',sans-serif;background:${C.bg};color:${C.txt}}
 .mini{background:${C.card2};border:1px solid ${C.line};border-radius:12px;padding:10px 12px}
 .mini .k{font-size:10px;color:${C.txt3};text-transform:uppercase;letter-spacing:.4px}
 .mini .vv{font-family:'JetBrains Mono';font-size:14px;font-weight:600;margin-top:3px;color:${C.txt}}
+.mini.good{box-shadow:inset 2px 0 0 rgba(70,208,138,.55)}.mini.good .vv{color:${C.green}}
+.mini.osg{box-shadow:inset 2px 0 0 rgba(247,210,122,.55)}.mini.osg .vv{color:${C.gold1}}
+.mini.team{box-shadow:inset 2px 0 0 rgba(167,139,250,.55)}.mini.team .vv{color:${C.purple}}
+.mini.info{box-shadow:inset 2px 0 0 rgba(56,189,248,.55)}.mini.info .vv{color:${C.blue}}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:.3px}
+.chip.good{color:${C.green};background:rgba(70,208,138,.12);border:1px solid rgba(70,208,138,.3)}
+.chip.bad{color:${C.red};background:rgba(242,103,92,.12);border:1px solid rgba(242,103,92,.3)}
+.chip.osg{color:${C.gold1};background:rgba(233,185,73,.12);border:1px solid rgba(233,185,73,.3)}
+.chip.team{color:${C.purple};background:rgba(167,139,250,.12);border:1px solid rgba(167,139,250,.3)}
+.chip.info{color:${C.blue};background:rgba(56,189,248,.12);border:1px solid rgba(56,189,248,.3)}
+.chip.muted{color:${C.txt2};background:rgba(255,255,255,.04);border:1px solid ${C.line2}}
 .link-row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid ${C.line};text-decoration:none;color:inherit}
 .link-row:last-child{border-bottom:none}
 .link-row .ln{font-size:13px;color:${C.txt2}}
