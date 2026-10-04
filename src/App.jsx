@@ -2531,7 +2531,8 @@ function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvid
       <EmissionHero getProvider={getProvider} />
       {/* MARKET HERO — balance + market + calculator */}
       {(function () {
-        var pol = typeof polUsd === "number" && polUsd > 0 ? polUsd : 0.077;
+        // Live POL price only; 0 means not loaded yet and shows "—".
+        var pol = typeof polUsd === "number" && polUsd > 0 ? polUsd : 0;
         var calcRows = [
           ["180 days", lpBps.d180],
           ["365 days", lpBps.d365],
@@ -2834,12 +2835,13 @@ function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvid
                   letterSpacing: "-.3px",
                 }}
               >
-                ≈ $
-                {(effectivePolPerOsg * pol).toFixed(2)}
+                {pol > 0 && effectivePolPerOsg > 0
+                  ? "≈ $" + (effectivePolPerOsg * pol).toFixed(2)
+                  : "≈ $ —"}
               </span>
             </div>
             <div style={{ fontSize: 11.5, color: C.txt3, marginTop: 8 }}>
-              1 POL ≈ ${pol.toFixed(4)} · Market live
+              {pol > 0 ? "1 POL ≈ $" + pol.toFixed(4) + " · Market live" : "1 POL ≈ $ — · Price loading…"}
             </div>
             <div
               style={{
@@ -6953,7 +6955,6 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
     osgPerLp: 0,
     polPerLp: 0,
     polPerOsg: 0,
-    lpUsd: 0,
   });
   const [tab, setInnerTab] = useState("deposit");
   const [amount, setAmount] = useState("");
@@ -7014,13 +7015,10 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
         const polRes = Number(f18(osgIsToken0 ? res[1] : res[0]));
         const supply = Number(f18(lpSupply));
         if (supply > 0 && osgRes > 0 && polRes > 0) {
-          const pUsd = typeof polUsd === "number" && polUsd > 0 ? polUsd : 0.077;
-          const osgUsd = (polRes / osgRes) * pUsd;
           setPool({
             osgPerLp: osgRes / supply,
             polPerLp: polRes / supply,
             polPerOsg: polRes / osgRes,
-            lpUsd: (polRes * pUsd + osgRes * osgUsd) / supply,
             osgRes,
             polRes,
             lpSupply: supply,
@@ -7477,8 +7475,12 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
   const budgetNum = Number(info.dailyBudget) || 0;
   const overBudget = poolDemand > budgetNum && budgetNum > 0;
 
-  const pUsd = typeof polUsd === "number" && polUsd > 0 ? polUsd : 0.077;
+  // Live POL price only; 0 = not loaded yet, so every USDT value is 0 / "—".
+  // lpUsd is worked out here from the live polUsd on every render (loadRead
+  // only re-runs on a wallet change, so a value stored there went stale).
+  const pUsd = typeof polUsd === "number" && polUsd > 0 ? polUsd : 0;
   const osgUsd = pool.polPerOsg > 0 ? pool.polPerOsg * pUsd : 0;
+  const lpUsd = pUsd > 0 && pool.polPerLp > 0 ? pool.polPerLp * pUsd + pool.osgPerLp * osgUsd : 0;
 
   const fmtDate = (t) =>
     t ? new Date(t * 1000).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "—";
@@ -11310,7 +11312,8 @@ export default function App() {
   // price, so a failed RPC read never shows a made-up number.
   const lastGoodRef = useRef({ osgPerPol: 0, totalStaked: "0" });
   const dexPolPerOsgRef = useRef(0);
-  const [polUsd, setPolUsd] = useState(0.077);
+  // 0 until a live feed answers; every USDT figure shows "—" until then.
+  const [polUsd, setPolUsd] = useState(0);
   const [holders, setHolders] = useState(null);
   const [chg24, setChg24] = useState(null);
   const providerRef = useRef(null);
@@ -11380,8 +11383,8 @@ export default function App() {
         .then(function (d) {
           var pr = d && d.pairs && d.pairs[0];
           var c = pr && pr.priceChange && pr.priceChange.h24;
-          // POL price from the same OSG/WPOL pair, so the app never falls
-          // back to the old fixed 0.077 when CoinGecko is rate-limited.
+          // POL price from the same OSG/WPOL pair, a second live source
+          // for when CoinGecko is rate-limited.
           var qs = pr && pr.quoteToken && pr.quoteToken.symbol;
           var pu = pr ? Number(pr.priceUsd) : 0;
           var pn = pr ? Number(pr.priceNative) : 0;
