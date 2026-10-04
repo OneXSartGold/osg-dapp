@@ -3331,11 +3331,10 @@ function Staking({
             Closed to new deposits · claim and unstake stay open
           </div>
           <div
+            className="card"
             style={{
               marginTop: 16,
-              background: C.card,
               border: "1px solid rgba(247,210,122,.35)",
-              borderRadius: 16,
               padding: "16px 16px 18px",
             }}
           >
@@ -5905,10 +5904,8 @@ function Swap({
       {swapTab === "swap" && (
         <>
           <div
+            className="card"
             style={{
-              background: "linear-gradient(160deg,#1C1A16,#121118)",
-              border: "1px solid rgba(233,185,73,.2)",
-              borderRadius: 16,
               padding: "13px 15px",
               marginBottom: 10,
             }}
@@ -10485,15 +10482,15 @@ function AIAssistant({ wallet, staked, liveData, holders, polUsd, getReadProvide
             onClick={function (e) {
               e.stopPropagation();
             }}
+            className="card"
             style={{
               width: "100%",
               maxWidth: 460,
               height: "75vh",
-              background: C.bg,
+              padding: 0,
               borderRadius: "20px 20px 0 0",
               display: "flex",
               flexDirection: "column",
-              border: "1px solid " + C.line,
             }}
           >
             <div
@@ -10908,7 +10905,7 @@ function OSGScan({ wallet, data, holders, polUsd, chg24, t }) {
         </div>
       </div>
       {/* supply */}
-      <div className="scan-card">
+      <div className="scan-card card">
         <div className="scan-ctitle">
           <div className="t">Supply</div>
           <div className="tag">Max · 23,000,000</div>
@@ -10953,7 +10950,7 @@ function OSGScan({ wallet, data, holders, polUsd, chg24, t }) {
         </div>
       </div>
       {/* wallet check — live balanceOf */}
-      <div className="scan-card">
+      <div className="scan-card card">
         <div className="scan-ctitle">
           <div className="t">Wallet Check</div>
           <div className="tag">balanceOf</div>
@@ -11027,7 +11024,7 @@ function OSGScan({ wallet, data, holders, polUsd, chg24, t }) {
         </div>
       </div>
       {/* verified contracts ledger */}
-      <div className="scan-card">
+      <div className="scan-card card">
         <div className="scan-ctitle">
           <div className="t">Verified Contracts</div>
           <div className="tag">{SCAN_CONTRACTS.length + " · Polygon"}</div>
@@ -11067,7 +11064,7 @@ function OSGScan({ wallet, data, holders, polUsd, chg24, t }) {
         })}
       </div>
       {/* token facts */}
-      <div className="scan-card">
+      <div className="scan-card card">
         <div className="scan-ctitle">
           <div className="t">Token Facts</div>
           <div className="tag">ERC-20</div>
@@ -11096,7 +11093,7 @@ function OSGScan({ wallet, data, holders, polUsd, chg24, t }) {
         ];
         return (
           <div
-            className="scan-card"
+            className="scan-card card"
             style={{ display: "flex", gap: 8, padding: 10 }}
           >
             {ranges.map(function (r) {
@@ -11133,7 +11130,7 @@ function OSGScan({ wallet, data, holders, polUsd, chg24, t }) {
         );
       })()}{" "}
       {/* today's swappers */}{" "}
-      <div className="scan-card">
+      <div className="scan-card card">
         {" "}
         <div className="scan-ctitle">
           {" "}
@@ -11200,7 +11197,7 @@ function OSGScan({ wallet, data, holders, polUsd, chg24, t }) {
         </div>{" "}
       </div>{" "}
       {/* recent transfers */}{" "}
-      <div className="scan-card">
+      <div className="scan-card card">
         {" "}
         <div className="scan-ctitle">
           {" "}
@@ -11246,7 +11243,7 @@ function OSGScan({ wallet, data, holders, polUsd, chg24, t }) {
         </div>{" "}
       </div>{" "}
       {/* explore links */}
-      <div className="scan-card">
+      <div className="scan-card card">
         <div className="scan-ctitle">
           <div className="t">Explore</div>
           <div className="tag">Links</div>
@@ -12257,11 +12254,9 @@ function LegacyMining({ wallet, ensureReady, showToast }) {
 
   return (
     <div
+      className="card"
       style={{
         border: "1px solid rgba(242,103,92,.28)",
-        borderRadius: 18,
-        background:
-          "linear-gradient(180deg,rgba(242,103,92,.05) 0%,rgba(242,103,92,0) 40%)",
         padding: 16,
         marginBottom: 16,
       }}
