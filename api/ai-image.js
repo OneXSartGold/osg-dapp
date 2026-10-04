@@ -1,14 +1,16 @@
 // ══════════════════════════════════════════════════════════
 //  /api/ai-image.js   — Vercel serverless function
-//  Makes one OSG-themed picture for the assistant ("/image ...").
+//  Makes one family-friendly picture for the assistant ("/image ...").
 //
 //  Who:    OSG members only. Same upload pass as pinata-upload:
 //          the wallet signs  OSG-UPLOAD|137|<wallet>|<expiry>  once a day.
 //  Limits: 3 images per wallet per UTC hour, and DAILY_CAP images for
 //          everyone together per UTC day (Upstash). The Cloudflare
 //          Workers AI free plan gives roughly 170 images a day.
-//  Theme:  Groq first turns the request into an OSG-brand prompt,
-//          or refuses it. Nothing is stored; the image goes straight back.
+//  Guard:  Groq first turns the request into a safe image prompt plus a
+//          short caption in the member's own language, or refuses it.
+//          FLUX draws no text or logo; the app adds the caption and the
+//          real logo. Nothing is stored; the image goes straight back.
 //  Keys:   CF_ACCOUNT_ID, CF_AI_TOKEN, GROQ_API_KEY, UPSTASH_REDIS_REST_*
 //          (server only, never VITE_).
 // ══════════════════════════════════════════════════════════
@@ -25,13 +27,55 @@ const DAILY_CAP = 100; // images for everyone together per UTC day
 const MODEL = "@cf/black-forest-labs/flux-1-schnell";
 
 const GUARD = [
-  "You turn a user's picture request into ONE image prompt for OSG (OneX Smart Gold), a community crypto token on the Polygon blockchain.",
-  'Reply with JSON only, nothing else: {"ok":true,"prompt":"..."} or {"ok":false,"reason":"..."}.',
-  "Allowed themes: the OSG token and coin, the OSG community, blockchain and Polygon ideas, staking, liquidity, wallets, wallet safety tips, learning about crypto, community events in general, festival greetings and daily greetings (good morning, good night) from OSG, and rank achievement celebrations shown as golden trophies or badges without numbers or money.",
-  "Refuse (ok:false) anything not about OSG or crypto learning, and anything that shows or mentions: real or recognisable people, celebrities or politicians; other companies' logos, brands or tokens; nudity, violence, weapons, drugs or hate; religion in a mocking way; price predictions, rising charts, piles of money, profit, returns, guaranteed income, 'moon', luxury cars or any promise of earnings; any claim that OSG is backed by or redeemable for gold.",
-  "When ok: write the prompt in English, at most 60 words. Always include: dark background (#08080B), gold accents (#E9B949), clean modern digital-art style, the OSG emblem as the subject or clearly visible: a faceted golden diamond engraved with the letters OSG, standing on a glowing blue octagonal base. Never use the words crypto, cryptocurrency, Bitcoin, blockchain, coin, token or digital currency in the prompt; show networks only as abstract glowing gold lines. The golden OSG diamond is the only emblem in the picture. No other words or letters in the picture except OSG. People only as simple faceless silhouettes.",
-  "The reason must be one short, polite sentence in the same language the user wrote in.",
+  "You plan ONE picture for the assistant of OSG (OneX Smart Gold), a community token. The picture is made by an image model that cannot draw text or logos.",
+  "Input: an English idea and the member's own words (they show the member's language).",
+  'Reply with JSON only, nothing else: {"ok":true,"prompt":"...","caption":"..."} or {"ok":false,"reason":"..."}.',
+  "ALLOWED (make it, do not refuse): any ordinary, family-friendly picture - good morning, good night and weekday greetings; festivals of every religion and region shown respectfully (Diwali, Ganesh Chaturthi, Navratri, Dussehra, Holi, Eid, Christmas, Guru Purab, Pongal, Onam, Makar Sankranti, Independence Day, New Year and others); birthdays, anniversaries, congratulations, thank-you, get-well; motivation and success themes; nature, flowers, sunrise, mountains, sea, rain; animals and birds; temples, monuments and landscapes in general; food and sweets; sports; education, books, technology, space; villages, cities, farms; cartoon, watercolor, oil painting, 3D, realistic or anime style (original characters only); and OSG themes (gold, the community, teamwork, wallet safety, learning) - for OSG themes use a dark #08080B background with gold #E9B949 light.",
+  "REFUSE (ok:false) only: real or recognisable people, celebrities, politicians, or religious figures drawn as real people in a disrespectful way; copyrighted characters or brands and logos (Disney, Marvel, Pokemon, company logos, other tokens); nudity or sexual content; anything sexual or suggestive involving minors; gore, violence, weapons; drugs; hate, or mocking any religion, caste or community; fake documents, IDs, currency notes or cheques; money piles, price charts, profit, returns, guaranteed income, 'moon', luxury cars as rewards; any claim that OSG is backed by or redeemable for gold.",
+  "PROMPT: English, at most 70 words, rich and concrete: subject, setting, lighting, colours, mood, art style, composition. NEVER ask for any words, letters, numbers, logos, watermarks or signs in the image. NEVER ask to draw the OSG logo or a diamond emblem - the app adds the real logo afterwards. Keep the bottom-right corner simple (the logo goes there) and the top 20% calm (the caption goes there). Friendly, generic, non-identifiable people are fine.",
+  "CAPTION: the short text that belongs ON the picture, in the member's own language and script (from the member's own words), for example \"शुभ सकाळ\", \"शुभ दीपावली\", \"ದೀಪಾವಳಿ ಹಬ್ಬದ ಶುಭಾಶಯಗಳು\", \"Happy Birthday\". At most 40 characters. Use \"\" when no text is needed. Never put prices, promises or links in a caption.",
+  "REASON (when ok:false): one short, polite sentence in the member's language that says what can be made instead.",
 ].join("\n");
+
+const NO_TEXT =
+  ". No text, no letters, no numbers, no logos, no watermark. Calm top area and calm bottom-right corner. Sharp, highly detailed, high resolution.";
+
+/** Cleans the caption for drawing: one line, no links, at most 40 characters. */
+export function cleanCaption(c) {
+  let t = typeof c === "string" ? c : "";
+  t = t.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim();
+  t = t.replace(/^["'\u201c\u201d]+|["'\u201c\u201d]+$/g, "").trim();
+  if (/https?:|www\.|\.(com|app|io|org|net|in)\b/i.test(t)) return "";
+  if (typeof Intl !== "undefined" && Intl.Segmenter) {
+    const parts = Array.from(new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(t), (x) => x.segment);
+    return parts.length > 40 ? parts.slice(0, 40).join("").trim() : t;
+  }
+  return Array.from(t).slice(0, 40).join("").trim();
+}
+
+/**
+ * Reads the guard's reply. Returns { prompt, caption }, { refused, reason }
+ * or { bad: true } when the reply cannot be used.
+ */
+export function readPlan(txt) {
+  const s = String(txt || "");
+  let plan = null;
+  try {
+    plan = JSON.parse(s.slice(s.indexOf("{"), s.lastIndexOf("}") + 1));
+  } catch (e) {
+    plan = null;
+  }
+  if (!plan || typeof plan.ok !== "boolean") return { bad: true };
+  if (!plan.ok) {
+    return {
+      refused: true,
+      reason: String(plan.reason || "This picture cannot be made. Please try a different idea.").slice(0, 200),
+    };
+  }
+  const prompt = String(plan.prompt || "").slice(0, 600);
+  if (!prompt) return { bad: true };
+  return { prompt, caption: cleanCaption(plan.caption) };
+}
 
 async function isMember(w) {
   for (const url of RPCS) {
@@ -80,6 +124,7 @@ export default async function handler(req, res) {
   try {
     const body = req.body || {};
     const idea = typeof body.prompt === "string" ? body.prompt.trim().slice(0, 400) : "";
+    const original = typeof body.original === "string" ? body.original.trim().slice(0, 300) : "";
     if (idea.length < 3) {
       return res.status(400).json({ error: "Please describe the picture you want." });
     }
@@ -136,7 +181,7 @@ export default async function handler(req, res) {
       return res.status(429).json({ error: "Today's picture limit for the community is reached. Please try again tomorrow." });
     }
 
-    // Theme guard: Groq rewrites the idea into an OSG prompt, or refuses.
+    // Guard: Groq rewrites the idea into a safe prompt and caption, or refuses.
     const g = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: "Bearer " + process.env.GROQ_API_KEY },
@@ -144,7 +189,7 @@ export default async function handler(req, res) {
         model: "openai/gpt-oss-120b",
         messages: [
           { role: "system", content: GUARD },
-          { role: "user", content: idea },
+          { role: "user", content: "Idea (English): " + idea + "\nMember's own words: " + (original || "same") },
         ],
         temperature: 0.2,
         max_tokens: 1000,
@@ -156,25 +201,14 @@ export default async function handler(req, res) {
     }
     const gd = await g.json();
     const txt = String(gd?.choices?.[0]?.message?.content || "");
-    let plan = null;
-    try {
-      plan = JSON.parse(txt.slice(txt.indexOf("{"), txt.lastIndexOf("}") + 1));
-    } catch (e) {
-      plan = null;
-    }
-    if (!plan || typeof plan.ok !== "boolean") {
+    const plan = readPlan(txt);
+    if (plan.bad) {
       return res.status(502).json({ error: "Could not prepare the picture, please try again." });
     }
-    if (!plan.ok) {
-      return res.status(200).json({
-        refused: true,
-        reason: String(plan.reason || "Only OSG-themed pictures can be made.").slice(0, 200),
-      });
+    if (plan.refused) {
+      return res.status(200).json({ refused: true, reason: plan.reason });
     }
-    const prompt = String(plan.prompt || "").slice(0, 600);
-    if (!prompt) {
-      return res.status(502).json({ error: "Could not prepare the picture, please try again." });
-    }
+    const prompt = plan.prompt;
 
     // Count only real generations. INCR is atomic, so two quick taps cannot both pass.
     try {
@@ -195,7 +229,7 @@ export default async function handler(req, res) {
     const cf = await fetch("https://api.cloudflare.com/client/v4/accounts/" + acct + "/ai/run/" + MODEL, {
       method: "POST",
       headers: { Authorization: "Bearer " + cfToken, "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt: prompt + ". The only emblem is the golden OSG diamond. Background ornaments are plain shapes with no letters, numbers or symbols. Sharp, highly detailed, high resolution.", steps: 8 }),
+      body: JSON.stringify({ prompt: prompt + NO_TEXT, steps: 8 }),
     });
     if (!cf.ok) {
       const t = await cf.text();
@@ -207,7 +241,7 @@ export default async function handler(req, res) {
     if (!b64 || typeof b64 !== "string") {
       return res.status(502).json({ error: "The picture service is busy, please try again later." });
     }
-    return res.status(200).json({ image: "data:image/jpeg;base64," + b64 });
+    return res.status(200).json({ image: "data:image/jpeg;base64," + b64, caption: plan.caption });
   } catch (e) {
     console.error("ai-image:", e?.message || e);
     return res.status(500).json({ error: "Something went wrong, please try again." });
