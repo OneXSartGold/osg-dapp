@@ -8433,63 +8433,82 @@ async function uploadToIpfsAuth(content, signer, wallet) {
 var CAPTION_FONT = '"Noto Sans", "Noto Sans Devanagari", "Noto Sans Kannada", "Noto Sans Telugu", "Noto Sans Tamil", "Noto Sans Gujarati", system-ui, sans-serif';
 // Draws the caption in a soft dark band across the top ~22% of the picture.
 // The font shrinks until the text fits 90% of the width, on one or two lines.
-// With a wish line the band grows to ~28% and the wish sits under the caption.
+// Greeting (caption) big and gold across the top; motivation line (wish) in
+// a dark band at the bottom, left-aligned and kept left of the logo stamp.
+// Text wraps on spaces only, so a Devanagari or Kannada word is never split;
+// a word that is still too wide makes the font smaller instead.
 function drawCaption(x, w, h, caption, wish) {
-  var band = Math.round(h * 0.22);
-  var g = x.createLinearGradient(0, 0, 0, wish ? Math.round(h * 0.28) : band);
-  g.addColorStop(0, "rgba(0,0,0,0.55)");
-  g.addColorStop(1, "rgba(0,0,0,0)");
-  x.fillStyle = g;
-  x.fillRect(0, 0, w, wish ? Math.round(h * 0.28) : band);
-  var maxW = w * 0.9;
-  var fitText = function (text, weight, size) {
-    var words = text.split(" ");
-    x.font = weight + " " + size + "px " + CAPTION_FONT;
-    if (x.measureText(text).width <= maxW) return [text];
-    var best = null, bestW = Infinity;
-    for (var i = 1; i < words.length; i++) {
-      var a = words.slice(0, i).join(" "), b = words.slice(i).join(" ");
-      var wd = Math.max(x.measureText(a).width, x.measureText(b).width);
-      if (wd < bestW) { bestW = wd; best = [a, b]; }
-    }
-    return best && bestW <= maxW ? best : null;
-  };
-  var fit = function (size) { return fitText(caption, "700", size); };
-  var size = Math.round(h * 0.075), minSize = Math.max(12, Math.round(h * 0.03)), lines = null;
-  for (; size > minSize; size -= 2) {
-    lines = fit(size);
-    if (lines && (lines.length === 1 || size * 2.4 <= band)) break;
-    lines = null;
-  }
-  if (!lines) { size = minSize; lines = fit(size) || [caption]; }
-  x.font = "700 " + size + "px " + CAPTION_FONT;
-  x.textAlign = "center";
-  x.textBaseline = "middle";
-  x.lineJoin = "round";
-  var lh = size * 1.2, y0 = band * 0.45 - ((lines.length - 1) * lh) / 2;
-  var outlined = function (text, y, sz, color) {
+  var outlined = function (text, tx, ty, sz, color, maxW) {
     x.save();
     x.shadowColor = "rgba(0,0,0,0.6)";
     x.shadowBlur = Math.round(sz * 0.15);
     x.lineWidth = Math.max(2, Math.round(sz * 0.08));
     x.strokeStyle = "rgba(0,0,0,0.75)";
-    x.strokeText(text, w / 2, y, maxW);
+    x.strokeText(text, tx, ty, maxW);
     x.restore();
     x.fillStyle = color;
-    x.fillText(text, w / 2, y, maxW);
+    x.fillText(text, tx, ty, maxW);
   };
-  for (var k = 0; k < lines.length; k++) outlined(lines[k], y0 + k * lh, size, "#F7D27A");
-  if (!wish) return;
-  // Wish: warm white, regular weight, ~45% of the caption size, one line (two if needed).
-  var ws = Math.max(12, Math.round(size * 0.45)), wMin = Math.max(12, Math.round(h * 0.018)), wl = null;
-  for (; ws > wMin; ws -= 1) {
-    x.font = "400 " + ws + "px " + CAPTION_FONT;
-    if (x.measureText(wish).width <= maxW) { wl = [wish]; break; }
+  // Greedy word wrap at this font; null when a word is too wide or it needs more than maxLines.
+  var wrap = function (text, weight, size, maxW, maxLines) {
+    x.font = weight + " " + size + "px " + CAPTION_FONT;
+    // a lone dash stays on the line of the word before it
+    var words = text.replace(/ ([\u2014\u2013-]) /g, "\u00a0$1 ").split(" "), lines = [], cur = "";
+    for (var i = 0; i < words.length; i++) {
+      if (x.measureText(words[i]).width > maxW) return null;
+      var next = cur ? cur + " " + words[i] : words[i];
+      if (x.measureText(next).width <= maxW) cur = next;
+      else { lines.push(cur); cur = words[i]; }
+    }
+    if (cur) lines.push(cur);
+    return lines.length <= maxLines ? lines : null;
+  };
+
+  // Top: greeting.
+  var top = Math.round(h * 0.24);
+  var g = x.createLinearGradient(0, 0, 0, top);
+  g.addColorStop(0, "rgba(0,0,0,0.55)");
+  g.addColorStop(1, "rgba(0,0,0,0)");
+  x.fillStyle = g;
+  x.fillRect(0, 0, w, top);
+  var capW = w * 0.9, size = Math.round(h * 0.11), minSize = Math.max(12, Math.round(h * 0.035)), lines = null;
+  // One line preferred down to ~7% of the height, then two lines.
+  for (var s1 = size; s1 >= Math.round(h * 0.07) && !lines; s1 -= 2) { lines = wrap(caption, "700", s1, capW, 1); size = s1; }
+  for (var s2 = Math.round(h * 0.11); s2 > minSize && !lines; s2 -= 2) {
+    if (s2 * 2.3 > top * 0.95) continue;
+    lines = wrap(caption, "700", s2, capW, 2);
+    size = s2;
   }
-  if (!wl) { ws = Math.max(wMin, Math.round(size * 0.4)); wl = fitText(wish, "400", ws) || [wish]; }
-  x.font = "400 " + ws + "px " + CAPTION_FONT;
-  var wy = y0 + (lines.length - 1) * lh + size * 0.55 + ws * 0.85;
-  for (var j = 0; j < wl.length; j++) outlined(wl[j], wy + j * ws * 1.25, ws, "#FFF6E0");
+  if (!lines) { size = minSize; lines = wrap(caption, "700", size, capW, 2) || [caption]; }
+  x.font = "700 " + size + "px " + CAPTION_FONT;
+  x.textAlign = "center";
+  x.textBaseline = "middle";
+  x.lineJoin = "round";
+  var lh = size * 1.15, y0 = top * 0.45 - ((lines.length - 1) * lh) / 2;
+  for (var k = 0; k < lines.length; k++) outlined(lines[k], w / 2, y0 + k * lh, size, "#F7D27A", capW);
+  if (!wish) return;
+
+  // Bottom: motivation line, left of the logo (same size and margin as stampLogo).
+  var bb = Math.round(h * 0.26), ls = Math.round(w * 0.16), lm = Math.round(w * 0.03);
+  var gb = x.createLinearGradient(0, h, 0, h - bb);
+  gb.addColorStop(0, "rgba(0,0,0,0.6)");
+  gb.addColorStop(1, "rgba(0,0,0,0)");
+  x.fillStyle = gb;
+  x.fillRect(0, h - bb, w, bb);
+  var wW = w - ls - 3 * lm, ws = Math.round(h * 0.046), wMin = Math.max(12, Math.round(h * 0.022)), wl = null;
+  for (; ws >= wMin && !wl; ws -= 1) wl = wrap(wish, "600", ws, wW, 3);
+  if (wl) ws += 1;
+  else { ws = wMin; wl = wrap(wish, "600", ws, wW, 4) || [wish]; }
+  x.font = "600 " + ws + "px " + CAPTION_FONT;
+  x.textAlign = "left";
+  var wlh = ws * 1.3, gap = ws * 0.5;
+  var blockH = gap + wl.length * wlh;
+  var by = h - bb / 2 - blockH / 2;
+  // thin gold accent line above the first motivation line
+  x.fillStyle = "#E9B949";
+  x.fillRect(lm, Math.round(by), Math.round(w * 0.18), 2);
+  for (var j = 0; j < wl.length; j++) outlined(wl[j], lm, by + gap + wlh * (j + 0.5), ws, "#FFF6E0", wW);
+  x.textAlign = "center";
 }
 // Stamps the real OSG logo (LOGO) in the bottom-right corner of a generated
 // picture. When a caption (and wish) is given it is drawn first, across the top.
