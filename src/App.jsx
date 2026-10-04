@@ -8103,8 +8103,59 @@ async function uploadToIpfsAuth(content, signer, wallet) {
   if (!data.cid) throw new Error("No CID returned");
   return data.cid;
 }
-// Stamps the real OSG logo (LOGO) in the bottom-right corner of a generated picture.
-function stampLogo(src) {
+// Caption fonts: the phone's own Noto fonts cover Marathi, Hindi, Kannada,
+// Telugu, Tamil and Gujarati.
+var CAPTION_FONT = '"Noto Sans", "Noto Sans Devanagari", "Noto Sans Kannada", "Noto Sans Telugu", "Noto Sans Tamil", "Noto Sans Gujarati", system-ui, sans-serif';
+// Draws the caption in a soft dark band across the top ~22% of the picture.
+// The font shrinks until the text fits 90% of the width, on one or two lines.
+function drawCaption(x, w, h, caption) {
+  var band = Math.round(h * 0.22);
+  var g = x.createLinearGradient(0, 0, 0, band);
+  g.addColorStop(0, "rgba(0,0,0,0.55)");
+  g.addColorStop(1, "rgba(0,0,0,0)");
+  x.fillStyle = g;
+  x.fillRect(0, 0, w, band);
+  var maxW = w * 0.9;
+  var words = caption.split(" ");
+  var fit = function (size) {
+    x.font = "700 " + size + "px " + CAPTION_FONT;
+    if (x.measureText(caption).width <= maxW) return [caption];
+    var best = null, bestW = Infinity;
+    for (var i = 1; i < words.length; i++) {
+      var a = words.slice(0, i).join(" "), b = words.slice(i).join(" ");
+      var wd = Math.max(x.measureText(a).width, x.measureText(b).width);
+      if (wd < bestW) { bestW = wd; best = [a, b]; }
+    }
+    return best && bestW <= maxW ? best : null;
+  };
+  var size = Math.round(h * 0.075), minSize = Math.max(12, Math.round(h * 0.03)), lines = null;
+  for (; size > minSize; size -= 2) {
+    lines = fit(size);
+    if (lines && (lines.length === 1 || size * 2.4 <= band)) break;
+    lines = null;
+  }
+  if (!lines) { size = minSize; lines = fit(size) || [caption]; }
+  x.font = "700 " + size + "px " + CAPTION_FONT;
+  x.textAlign = "center";
+  x.textBaseline = "middle";
+  x.lineJoin = "round";
+  var lh = size * 1.2, y0 = band * 0.45 - ((lines.length - 1) * lh) / 2;
+  for (var k = 0; k < lines.length; k++) {
+    var y = y0 + k * lh;
+    x.save();
+    x.shadowColor = "rgba(0,0,0,0.6)";
+    x.shadowBlur = Math.round(size * 0.15);
+    x.lineWidth = Math.max(2, Math.round(size * 0.08));
+    x.strokeStyle = "rgba(0,0,0,0.75)";
+    x.strokeText(lines[k], w / 2, y, maxW);
+    x.restore();
+    x.fillStyle = "#F7D27A";
+    x.fillText(lines[k], w / 2, y, maxW);
+  }
+}
+// Stamps the real OSG logo (LOGO) in the bottom-right corner of a generated
+// picture. When a caption is given it is drawn first, across the top.
+function stampLogo(src, caption) {
   return new Promise(function (resolve) {
     var bg = new Image();
     bg.onerror = function () { resolve(src); };
@@ -8118,6 +8169,7 @@ function stampLogo(src) {
           c.height = bg.naturalHeight;
           var x = c.getContext("2d");
           x.drawImage(bg, 0, 0);
+          if (caption) drawCaption(x, c.width, c.height, caption);
           var s = Math.round(c.width * 0.16), m = Math.round(c.width * 0.03);
           var px = c.width - s - m, py = c.height - s - m, r = Math.round(s * 0.22);
           var box = function () {
@@ -8148,15 +8200,16 @@ function stampLogo(src) {
     bg.src = src;
   });
 }
-// OSG picture: same daily upload pass, then /api/ai-image (3 per wallet per hour).
-async function makeOsgImage(idea, wallet) {
+// Picture: same daily upload pass, then /api/ai-image (3 per wallet per hour).
+// `original` is the member's own words, so the caption keeps their language.
+async function makeOsgImage(idea, wallet, original) {
   if (!window.ethereum) throw new Error("Wallet not found");
   var signer = await new BrowserProvider(window.ethereum).getSigner();
   var auth = await getUploadAuth(signer, wallet);
   var r = await fetch("/api/ai-image", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ prompt: idea, auth: auth }),
+    body: JSON.stringify({ prompt: idea, original: original || "", auth: auth }),
   });
   if (r.status === 401) {
     uploadAuthCache = null;
@@ -8164,9 +8217,29 @@ async function makeOsgImage(idea, wallet) {
   }
   var d = {};
   try { d = await r.json(); } catch (e) {}
-  if (d.image) return { image: await stampLogo(d.image) };
-  if (d.refused) return { text: d.reason || "Only OSG-themed pictures can be made." };
+  if (d.image) {
+    var cap = typeof d.caption === "string" ? d.caption.trim().slice(0, 200) : "";
+    return { image: await stampLogo(d.image, cap) };
+  }
+  if (d.refused) return { text: d.reason || "This picture cannot be made. Please try a different idea." };
   return { text: d.error || "Could not make the picture right now. Please try again." };
+}
+// True when the phone can share an image file (Web Share API level 2).
+function canShareImage() {
+  try {
+    return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File([""], "osg-picture.jpg", { type: "image/jpeg" })] }));
+  } catch (e) {
+    return false;
+  }
+}
+async function shareImage(dataUrl) {
+  try {
+    var blob = await (await fetch(dataUrl)).blob();
+    var file = new File([blob], "osg-picture.jpg", { type: blob.type || "image/jpeg" });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file] });
+  } catch (e) {
+    // the member closed the share sheet, or sharing is not available
+  }
 }
 async function fetchFromIpfs(cid) {
   const r = await fetch("/api/ipfs-fetch?cid=" + encodeURIComponent(cid));
@@ -10089,7 +10162,7 @@ function AIAssistant({ wallet, staked, liveData, holders, polUsd, getReadProvide
     {
       role: "assistant",
       content:
-        "Hello! I'm OSG Assistant. Ask me anything about Staking, Referral, Swap, or Chat. You can also ask me for an OSG picture (3 per hour).",
+        "Hello! I'm OSG Assistant. Ask me anything about Staking, Referral, Swap, or Chat. You can also ask me for a picture — greetings, festivals, nature and more (3 per hour).",
     },
   ]);
   const [input, setInput] = useState("");
@@ -10377,6 +10450,7 @@ function AIAssistant({ wallet, staked, liveData, holders, polUsd, getReadProvide
     return out.join(". ") + ". ";
   };
 
+  var canShareFiles = useState(canShareImage)[0];
   var ask = async function (text) {
     if (!text || !text.trim() || !unlocked) return;
     var userMsg = { role: "user", content: text.trim() };
@@ -10474,9 +10548,9 @@ function AIAssistant({ wallet, staked, liveData, holders, polUsd, getReadProvide
       var imgM = /^\s*IMAGE:\s*([\s\S]+)/i.exec(reply);
       if (imgM) {
         var pic = null;
-        try { pic = await makeOsgImage(imgM[1].trim().slice(0, 300), wallet); }
+        try { pic = await makeOsgImage(imgM[1].trim().slice(0, 300), wallet, text.trim().slice(0, 300)); }
         catch (ie) { pic = { text: "The picture was not made: " + ((ie && (ie.shortMessage || ie.message)) || "please try again") }; }
-        setMsgs(function (m) { return m.concat([{ role: "assistant", content: pic.image ? "Here is your OSG picture." : pic.text, image: pic.image || null }]); });
+        setMsgs(function (m) { return m.concat([{ role: "assistant", content: pic.image ? "Here is your picture." : pic.text, image: pic.image || null }]); });
         return;
       }
       var typeId = Date.now();
@@ -10515,8 +10589,8 @@ function AIAssistant({ wallet, staked, liveData, holders, polUsd, getReadProvide
     setInput("");
     setSending(true);
     try {
-      var out = await makeOsgImage(idea, wallet);
-      setMsgs(function (m) { return m.concat([{ role: "assistant", content: out.image ? "Here is your OSG picture." : out.text, image: out.image || null }]); });
+      var out = await makeOsgImage(idea, wallet, idea.slice(0, 300));
+      setMsgs(function (m) { return m.concat([{ role: "assistant", content: out.image ? "Here is your picture." : out.text, image: out.image || null }]); });
     } catch (e) {
       setMsgs(function (m) { return m.concat([{ role: "assistant", content: "The picture was not made: " + ((e && (e.shortMessage || e.message)) || "please try again") }]); });
     } finally {
@@ -10713,7 +10787,12 @@ function AIAssistant({ wallet, staked, liveData, holders, polUsd, getReadProvide
                         fontWeight: m.role === "user" ? 600 : 400,
                       }}
                     >
-                      {m.content}{m.image ? <img src={m.image} alt="OSG picture" style={{ display: "block", width: "100%", borderRadius: 12, marginTop: 8 }} /> : null}{m.image ? <a href={m.image} download="osg-picture.jpg" style={{ display: "inline-block", marginTop: 6, color: C.gold1, fontSize: 12 }}>Download</a> : null}
+                      {m.content}{m.image ? <img src={m.image} alt="Picture" style={{ display: "block", width: "100%", borderRadius: 12, marginTop: 8 }} /> : null}{m.image ? (
+                        <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                          <a href={m.image} download="osg-picture.jpg" style={{ display: "inline-flex", alignItems: "center", minHeight: 44, minWidth: 44, padding: "0 10px", color: C.gold1, fontSize: 13 }}>Download</a>
+                          {canShareFiles ? <button type="button" onClick={function () { shareImage(m.image); }} style={{ display: "inline-flex", alignItems: "center", minHeight: 44, minWidth: 44, padding: "0 10px", background: "none", border: "none", color: C.gold1, fontSize: 13, cursor: "pointer" }}>Share</button> : null}
+                        </div>
+                      ) : null}
                     </div>
                   );
                 })
