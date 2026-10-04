@@ -858,7 +858,10 @@ body{font-family:'Hanken Grotesk',sans-serif;background:${C.bg};color:${C.txt}}
 .stag>*:nth-child(1){animation-delay:.04s}.stag>*:nth-child(2){animation-delay:.10s}
 .stag>*:nth-child(3){animation-delay:.16s}.stag>*:nth-child(4){animation-delay:.22s}
 @keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
-.card{background:${C.card};border:1px solid ${C.line};border-radius:20px;padding:18px}
+.card{position:relative;background:linear-gradient(165deg,#16140C 0%,#121118 60%);border:1px solid rgba(233,185,73,.2);border-radius:20px;padding:18px 16px 16px;box-shadow:0 8px 34px rgba(0,0,0,.4)}
+.card::before{content:"";position:absolute;top:0;left:14px;right:14px;height:1px;background:linear-gradient(90deg,transparent,${C.gold2},transparent);pointer-events:none}
+.card .card{box-shadow:none;background:rgba(255,255,255,.02)}
+.card .card::before{display:none}
 .seal{position:relative;border-radius:20px;padding:22px 20px 20px;margin-top:14px;overflow:hidden;background:repeating-linear-gradient(45deg,var(--tex) 0 1px,transparent 1px 8px),repeating-linear-gradient(-45deg,var(--tex) 0 1px,transparent 1px 8px),radial-gradient(130% 80% at 50% -10%,var(--bg1) 0%,var(--bg2) 45%,#0e0c14 100%);border:1px solid var(--edge);box-shadow:0 0 0 1px rgba(0,0,0,.7) inset,0 0 60px var(--inglow) inset,0 22px 50px rgba(0,0,0,.5);transition:border-color .7s ease,box-shadow .7s ease,background .7s ease;--tex:rgba(233,185,73,.022);--bg1:#1d1812;--bg2:#14110d;--edge:rgba(233,185,73,.30);--inglow:rgba(233,185,73,.04);--ink:${C.gold1};--ink3:${C.gold3};--gradnow:${C.grad};--frame1:rgba(233,185,73,.24);--frame2:rgba(233,185,73,.10);--rule:rgba(233,185,73,.32);--halo:rgba(233,185,73,.30);--halo2:rgba(233,185,73,.08)}
 .seal.done{--tex:rgba(70,208,138,.022);--bg1:#0f1d16;--bg2:#0c1512;--edge:rgba(70,208,138,.34);--inglow:rgba(70,208,138,.05);--ink:#8FF0BE;--ink3:#2A9E67;--gradnow:linear-gradient(135deg,#8FF0BE 0%,#46D08A 45%,#2A9E67 100%);--frame1:rgba(70,208,138,.26);--frame2:rgba(70,208,138,.11);--rule:rgba(70,208,138,.34);--halo:rgba(70,208,138,.32);--halo2:rgba(70,208,138,.09)}
 .seal .f1{position:absolute;inset:8px;border-radius:13px;border:1px solid var(--frame1);pointer-events:none;transition:border-color .7s ease}
@@ -3328,11 +3331,10 @@ function Staking({
             Closed to new deposits · claim and unstake stay open
           </div>
           <div
+            className="card"
             style={{
               marginTop: 16,
-              background: C.card,
               border: "1px solid rgba(247,210,122,.35)",
-              borderRadius: 16,
               padding: "16px 16px 18px",
             }}
           >
@@ -5902,10 +5904,8 @@ function Swap({
       {swapTab === "swap" && (
         <>
           <div
+            className="card"
             style={{
-              background: "linear-gradient(160deg,#1C1A16,#121118)",
-              border: "1px solid rgba(233,185,73,.2)",
-              borderRadius: 16,
               padding: "13px 15px",
               marginBottom: 10,
             }}
@@ -10482,15 +10482,15 @@ function AIAssistant({ wallet, staked, liveData, holders, polUsd, getReadProvide
             onClick={function (e) {
               e.stopPropagation();
             }}
+            className="card"
             style={{
               width: "100%",
               maxWidth: 460,
               height: "75vh",
-              background: C.bg,
+              padding: 0,
               borderRadius: "20px 20px 0 0",
               display: "flex",
               flexDirection: "column",
-              border: "1px solid " + C.line,
             }}
           >
             <div
@@ -10905,7 +10905,7 @@ function OSGScan({ wallet, data, holders, polUsd, chg24, t }) {
         </div>
       </div>
       {/* supply */}
-      <div className="scan-card">
+      <div className="scan-card card">
         <div className="scan-ctitle">
           <div className="t">Supply</div>
           <div className="tag">Max · 23,000,000</div>
@@ -10950,7 +10950,7 @@ function OSGScan({ wallet, data, holders, polUsd, chg24, t }) {
         </div>
       </div>
       {/* wallet check — live balanceOf */}
-      <div className="scan-card">
+      <div className="scan-card card">
         <div className="scan-ctitle">
           <div className="t">Wallet Check</div>
           <div className="tag">balanceOf</div>
@@ -11024,7 +11024,7 @@ function OSGScan({ wallet, data, holders, polUsd, chg24, t }) {
         </div>
       </div>
       {/* verified contracts ledger */}
-      <div className="scan-card">
+      <div className="scan-card card">
         <div className="scan-ctitle">
           <div className="t">Verified Contracts</div>
           <div className="tag">{SCAN_CONTRACTS.length + " · Polygon"}</div>
@@ -11064,7 +11064,7 @@ function OSGScan({ wallet, data, holders, polUsd, chg24, t }) {
         })}
       </div>
       {/* token facts */}
-      <div className="scan-card">
+      <div className="scan-card card">
         <div className="scan-ctitle">
           <div className="t">Token Facts</div>
           <div className="tag">ERC-20</div>
@@ -11093,7 +11093,7 @@ function OSGScan({ wallet, data, holders, polUsd, chg24, t }) {
         ];
         return (
           <div
-            className="scan-card"
+            className="scan-card card"
             style={{ display: "flex", gap: 8, padding: 10 }}
           >
             {ranges.map(function (r) {
@@ -11130,7 +11130,7 @@ function OSGScan({ wallet, data, holders, polUsd, chg24, t }) {
         );
       })()}{" "}
       {/* today's swappers */}{" "}
-      <div className="scan-card">
+      <div className="scan-card card">
         {" "}
         <div className="scan-ctitle">
           {" "}
@@ -11197,7 +11197,7 @@ function OSGScan({ wallet, data, holders, polUsd, chg24, t }) {
         </div>{" "}
       </div>{" "}
       {/* recent transfers */}{" "}
-      <div className="scan-card">
+      <div className="scan-card card">
         {" "}
         <div className="scan-ctitle">
           {" "}
@@ -11243,7 +11243,7 @@ function OSGScan({ wallet, data, holders, polUsd, chg24, t }) {
         </div>{" "}
       </div>{" "}
       {/* explore links */}
-      <div className="scan-card">
+      <div className="scan-card card">
         <div className="scan-ctitle">
           <div className="t">Explore</div>
           <div className="tag">Links</div>
@@ -12254,11 +12254,9 @@ function LegacyMining({ wallet, ensureReady, showToast }) {
 
   return (
     <div
+      className="card"
       style={{
         border: "1px solid rgba(242,103,92,.28)",
-        borderRadius: 18,
-        background:
-          "linear-gradient(180deg,rgba(242,103,92,.05) 0%,rgba(242,103,92,0) 40%)",
         padding: 16,
         marginBottom: 16,
       }}
