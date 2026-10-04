@@ -1129,7 +1129,7 @@ function Stat({ label, value, sub, accent }) {
         style={{ background: `linear-gradient(90deg,${accent},transparent)` }}
       />
       <div className="t">{label}</div>
-      <div className="v" style={{ color: accent }}>
+      <div className="v" style={{ color: isZeroish(value) ? C.txt2 : accent }}>
         {value}
       </div>
       {sub && <div className="s">{sub}</div>}
@@ -2336,14 +2336,14 @@ function LpCalcBody({ polPerOsg, polUsd, unit, setUnit, amt, setAmt, scrollId, r
                       fontSize: 18,
                       fontWeight: 700,
                       marginTop: 4,
-                      color: C.txt,
+                      color: toneNum(sd[1], sd[0] === "OSG" ? "osg" : "info"),
                       fontVariantNumeric: "tabular-nums",
                       overflowWrap: "anywhere",
                     }}
                   >
                     {cfmt(sd[1])}
                   </div>
-                  <div style={{ fontSize: 11, color: C.txt2, marginTop: 2 }}>
+                  <div style={{ fontSize: 11, color: toneNum(sd[2], "info"), marginTop: 2 }}>
                     {"≈ $" + cfmt(sd[2])}
                   </div>
                 </div>
@@ -2362,7 +2362,7 @@ function LpCalcBody({ polPerOsg, polUsd, unit, setUnit, amt, setAmt, scrollId, r
               <div style={kStyle}>Total value</div>
               <div
                 className="mono"
-                style={{ fontSize: 15, fontWeight: 700, marginTop: 3, color: C.txt }}
+                style={{ fontSize: 15, fontWeight: 700, marginTop: 3, color: toneNum(cTotalUsd, "info") }}
               >
                 {"$" + cfmt(cTotalUsd)}
               </div>
@@ -2371,7 +2371,7 @@ function LpCalcBody({ polPerOsg, polUsd, unit, setUnit, amt, setAmt, scrollId, r
               <div style={kStyle}>Counted as</div>
               <div
                 className="mono"
-                style={{ fontSize: 15, fontWeight: 700, marginTop: 3, color: C.green }}
+                style={{ fontSize: 15, fontWeight: 700, marginTop: 3, color: toneNum(cCounted, "osg") }}
               >
                 {"≈ " + cfmt(cCounted) + " OSG"}
               </div>
@@ -2689,7 +2689,7 @@ function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvid
                                 style={{
                                   fontSize: 21,
                                   fontWeight: 700,
-                                  color: C.txt,
+                                  color: b[1] === "days" ? daysTone(Math.ceil(s / 86400)) : C.txt,
                                   fontVariantNumeric: "tabular-nums",
                                 }}
                               >
@@ -2890,7 +2890,7 @@ function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvid
                   : "≈ $ —"}
               </span>
             </div>
-            <div style={{ fontSize: 11.5, color: C.txt3, marginTop: 8 }}>
+            <div style={{ fontSize: 11.5, color: pol > 0 ? C.blue : C.txt3, marginTop: 8 }}>
               {pol > 0 ? "1 POL ≈ $" + pol.toFixed(4) + " · Market live" : "1 POL ≈ $ — · Price loading…"}
             </div>
             <div
@@ -2961,7 +2961,7 @@ function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvid
                 </div>
                 <div
                   className="mono"
-                  style={{ fontSize: 13.5, color: C.txt, marginTop: 4 }}
+                  style={{ fontSize: 13.5, color: toneNum(mkt.holders, "team"), marginTop: 4 }}
                 >
                   {mkt.holders}
                 </div>
@@ -3039,13 +3039,13 @@ function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvid
                               <span>{row[0]}</span>
                               <span
                                 className={head ? "" : "mono"}
-                                style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}
+                                style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", color: head ? undefined : toneNum(row[1], "good") }}
                               >
                                 {row[1]}
                               </span>
                               <span
                                 className={head ? "" : "mono"}
-                                style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}
+                                style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", color: head ? undefined : toneNum(row[2], "good") }}
                               >
                                 {row[2]}
                               </span>
@@ -3084,7 +3084,7 @@ function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvid
                   </span>
                   <span
                     className="mono"
-                    style={{ fontSize: 15, fontWeight: 600, color: C.txt }}
+                    style={{ fontSize: 15, fontWeight: 600, color: wallet ? toneNum(data.balance, "osg") : C.txt2 }}
                   >
                     {wallet ? fmt(data.balance) : "0.00"}
                   </span>
@@ -3108,7 +3108,7 @@ function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvid
                   </span>
                   <span
                     className="mono"
-                    style={{ fontSize: 15, fontWeight: 600, color: C.txt }}
+                    style={{ fontSize: 15, fontWeight: 600, color: wallet ? toneNum(data.polBalance, "info") : C.txt2 }}
                   >
                     {wallet ? fmt(data.polBalance) : "0.00"}
                   </span>
@@ -3577,7 +3577,7 @@ function Staking({
             style={{
               fontSize: 32,
               fontWeight: 600,
-              color: C.gold1,
+              color: toneNum(data.staked, "osg"),
               margin: "6px 0 16px",
             }}
           >
@@ -3655,7 +3655,7 @@ function Staking({
                 style={{
                   fontSize: 40,
                   fontWeight: 600,
-                  color: C.green,
+                  color: toneNum(fmt(thisChunk, 4), "good"),
                   lineHeight: 1,
                 }}
               >
@@ -3692,7 +3692,7 @@ function Staking({
                     style={{
                       fontSize: 16,
                       fontWeight: 600,
-                      color: C.gold1,
+                      color: toneNum(totalPend, "osg"),
                       marginTop: 4,
                     }}
                   >
@@ -3723,7 +3723,7 @@ function Staking({
                     style={{
                       fontSize: 16,
                       fontWeight: 600,
-                      color: C.blue,
+                      color: toneNum(claimsLeft, "info"),
                       marginTop: 4,
                     }}
                   >
@@ -4568,7 +4568,7 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
               <div style={{ display: "flex", gap: 10 }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 10.5, color: C.txt3 }}>To collect</div>
-                  <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 15, color: C.gold1 }}>
+                  <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 15, color: toneNum(fmt(f18(spot.total), 2), "good") }}>
                     {fmt(f18(spot.total), 2) + " OSG"}
                   </div>
                   <div style={{ fontSize: 10.5, color: C.txt3, marginTop: 2 }}>
@@ -4634,7 +4634,7 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
               <RankBadge rank={have || 1} size={96} lit={have > 0} />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 15.5, fontWeight: 800, color: have > 0 ? C.gold1 : C.txt2 }}>
+                <div style={{ fontSize: 15.5, fontWeight: 800, color: have > 0 ? C.purple : C.txt2 }}>
                   {have > 0 ? "Rank " + have + " · " + RANK_META[have - 1].nm : "No rank yet"}
                 </div>
                 <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: C.txt3, marginTop: 3 }}>
@@ -4703,7 +4703,7 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
             {t && (
               <div style={{ marginTop: 14 }}>
                 <div style={{ fontSize: 12.5, color: C.txt2, marginBottom: 2 }}>
-                  {bars.every(function (x) { return x.a >= x.b; }) ? "Ready for " : "Next — "}<b style={{ color: C.gold1 }}>{RANK_META[nx - 1].nm}</b>
+                  {bars.every(function (x) { return x.a >= x.b; }) ? "Ready for " : "Next — "}<b style={{ color: C.purple }}>{RANK_META[nx - 1].nm}</b>
                   {", " + fmt(f18(t[3]), 0) + " OSG / month"}
                 </div>
                 {bars.map(function (x, k) {
@@ -4765,14 +4765,14 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
                     >
                       <RankBadge rank={r} size={30} lit={done} />
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 12.5, fontWeight: 700, color: done ? C.gold1 : C.txt2 }}>
+                        <div style={{ fontSize: 12.5, fontWeight: 700, color: done ? C.purple : C.txt2 }}>
                           {"R" + r + " · " + m.nm}
                         </div>
                         <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: C.txt3 }}>
                           {fmt(f18(q[3]), 0) + " OSG / month"}
                         </div>
                       </div>
-                      <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: done ? 10 : 16, lineHeight: 1, color: have === r ? C.gold1 : done ? C.txt3 : C.txt2 }}>
+                      <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: done ? 10 : 16, lineHeight: 1, color: have === r ? C.purple : done ? C.txt3 : C.txt2 }}>
                         {have === r ? "now" : done ? "passed" : open ? "▾" : "▸"}
                       </span>
                     </div>
@@ -4823,15 +4823,15 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
               <div key={st.batch} style={{ padding: "10px 0", borderTop: i ? "1px solid " + C.line : "none", opacity: st.qualified || (st.started && !st.closed) ? 1 : 0.55 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontSize: 13, color: C.txt2 }}>
                   <span>{"Step " + (i + 1) + " · " + label}</span>
-                  <span style={{ fontSize: 12, color: st.qualified ? C.green : C.txt2 }}>{tag}</span>
+                  <span style={{ fontSize: 12, color: st.qualified ? C.green : !st.started ? C.blue : st.closed ? C.red : daysTone(Math.ceil((st.endsAt - Date.now() / 1000) / 86400)) }}>{tag}</span>
                 </div>
                 <div style={{ fontSize: 11.5, color: C.txt3, marginTop: 2 }}>{day(st.startsAt) + " – " + day(st.endsAt - 1)}</div>
-                <div style={{ fontSize: 18, fontWeight: 600, color: C.txt, marginTop: 4 }}>
+                <div style={{ fontSize: 18, fontWeight: 600, color: toneNum(have, "team"), marginTop: 4 }}>
                   {isCount ? String(have) : fmt(have, 2)}{" "}
                   <span style={{ fontSize: 13, color: C.txt3 }}>{"/ " + (isCount ? String(want) : fmt(want, 0) + " OSG")}</span>
                 </div>
                 <div style={{ height: 6, background: C.line2, borderRadius: 3, overflow: "hidden", marginTop: 6 }}>
-                  <div style={{ height: "100%", width: Math.min(100, want ? (have / want) * 100 : 0) + "%", background: st.qualified ? C.green : C.gold2 }} />
+                  <div style={{ height: "100%", width: Math.min(100, want ? (have / want) * 100 : 0) + "%", background: st.qualified || (want > 0 && have >= want) ? C.green : C.gold2 }} />
                 </div>
               </div>
             );
@@ -4863,30 +4863,30 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
         <div className="card" style={{ marginTop: 14 }}>
           <div className="sec">Your line</div>
           <div className="mini-grid">
-            <div className="mini">
+            <div className={miniCls(card.directsForLevels, "team")}>
               <div className="k">Direct referrals</div>
               <div className="vv">{String(card.directsForLevels)}</div>
             </div>
-            <div className="mini">
+            <div className={miniCls(card.levelsOpen, "team")}>
               <div className="k">Levels open</div>
               <div className="vv">
                 {String(card.levelsOpen)}
                 <span style={{ fontSize: 13, color: C.txt3 }}> of 15</span>
               </div>
             </div>
-            <div className="mini">
+            <div className={miniCls(card.activeBps, "osg")}>
               <div className="k">Your share</div>
-              <div className="vv" style={{ color: C.gold1 }}>
+              <div className="vv" style={{ color: toneNum(card.activeBps, "osg") }}>
                 {(Number(card.activeBps) / 100).toFixed(1)} %
               </div>
             </div>
-            <div className="mini">
+            <div className={miniCls(f18(card.volume), "info")}>
               <div className="k">Volume introduced</div>
               <div className="vv">{fmt(f18(card.volume), 2)}</div>
             </div>
           </div>
           {Number(card.levelsOpen) < 15 && (
-            <div style={{ fontSize: 12.5, color: C.txt2, marginTop: 12 }}>
+            <div style={{ fontSize: 12.5, color: C.gold1, marginTop: 12 }}>
               🔓 {Number(card.levelsOpen) + 1 - Number(card.directsForLevels)} more
               direct{Number(card.levelsOpen) + 1 - Number(card.directsForLevels) === 1 ? "" : "s"}
               {" "}opens level {Number(card.levelsOpen) + 1}
@@ -4898,9 +4898,9 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
         <div className="card" style={{ marginTop: 14 }}>
           <div className="sec">Commission</div>
           <div className="mini-grid">
-            <div className="mini">
+            <div className={miniCls(fmt(f18(card.owed), 4), "good")}>
               <div className="k">Waiting</div>
-              <div className="vv" style={{ color: C.green }}>
+              <div className="vv" style={{ color: toneNum(fmt(f18(card.owed), 4), "good") }}>
                 {fmt(f18(card.owed), 4)}
               </div>
             </div>
@@ -4963,7 +4963,7 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
                 </div>
                 <span
                   className="ad"
-                  style={{ color: addr && addr !== ZERO ? C.txt : C.txt3 }}
+                  style={{ color: addr && addr !== ZERO ? C.blue : C.txt3 }}
                 >
                   {addr && addr !== ZERO ? short(addr) : t.empty}
                 </span>
@@ -4985,7 +4985,7 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
                   }, 0),
                 )}
                 sub={t.allLevels || "15 Levels"}
-                accent={C.green}
+                accent={C.purple}
               />
               <Stat
                 label={t.teamStaked || "Team Staked"}
@@ -4997,7 +4997,7 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
                   ),
                 )}
                 sub="OSG"
-                accent={C.gold2}
+                accent={C.purple}
               />
             </div>
             {levelsTruncated && (
@@ -5529,7 +5529,7 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t, poo
       {" "}
       <div className="sec">P2P Exchange</div>{" "}
       <div style={{ display: "flex", gap: 5, background: C.bg2, borderRadius: 11, padding: 3, marginBottom: 11 }}>{[[1, "OSG / POL"], [2, "OSG / USDT"]].map(function (m) { return (<button key={m[0]} onClick={function () { setPairId(m[0]); setPPrice(""); setPAmount(""); setSelectedOrder(null); }} style={{ flex: 1, border: 0, borderRadius: 9, padding: "9px 4px", cursor: "pointer", fontFamily: "'JetBrains Mono',monospace", fontSize: 11.5, fontWeight: 600, background: PAIR_ID === m[0] ? C.card2 : "transparent", color: PAIR_ID === m[0] ? C.gold1 : C.txt3, boxShadow: PAIR_ID === m[0] ? "inset 0 0 0 1px rgba(233,185,73,.24)" : "none" }}>{m[1]}</button>); })}</div>
-      {wallet && (<div style={{ display: "flex", gap: 7, marginBottom: 12 }}><div style={{ flex: 1, background: C.bg2, border: "1px solid " + C.line, borderRadius: 11, padding: "8px 11px" }}><div style={{ fontSize: 9, letterSpacing: 1.1, textTransform: "uppercase", color: C.txt3, fontWeight: 700, marginBottom: 3 }}>Your OSG</div><div className="mono" style={{ fontSize: 14, fontWeight: 600 }}>{bal.osg.toFixed(2)}</div></div><div style={{ flex: 1, background: C.bg2, border: "1px solid " + C.line, borderRadius: 11, padding: "8px 11px" }}><div style={{ fontSize: 9, letterSpacing: 1.1, textTransform: "uppercase", color: C.txt3, fontWeight: 700, marginBottom: 3 }}>{"Your " + quoteSym}</div><div className="mono" style={{ fontSize: 14, fontWeight: 600 }}>{bal.pol.toFixed(2)}</div></div><div style={{ flex: 1, background: C.bg2, border: "1px solid rgba(233,185,73,.28)", borderRadius: 11, padding: "8px 11px" }}><div style={{ fontSize: 9, letterSpacing: 1.1, textTransform: "uppercase", color: C.txt3, fontWeight: 700, marginBottom: 3 }}>In orders</div><div className="mono" style={{ fontSize: 14, fontWeight: 600, color: C.gold1 }}>{bal.locked.toFixed(2)}</div></div></div>)}
+      {wallet && (<div style={{ display: "flex", gap: 7, marginBottom: 12 }}><div style={{ flex: 1, background: C.bg2, border: "1px solid " + C.line, borderRadius: 11, padding: "8px 11px" }}><div style={{ fontSize: 9, letterSpacing: 1.1, textTransform: "uppercase", color: C.txt3, fontWeight: 700, marginBottom: 3 }}>Your OSG</div><div className="mono" style={{ fontSize: 14, fontWeight: 600, color: toneNum(bal.osg, "osg") }}>{bal.osg.toFixed(2)}</div></div><div style={{ flex: 1, background: C.bg2, border: "1px solid " + C.line, borderRadius: 11, padding: "8px 11px" }}><div style={{ fontSize: 9, letterSpacing: 1.1, textTransform: "uppercase", color: C.txt3, fontWeight: 700, marginBottom: 3 }}>{"Your " + quoteSym}</div><div className="mono" style={{ fontSize: 14, fontWeight: 600, color: toneNum(bal.pol, "info") }}>{bal.pol.toFixed(2)}</div></div><div style={{ flex: 1, background: C.bg2, border: "1px solid rgba(233,185,73,.28)", borderRadius: 11, padding: "8px 11px" }}><div style={{ fontSize: 9, letterSpacing: 1.1, textTransform: "uppercase", color: C.txt3, fontWeight: 700, marginBottom: 3 }}>In orders</div><div className="mono" style={{ fontSize: 14, fontWeight: 600, color: toneNum(bal.locked, "osg") }}>{bal.locked.toFixed(2)}</div></div></div>)}
       <div className="p2p-book">
         {" "}
         <div>
@@ -6029,7 +6029,7 @@ function Swap({
                   style={{
                     fontSize: 30,
                     fontWeight: 800,
-                    color: C.gold1,
+                    color: toneNum(priceUsdStr, "osg"),
                     lineHeight: 1,
                   }}
                 >
@@ -6597,10 +6597,7 @@ function Earn({ wallet, ensureReady, showToast }) {
             fontSize: 30,
             fontWeight: 800,
             letterSpacing: "-.6px",
-            background: C.grad,
-            WebkitBackgroundClip: "text",
-            backgroundClip: "text",
-            color: "transparent",
+            color: toneNum(fmt(totalClaimable, 3), "good"),
           }}
         >
           {fmt(totalClaimable, 3)}{" "}
@@ -6621,7 +6618,7 @@ function Earn({ wallet, ensureReady, showToast }) {
           <div className="card" style={{ marginBottom: 12 }}>
             <div className="sec">Today's rate</div>
             <div className="mini-grid">
-              <div className="mini">
+              <div className={miniCls(pool.rate, "good")}>
                 <div className="k">Distributing now</div>
                 <div className="vv">{(pool.rate / 100).toFixed(3)} %/day</div>
               </div>
@@ -6629,11 +6626,11 @@ function Earn({ wallet, ensureReady, showToast }) {
                 <div className="k">Ceiling</div>
                 <div className="vv">{(pool.rateMax / 100).toFixed(2)} %/day</div>
               </div>
-              <div className="mini">
+              <div className={miniCls(pool.totalStaked, "osg")}>
                 <div className="k">Total staked</div>
                 <div className="vv">{fmt(pool.totalStaked, 0)}</div>
               </div>
-              <div className="mini">
+              <div className={miniCls(pool.dailyBudget, "osg")}>
                 <div className="k">Daily budget</div>
                 <div className="vv">{fmt(pool.dailyBudget, 2)}</div>
               </div>
@@ -6724,18 +6721,18 @@ function Earn({ wallet, ensureReady, showToast }) {
                   <span>received {fmt(got, 2)}</span>
                   <span>left {fmt(Math.max(0, r.cap - got), 2)}</span>
                 </div>
-                <div style={{ fontSize: 10.5, color: r.lockLeft > 0 ? C.gold1 : C.green, fontFamily: "'JetBrains Mono'", marginTop: 6 }}>
+                <div style={{ fontSize: 10.5, color: r.emiOver || r.lockLeft <= 0 ? C.green : daysTone(Math.ceil(r.lockLeft / 86400)), fontFamily: "'JetBrains Mono'", marginTop: 6 }}>
                   {r.emiOver ? "Emission over - withdraw is open" : r.lockLeft > 0 ? Math.ceil(r.lockLeft / 86400) + " days of the 180-day term left" : "180-day term complete"}
                 </div>
 
                 <div className="mini-grid" style={{ marginTop: 12 }}>
-                  <div className="mini">
+                  <div className={miniCls(r.amount, "osg")}>
                     <div className="k">Staked</div>
                     <div className="vv">{fmt(r.amount, 2)}</div>
                   </div>
-                  <div className="mini">
+                  <div className={miniCls(fmt(r.pend, 4), "good")}>
                     <div className="k">Ready to claim</div>
-                    <div className="vv" style={{ color: C.green }}>
+                    <div className="vv" style={{ color: toneNum(fmt(r.pend, 4), "good") }}>
                       {fmt(r.pend, 4)}
                     </div>
                   </div>
@@ -6799,19 +6796,19 @@ function Earn({ wallet, ensureReady, showToast }) {
           <div className="card" style={{ marginBottom: 12 }}>
             <div className="sec">Your line</div>
             <div className="mini-grid">
-              <div className="mini">
+              <div className={miniCls(team.directs, "team")}>
                 <div className="k">Direct referrals</div>
                 <div className="vv">{team.directs}</div>
               </div>
-              <div className="mini">
+              <div className={miniCls(team.levels, "team")}>
                 <div className="k">Levels open</div>
                 <div className="vv">{team.levels} of 15</div>
               </div>
-              <div className="mini">
+              <div className={miniCls(team.bps, "osg")}>
                 <div className="k">Your share</div>
                 <div className="vv">{(team.bps / 100).toFixed(1)} %</div>
               </div>
-              <div className="mini">
+              <div className={miniCls(team.volume, "info")}>
                 <div className="k">Volume introduced</div>
                 <div className="vv">{fmt(team.volume, 0)}</div>
               </div>
@@ -6836,17 +6833,17 @@ function Earn({ wallet, ensureReady, showToast }) {
           <div className="card" style={{ marginBottom: 12 }}>
             <div className="sec">Rank</div>
             <div className="mini-grid">
-              <div className="mini">
+              <div className={miniCls(team.rank, "team")}>
                 <div className="k">Current rank</div>
                 <div className="vv">
                   {team.rank > 0 ? "R" + team.rank : "—"}
                 </div>
               </div>
-              <div className="mini">
+              <div className={miniCls(team.bonusPaid, "osg")}>
                 <div className="k">Bonus received</div>
                 <div className="vv">{fmt(team.bonusPaid, 2)}</div>
               </div>
-              <div className="mini">
+              <div className={miniCls(team.registeredDirects, "team")}>
                 <div className="k">From your line</div>
                 <div className="vv">{team.registeredDirects}</div>
               </div>
@@ -7733,7 +7730,7 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
               </div>
             )}
             {info.loaded && !info.isWired && (
-              <div style={{ fontSize: 11.5, color: "#ffb4b4", marginTop: 10 }}>
+              <div style={{ fontSize: 11.5, color: C.red, marginTop: 10 }}>
                 Not wired to the reward pool — rewards are not accruing.
               </div>
             )}
@@ -7769,7 +7766,7 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
           }}
         >
           <b style={{ color: C.gold1, fontWeight: 600 }}>Locked for {lockDays} days.</b>{" "}
-          LP added today unlocks on {unlockLabel}. Reward can be claimed at any
+          LP added today unlocks on <span style={{ color: C.blue }}>{unlockLabel}</span>. Reward can be claimed at any
           time along the way.
         </div>
       </div>
@@ -7819,7 +7816,7 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
                         fontSize: 14,
                         fontWeight: 700,
                         marginTop: 4,
-                        color: b[0] === "Lock" ? C.txt : C.green,
+                        color: b[0] === "Lock" ? C.txt : toneNum(cb != null ? perDay : "—", "good"),
                         fontVariantNumeric: "tabular-nums",
                         overflowWrap: "anywhere",
                       }}
@@ -7865,7 +7862,7 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
           <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid " + C.line }}>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: C.txt2, padding: "5px 0" }}>
               <span>POL needed</span>
-              <b style={{ color: C.txt, fontFamily: "'JetBrains Mono',monospace" }}>
+              <b style={{ color: C.blue, fontFamily: "'JetBrains Mono',monospace" }}>
                 {(Number(osgIn) * pool.polPerOsg).toFixed(2)}
               </b>
             </div>
@@ -7879,13 +7876,13 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: C.txt2, padding: "5px 0" }}>
                   <span>Counted as</span>
-                  <b style={{ color: C.txt, fontFamily: "'JetBrains Mono',monospace" }}>
+                  <b style={{ color: toneNum(addCounted, "osg"), fontFamily: "'JetBrains Mono',monospace" }}>
                     {addCounted.toFixed(0)} OSG
                   </b>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: C.txt2, padding: "5px 0" }}>
                   <span>Up to / day</span>
-                  <b style={{ color: C.green, fontFamily: "'JetBrains Mono',monospace" }}>
+                  <b style={{ color: toneNum(addPerDay != null ? addPerDay : "—", "good"), fontFamily: "'JetBrains Mono',monospace" }}>
                     {addPerDay != null ? addPerDay.toFixed(2) + " OSG" : "—"}
                   </b>
                 </div>
@@ -7942,11 +7939,11 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
         {Number(amount) > 0 && stakeW > 0 && (
           <div style={{ fontSize: 12.5, color: C.txt2, marginTop: 12 }}>
             Counted as{" "}
-            <b style={{ color: C.txt, fontFamily: "'JetBrains Mono',monospace" }}>
+            <b style={{ color: C.gold1, fontFamily: "'JetBrains Mono',monospace" }}>
               {(Number(amount) * stakeW).toFixed(0)} OSG
             </b>{" "}
             — about{" "}
-            <b style={{ color: C.green, fontFamily: "'JetBrains Mono',monospace" }}>
+            <b style={{ color: toneNum((Number(amount) * stakeW * stakeBps) / 10000, "good"), fontFamily: "'JetBrains Mono',monospace" }}>
               {((Number(amount) * stakeW * stakeBps) / 10000).toFixed(2)} OSG
             </b>{" "}
             a day.
@@ -7993,7 +7990,7 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
             <div className="sec">Ready to claim</div>
-            <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 24, fontWeight: 700, marginTop: 7, color: C.green, letterSpacing: "-.02em" }}>
+            <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 24, fontWeight: 700, marginTop: 7, color: toneNum(allPending.toFixed(4), "good"), letterSpacing: "-.02em" }}>
               {allPending.toFixed(4)}
             </div>
           </div>
@@ -8047,7 +8044,7 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
                 </span>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11.5, color: C.txt3, marginTop: 6, flexWrap: "wrap" }}>
-                <span>Unlocks {fmtGB(p.unlockAt * 1000)}</span>
+                <span>Unlocks <span style={{ color: C.blue }}>{fmtGB(p.unlockAt * 1000)}</span></span>
                 {p.unlocked ? (
                   <button
                     className="btn-ghost"
@@ -8058,11 +8055,11 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
                     {busy.wd ? <span className="spin" /> : "Withdraw"}
                   </button>
                 ) : (
-                  <span>· {p.daysLeft} days left</span>
+                  <span style={{ color: daysTone(p.daysLeft) }}>· {p.daysLeft} days left</span>
                 )}
               </div>
             </div>
-            <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 13, color: C.green, whiteSpace: "nowrap", textAlign: "right" }}>
+            <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 13, color: toneNum(Number(p.pending).toFixed(4), "good"), whiteSpace: "nowrap", textAlign: "right" }}>
               {Number(p.pending).toFixed(4)} OSG
             </div>
           </div>
@@ -10935,19 +10932,19 @@ function OSGScan({ wallet, data, holders, polUsd, chg24, t }) {
       <div className="scan-trio">
         <div className="scan-stat">
           <div className="k">Holders</div>
-          <div className="v g">
+          <div className="v g" style={{ color: toneNum(holders != null && holders !== "" ? holders : "—", "team") }}>
             {holders != null && holders !== "" ? holders : "—"}
           </div>
           <div className="scan-spark">{spark()}</div>
         </div>
         <div className="scan-stat">
           <div className="k">Market Cap</div>
-          <div className="v">{cUsd(mcap)}</div>
+          <div className="v" style={{ color: toneNum(cUsd(mcap), "info") }}>{cUsd(mcap)}</div>
           <div className="scan-spark">{spark()}</div>
         </div>
         <div className="scan-stat">
           <div className="k">Liquidity</div>
-          <div className="v">{cUsd(scanData.liq)}</div>
+          <div className="v" style={{ color: toneNum(cUsd(scanData.liq), "info") }}>{cUsd(scanData.liq)}</div>
           <div className="scan-spark">{spark()}</div>
         </div>
       </div>
@@ -10986,7 +10983,7 @@ function OSGScan({ wallet, data, holders, polUsd, chg24, t }) {
           <div className="scan-sg">
             <i style={{ background: C.gold2 }} />
             Circulating
-            <div className="n">
+            <div className="n" style={{ color: toneNum(scanData.circ != null ? scanData.circ : "—", "osg") }}>
               {scanData.circ != null ? fmt(scanData.circ, 0) : "—"}
             </div>
           </div>
@@ -11127,7 +11124,7 @@ function OSGScan({ wallet, data, holders, polUsd, chg24, t }) {
           return (
             <div className="scan-row" key={f[0]}>
               <div className="lbl">{f[0]}</div>
-              <div className="addr">{f[1]}</div>
+              <div className="addr" style={/^0(\.0+)?%?(\s|$)/.test(f[1]) ? { color: C.txt2 } : undefined}>{f[1]}</div>
             </div>
           );
         })}
@@ -12640,21 +12637,21 @@ function YourOrders({ wallet, ensureReady, showToast, poolRate, polUsd }) {
             </div>
 
             <div style={{ fontSize: 14.5, color: C.txt, lineHeight: 1.45 }}>
-              <span style={{ color: o.isBuy ? C.green : C.gold2, fontWeight: 600 }}>
+              <span style={{ color: o.isBuy ? C.green : C.red, fontWeight: 600 }}>
                 {o.isBuy ? "Buy" : "Sell"}
               </span>{" "}
               <b>{num(o.osg, 2)} OSG</b>
-              <span style={{ color: C.txt3, fontSize: 12 }}>
+              <span style={{ color: osgUsd > 0 ? C.blue : C.txt3, fontSize: 12 }}>
                 {"  " + (osgUsd > 0 ? usd(o.osg * osgUsd) : "$ —")}
               </span>
             </div>
 
             <div style={{ fontSize: 12, color: C.txt2, marginTop: 4 }}>
               {o.isBuy ? "Locked " : "@ "}
-              <span style={{ color: C.txt }}>
+              <span style={{ color: C.blue }}>
                 {num(o.isBuy ? o.cost : o.price, o.isBuy ? 2 : 4) + " " + o.quoteSym}
               </span>
-              <span style={{ color: C.txt3 }}>
+              <span style={{ color: o.quoteSym === "POL" && !(polUsd > 0) ? C.txt3 : C.blue }}>
                 {"  " + (o.quoteSym === "POL" && !(polUsd > 0) ? "$ —" : usd(quoteUsd(o.quoteSym, o.cost)))}
               </span>
             </div>
@@ -12700,7 +12697,7 @@ function YourOrders({ wallet, ensureReady, showToast, poolRate, polUsd }) {
           }}
         >
           <span>Total locked</span>
-          <span style={{ color: C.gold2, fontWeight: 600 }}>{totalNeedsPol ? "$ —" : usd(totalLocked)}</span>
+          <span style={{ color: totalNeedsPol ? C.txt2 : C.blue, fontWeight: 600 }}>{totalNeedsPol ? "$ —" : usd(totalLocked)}</span>
         </div>
       )}
     </div>
