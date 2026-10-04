@@ -10162,7 +10162,7 @@ function AIAssistant({ wallet, staked, liveData, holders, polUsd, getReadProvide
     {
       role: "assistant",
       content:
-        "Hello! I'm OSG Assistant. Ask me anything about Staking, Referral, Swap, or Chat. You can also ask me for a picture — greetings, festivals, nature and more (3 per hour).",
+        "Hello! I'm OSG Assistant. Ask me anything about Staking, Referral, Swap, or Chat. You can also ask me for a picture — greetings, festivals, nature and more (10 per day).",
     },
   ]);
   const [input, setInput] = useState("");
