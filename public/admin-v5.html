@@ -105,6 +105,11 @@
         <p class="help">How the daily mining budget is shared between the programmes.</p>
         <div id="shares"></div>
       </div>
+      <div class="card" id="lpAllCard" style="display:none">
+        <h2>LP counting (all locks)</h2>
+        <p class="help">Checks LP 12 months and LP 6 &amp; 18 months together and fixes whichever is off.</p>
+        <div id="lpAllCtl"></div>
+      </div>
       <div class="card">
         <h2>LP 12 months (V81)</h2>
         <p class="help">The 365-day LP lock: how LP is counted and its daily rate.</p>
@@ -353,12 +358,13 @@ async function loadLpWeight() {
     if (b[3] === 0n || osgRes === 0n) throw new Error("LP pair is empty");
     var now = a[1];
     var right = (2n * osgRes * 1000000000000000000n) / b[3];
-    var diff = Number(((now - right) * 10000n) / right) / 100;
+    var lc = lpCounting(now, right);
+    var diff = lc.diff;
     var abs = Math.abs(diff);
     var oneCall = right <= now * 2n && right * 2n >= now;
     var rateNow = Number(a[4]) / 100;
     var rateMax = Number(a[3]) / 100;
-    var counts = Number((200n * 1000000000000000000n * now) / right) / 1e18;
+    var counts = lc.counts;
     fill("lpw",
       stat("100 OSG added now counts as", counts.toFixed(1) + " OSG", abs > 3 ? "warn" : "good") +
       stat("It should count as", "200 OSG") +
@@ -427,10 +433,23 @@ async function lpWeightNow() {
   if (b[2] === 0n || osgRes === 0n) throw new Error("LP pair is empty");
   return { now: a[1], right: (2n * osgRes * 1000000000000000000n) / b[2] };
 }
+// Shared by both LP cards and the "all locks" button. now/right are the
+// current and correct lpWeight (1 LP = x OSG, 18 decimals); 1 LP should
+// count as 2 x its OSG side, so 100 OSG + matching POL counts as 200 OSG.
+// Changing lpWeight only affects NEW deposits; existing positions keep
+// their counted value.
+function lpCounting(now, right) {
+  var diff = Number(((now - right) * 10000n) / right) / 100;
+  return {
+    counts: Number((200n * 1000000000000000000n * now) / right) / 1e18,
+    diff: diff,
+    ok: Math.abs(diff) <= 1,
+  };
+}
 function loadLpControls() {
   fill("lpCtl",
     '<div class="bar"><input id="lpRateIn" placeholder="New LP daily reward limit in % (0.10 to 2.00)" style="flex:1"><button class="gold" id="lpRateBtn">Change LP reward</button></div>' +
-    '<div class="bar"><button class="ghost" id="lpWBtn">Fix: make 100 OSG count as 200</button></div>' +
+    '<div class="bar"><button class="ghost" id="lpWBtn">Fix: make 100 OSG count as 200 (12 months)</button></div>' +
     '<div class="muted" id="lpMsg">Every change is tested first, then you approve it in the wallet.</div>');
   document.getElementById("lpRateBtn").onclick = async function () {
     var bps;
@@ -1146,6 +1165,13 @@ async function loadTiersRead() {
     (okR(r[14]) ? stat("Mining share", bpsPct(r[14].value) + (okR(r[15]) ? " (max " + bpsPct(r[15].value) + ")" : "")) : stat("Mining share", "—", "bad", whyR(r[14]))) +
     rstat("Deposits made", r[16], function (v) { return String(v); }) +
     rstat("Rate change", r[17], function (v) { return v === 0n ? "None pending" : "Rate change pending until " + ist(v); }, function (v) { return v === 0n ? "" : "warn"; });
+  // LP counting: same check as the V81 card (one lpWeight for both locks).
+  try {
+    var w = await tiersWeightNow();
+    var lc = lpCounting(w.now, w.right);
+    html += stat("LP counting", "100 OSG + matching POL counts as " + lc.counts.toFixed(1) + " OSG", lc.ok ? "good" : "warn") +
+      stat("LP counting status", lc.ok ? "Correct" : "Fix needed", lc.ok ? "good" : "warn", lc.ok ? "" : "Off by " + (lc.diff > 0 ? "+" : "") + lc.diff.toFixed(2) + "%. It should count as 200 OSG.");
+  } catch (e) { html += stat("LP counting", "—", "bad", errText(e)); }
   fill("tiers", html);
 }
 
@@ -1211,6 +1237,56 @@ async function loadSpotRead() {
   fill("spotSrc", '<table><thead><tr><th>#</th><th>Source</th><th>Stakes in</th><th class="num">Base</th><th>Active</th><th>Pending</th></tr></thead><tbody>' + (rows || '<tr><td colspan="6" class="muted">No sources yet.</td></tr>') + "</tbody></table>");
 }
 
+// ===== Owner controls: LP counting for all locks =====
+// One button for both LP contracts. Each one already within 1% is skipped;
+// the others are fixed one after the other with the usual ownerTx flow
+// (test, confirm, wallet, wait, reload). If one is cancelled or fails, the
+// next is not sent. setLpWeight allows at most 2x up or down per call, so a
+// bigger change is capped at 2x and the owner is asked to run it again.
+// Only NEW deposits are affected; existing positions keep their value.
+function loadLpAllControls() {
+  document.getElementById("lpAllCard").style.display = "block";
+  fill("lpAllCtl",
+    '<div class="bar"><button class="gold" id="lpAllBtn">Fix LP counting for all locks</button></div>' +
+    '<div class="muted" id="lpAllMsg">Reads LP 12 months and LP 6 &amp; 18 months, then fixes only the ones that are off.</div>');
+  document.getElementById("lpAllBtn").onclick = async function () {
+    var btn = this;
+    btn.disabled = true;
+    try {
+      var list = [
+        { key: "lp", label: "LP 12 months (V81)", addr: A.lp, read: lpWeightNow, reload: function () { loadLpWeight(); } },
+        { key: "tiers", label: "LP 6 & 18 months (Tiers)", addr: A.tiers, read: tiersWeightNow, reload: function () { loadTiers(); } },
+      ];
+      note("lpAllMsg", "Reading both LP contracts...");
+      var fixed = [], correct = [], partial = false;
+      var summary = function () {
+        return (fixed.length ? " Fixed: " + fixed.join(", ") + "." : "") + (correct.length ? " Already correct: " + correct.join(", ") + "." : "");
+      };
+      for (var i = 0; i < list.length; i++) {
+        var it = list[i], w;
+        try { w = await it.read(); } catch (e) { note("lpAllMsg", it.label + ": could not read, stopped. " + errText(e) + summary(), "bad"); return; }
+        if (lpCounting(w.now, w.right).ok) { correct.push(it.label); continue; }
+        var target = w.right, capped = false;
+        if (target > w.now * 2n) { target = w.now * 2n; capped = true; }
+        else if (target * 2n < w.now) { target = (w.now + 1n) / 2n; capped = true; }
+        var ok = await ownerTx({ msg: "lpAllMsg", name: "Fix LP counting: " + it.label, addr: it.addr, abi: "function setLpWeight(uint256 newWeight)", fn: "setLpWeight", args: [target],
+          what: it.label + "\n1 LP = " + osg(w.now, 2) + " OSG -> 1 LP = " + osg(target, 2) + " OSG.\n100 OSG added counts as: " + lpCounting(w.now, w.right).counts.toFixed(1) + " OSG -> " + lpCounting(target, w.right).counts.toFixed(1) + " OSG." +
+            (capped ? "\nThe contract allows at most 2x per step, so this is capped at 2x. Run again to finish." : "") +
+            "\nOnly new deposits are affected; existing ones stay as they are.",
+          reload: it.reload });
+        if (!ok) {
+          var why = document.getElementById("lpAllMsg").textContent;
+          note("lpAllMsg", why + " Stopped: " + it.label + " was not fixed" + (i + 1 < list.length ? ", so the next contract was not sent." : ".") + summary(), "bad");
+          return;
+        }
+        fixed.push(it.label + (capped ? " (partly - run again to finish)" : ""));
+        if (capped) partial = true;
+      }
+      note("lpAllMsg", (fixed.length ? "Done." : "Nothing to fix.") + summary(), partial ? "warn" : "good");
+    } finally { btn.disabled = false; }
+  };
+}
+
 // ===== Owner controls: LP 6 & 18 months (Tiers) =====
 // The Tiers source is not in this repo; signatures as given for v1.2.
 var TIERS_W = ["function rateBps(uint256) view returns (uint256)", "function pendingRatesEta() view returns (uint256)", "function pendingRateBps(uint256) view returns (uint256)",
@@ -1255,7 +1331,7 @@ function loadTiersControls() {
     '<div id="tiersMaxRow" style="display:none">' + field("tiersMaxIn", "New share cap in % (at most 70, not below the current share)", "tiersMaxBtn", "Raise the cap") + "</div>" +
     field("tiersCapIn", "Raise limit to (total LP, can only go up)", "tiersCapBtn", "Raise limit") +
     field("tiersMinIn", "Smallest deposit (LP)", "tiersMinBtn", "Change minimum") +
-    '<div class="bar"><button class="ghost" id="tiersWBtn">Fix: make 100 OSG count as 200</button></div>' +
+    '<div class="bar"><button class="ghost" id="tiersWBtn">Fix: make 100 OSG count as 200 (6 &amp; 18 months)</button></div>' +
     '<div class="bar"><button class="ghost" id="tiersPauseBtn">Pause new deposits and claims</button><button class="ghost" id="tiersResumeBtn">Resume</button></div>' +
     '<div class="muted" id="tiersMsg">Every change is tested first, then you approve it in the wallet.</div>');
   var re = function () { loadTiers(); tiersPending(); };
@@ -1782,7 +1858,7 @@ document.getElementById("connectBtn").onclick = async function () {
     loadTasksTab();
     initTabs();
     loadAll();
-    if (IS_OWNER) { loadTreasuryControls(); loadLpControls(); loadLpMoreControls(); loadTermControls(); loadTiersControls(); loadTermDeadlineControls(); loadRefControls(); loadSubAdmins(); document.getElementById("subCard").style.display = "block"; }
+    if (IS_OWNER) { loadTreasuryControls(); loadLpAllControls(); loadLpControls(); loadLpMoreControls(); loadTermControls(); loadTiersControls(); loadTermDeadlineControls(); loadRefControls(); loadSubAdmins(); document.getElementById("subCard").style.display = "block"; }
     loadEarners(false);
   } catch (e) { msg.textContent = "Connect failed: " + ((e && e.message) || e); }
 };
