@@ -11831,7 +11831,7 @@ function OSGScan({ wallet, data, holders, polUsd, chg24, t }) {
           </a>
           <a
             href={
-              "https://onexsartgold.github.io/osg-whitepaper/OSGWhitepaper.pdf"
+              "https://onexsmartgold.com/whitepaper.pdf"
             }
             target="_blank"
             rel="noreferrer"
