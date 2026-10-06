@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Contracts · OSG – OneX Smart Gold</title>
+<meta name="description" content="Every verified OSG smart contract address on Polygon in one list. Compare each address with your wallet before you sign.">
+<meta name="theme-color" content="#0A0907">
+<link rel="icon" href="/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700;9..144,800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/site.css">
+</head>
+<body>
+<nav>
+  <div class="wrap">
+    <a class="brand" href="/"><img src="/logo.png" alt=""><span class="metal">OSG</span></a>
+    <div class="links" id="links">
+      <a href="/about">About</a>
+      <a href="/ecosystem">Ecosystem</a>
+      <a href="/deck">Deck</a>
+      <a href="/scan">OSGScan</a>
+      <a href="/tokenomics">Tokenomics</a>
+      <a href="/contracts" aria-current="page">Contracts</a>
+      <a href="/roadmap">Roadmap</a>
+      <a href="/faq">FAQ</a>
+    </div>
+    <a class="btn btn-gold navcta" href="https://app.onexsmartgold.com" target="_blank" rel="noopener">Open DApp</a>
+    <button class="menu" id="menu" aria-label="Open menu" aria-expanded="false" aria-controls="links"><i></i><i></i><i></i></button>
+  </div>
+</nav>
+
+<main id="top">
+<header class="wrap page-head">
+  <p class="crumb"><a href="/">Home</a> <span aria-hidden="true">/</span> Contracts</p>
+  <h1>Contracts</h1>
+</header>
+
+<!-- CONTRACTS -->
+<section id="contracts" class="wrap">
+  <div class="sec-head"><h2 class="sec-title">Verified contracts.</h2><p class="sec-lede">Compare any address here with the one your wallet shows before you sign. <b class="c-red">OSG will never ask for your seed phrase.</b></p></div>
+  <div class="frame ctbox">
+    <div class="filters" id="filters">
+      <button class="on" data-f="all">All</button><button data-f="core">Core</button><button data-f="mining">Mining</button><button data-f="community">Community</button><button data-f="tools">Tools</button><button data-f="gov">Governance</button>
+    </div>
+    <div id="ctList"></div>
+  </div>
+</section>
+
+<div class="wrap">
+  <div class="final frame">
+    <h2><span class="metal">Smart gold</span> starts with one connection.</h2>
+    <p>Open the DApp in your wallet browser and see every number for yourself.</p>
+    <div class="ctas"><a class="btn btn-gold" href="https://app.onexsmartgold.com" target="_blank" rel="noopener">Open the DApp</a><a class="btn btn-line" href="/contracts">Check the contracts</a></div>
+  </div>
+</div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot">
+      <div>
+        <a class="brand" href="/"><img src="/logo.png" alt="" style="width:44px;height:44px"><span class="metal">OSG</span></a>
+        <p class="muted" style="font-size:14.5px;margin-top:12px;max-width:24em">OneX Smart Gold — a community token ecosystem on Polygon, maintained by the OSG Team.</p>
+      </div>
+      <div><h5>Use</h5><a href="https://app.onexsmartgold.com" target="_blank" rel="noopener">Open DApp</a><a href="/scan">OSGScan</a><a href="/deck">Deck</a><a href="/contracts">Contracts</a></div>
+      <div><h5>Community</h5><a data-social="telegram" href="#" target="_blank" rel="noopener">Telegram</a><a data-social="x" href="#" target="_blank" rel="noopener">X (Twitter)</a><a href="/about">About OSG</a><a href="https://onexsmartgold.com/whitepaper.pdf" target="_blank" rel="noopener">Whitepaper</a><a href="mailto:team@onexsmartgold.com" style="overflow-wrap:anywhere">team@<wbr>onexsmartgold.com</a></div>
+      <div><h5>Verify</h5><a href="https://polygonscan.com/token/0xba05176748347944CC26900c821AbFeBeBC57415" target="_blank" rel="noopener">Polygonscan</a><a href="https://dexscreener.com/polygon/0xA15214B09a9b3E1c821B94fB97d6d3BcA8201Cd2" target="_blank" rel="noopener">DexScreener</a><a href="https://info.quickswap.exchange/#/pair/0xa15214b09a9b3e1c821b94fb97d6d3bca8201cd2" target="_blank" rel="noopener">QuickSwap pool</a></div>
+    </div>
+    <p class="risk"><b class="c-red">Risk notice.</b> OSG is a crypto token. Its price can rise or fall and can reach zero. Nothing on this site is financial, legal or tax advice, and no outcome is promised. Figures are read from public blockchain data and may be delayed or change. Smart contracts can contain bugs. Check the rules where you live before taking part, and only use funds you can afford to lose.</p>
+    <p class="risk" style="margin-top:12px">Official sites: onexsmartgold.com and app.onexsmartgold.com only. The team never DMs first and never asks for a seed phrase.</p>
+    <p class="risk" style="margin-top:12px">OSG is not backed by, linked to, or redeemable for gold or any other asset.</p>
+    <p class="risk" style="margin-top:12px">© <span id="yr"></span> OSG Team</p>
+  </div>
+</footer>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script src="/assets/site.js"></script>
+</body>
+</html>
