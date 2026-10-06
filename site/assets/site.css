@@ -73,7 +73,8 @@ nav .wrap{display:flex;align-items:center;gap:16px;height:68px}
 .navcta{min-height:40px;padding:0 18px;font-size:14px}
 .menu{display:none;margin-left:auto;width:44px;height:44px;border-radius:12px;border:1px solid var(--rule);background:transparent;color:var(--txt);cursor:pointer}
 .menu i{display:block;width:18px;height:2px;background:currentColor;margin:4px auto;border-radius:2px}
-@media(max-width:900px){
+@media(max-width:1320px){.links a{padding:9px 9px}}
+@media(max-width:1180px){
   .links{display:none;position:absolute;top:68px;left:0;right:0;flex-direction:column;background:#0d0b08;border-bottom:1px solid var(--rule);padding:8px 20px 16px}
   .links.open{display:flex}
   .links a{font-size:16px;padding:13px 4px;border-radius:0;border-bottom:1px solid rgba(255,255,255,.04)}
@@ -330,6 +331,24 @@ footer{margin-top:72px;border-top:1px solid var(--rule);padding:44px 0 48px}
 .card h3::after{content:" →";color:var(--gold);transition:margin .2s}
 .card p{color:var(--txt2);font-size:14.5px;margin-top:4px}
 .card:hover h3::after{margin-left:4px}
+.howto{list-style:none;display:grid;gap:14px;max-width:820px}
+.howto li{display:grid;grid-template-columns:48px 1fr;gap:18px;padding:22px 24px}
+.howto .n{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;font:700 18px 'Fraunces',serif;color:#241703;background:var(--metal-flat)}
+.howto h3{font-family:'Fraunces',serif;font-size:21px;font-weight:600;margin-top:8px}
+.howto p{color:var(--txt2);font-size:15.5px;margin-top:6px}
+.howto .ctas{margin-top:16px}
+.addr{font:500 13.5px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--gold)!important;overflow-wrap:anywhere}
+.note{max-width:820px;margin-top:16px;padding:24px 26px}
+.note ul,.ticks{list-style:none;display:grid;gap:10px;margin-top:14px}
+.note li,.ticks li{position:relative;padding-left:24px;color:var(--txt2);font-size:15px}
+.note li::before,.ticks li::before{content:"";position:absolute;left:2px;top:.6em;width:8px;height:8px;transform:rotate(45deg);background:var(--metal-flat)}
+.h3{font-family:'Fraunces',serif;font-size:24px;font-weight:600}
+.safe{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.safe .frame{padding:28px 26px}
+.links-list .kv a{color:var(--gold-hi);text-decoration:none;font-weight:700;text-align:right;overflow-wrap:anywhere;min-width:0}
+.links-list .kv a:hover{text-decoration:underline}
+@media(max-width:900px){.safe{grid-template-columns:1fr}}
+@media(max-width:440px){.howto li{grid-template-columns:1fr;gap:10px}}
 @media print{.page-head{display:none!important}}
 
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);opacity:0;background:#1c1810;box-shadow:inset 0 0 0 1px rgba(233,185,73,.4),0 10px 30px rgba(0,0,0,.5);color:var(--txt);padding:12px 18px;border-radius:999px;font-size:14px;font-weight:600;transition:all .25s ease;z-index:99;pointer-events:none}
