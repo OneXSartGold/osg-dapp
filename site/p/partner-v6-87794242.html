@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow,noarchive"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OSG Referral v6 Plan</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Hanken+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: single column ledger — header, live "what opens for me" checker, level ledger, ranks, pot split, rules */
+:root{
+  --bg:#0B0A08; --panel:#15130F; --panel2:#1D1A14; --line:rgba(233,185,73,.16);
+  --gold:#E9B949; --gold-hi:#F7D27A; --fg:#F6F1E6; --muted:#A79F8C; --faint:#6F6857;
+  --g1:#E9B949; --g2:#46D08A; --g3:#5AA9F2; --g4:#C08BF5;
+  --display:"Bricolage Grotesque",Georgia,serif; --body:"Hanken Grotesk",system-ui,sans-serif; --mono:"JetBrains Mono",ui-monospace,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:16px/1.55 var(--body);margin:0}
+.wrap{max-width:960px;margin:0 auto;padding-inline:16px;padding-block:28px 56px;display:grid;gap:28px}
+h1,h2{font-family:var(--display);text-wrap:balance;margin:0}
+h1{font-size:clamp(28px,5vw,44px);line-height:1.08;font-weight:800}
+h1 span{color:var(--gold)}
+h2{font-size:22px;font-weight:700}
+.eyebrow{font:600 12px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--gold)}
+.lede{color:var(--muted);max-width:62ch;margin:10px 0 0}
+.meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.chip{font:600 12px var(--mono);padding:5px 10px;border:1px solid var(--line);border-radius:999px;color:var(--muted)}
+.chip b{color:var(--fg)}
+section{display:grid;gap:12px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}
+.sub{color:var(--muted);font-size:14px;margin:0}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+/* checker */
+.check{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+@media (max-width:640px){.check{grid-template-columns:1fr}}
+label{font-size:13px;color:var(--muted);display:block;margin-bottom:6px}
+.row{display:flex;gap:10px;align-items:center}
+input[type=range]{flex:1;accent-color:var(--gold)}
+select,output{font:600 15px var(--mono);background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+output{min-width:52px;text-align:center}
+.result{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.stat{background:var(--panel2);border-radius:10px;padding:12px}
+.stat .k{font-size:12px;color:var(--muted)}
+.stat .v{font:800 26px var(--display);color:var(--gold-hi)}
+.next{grid-column:1/-1;font-size:14px;color:var(--muted)}
+.next b{color:var(--fg)}
+/* ledger */
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{font:600 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--faint);text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+td{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.05)}
+td.r,th.r{text-align:right}
+tr.grp td{background:var(--panel2);font-weight:600}
+tr.grp td .bar{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px;vertical-align:middle}
+tr.open td{color:var(--fg)}
+tr.shut td{color:var(--faint)}
+tr.open td:first-child{box-shadow:inset 3px 0 0 var(--gold)}
+.pill{font:600 11px var(--mono);padding:2px 8px;border-radius:999px;border:1px solid var(--line)}
+.tot td{font-weight:700;color:var(--gold-hi);border-top:1px solid var(--line)}
+/* split */
+.split{display:flex;height:34px;border-radius:8px;overflow:hidden;border:1px solid var(--line)}
+.split div{display:flex;align-items:center;justify-content:center;font:600 12px var(--mono);color:#0B0A08;min-width:0;white-space:nowrap;overflow:hidden}
+.legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.legend .stat .v{font-size:20px}
+ul.rules{margin:0;padding-left:18px;display:grid;gap:8px;color:var(--muted)}
+ul.rules b{color:var(--fg)}
+footer{color:var(--faint);font-size:12px}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+</style>
+</head><body>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">OSG · Referral v6 · Global Plan v2.1</div>
+    <h1>50 levels, 5 ranks, <span>one referral pot</span></h1>
+    <p class="lede">Final proposal for review. Commission is paid on the reward a member's downline actually claims, out of the referral share of the daily release. Nothing here is paid from anyone's own stake.</p>
+    <div class="meta">
+      <span class="chip">Referral share <b>31%</b> of daily release</span>
+      <span class="chip">Levels total <b>67.5%</b></span>
+      <span class="chip">Rank 1 = <b>6 directs</b></span>
+      <span class="chip">Draft · <b>8 Oct 2026</b></span>
+    </div>
+  </header>
+
+  <section>
+    <h2>What opens for a member</h2>
+    <p class="sub">Move the slider and pick a rank to see which levels unlock. A direct is a referred wallet with its own stake of at least 100 OSG.</p>
+    <div class="panel check">
+      <div style="display:grid;gap:16px">
+        <div>
+          <label for="dirs">Directs</label>
+          <div class="row"><input id="dirs" type="range" min="0" max="30" value="6"><output id="dirsOut">6</output></div>
+        </div>
+        <div>
+          <label for="rank">Rank held</label>
+          <select id="rank">
+            <option value="0">No rank</option>
+            <option value="1" selected>R1</option>
+            <option value="2">R2</option>
+            <option value="3">R3</option>
+            <option value="4">R4</option>
+            <option value="5">R5</option>
+          </select>
+        </div>
+      </div>
+      <div class="result">
+        <div class="stat"><div class="k">Levels open</div><div class="v num" id="lvOpen">6</div></div>
+        <div class="stat"><div class="k">Commission share</div><div class="v num" id="pctOpen">36%</div></div>
+        <div class="next" id="nextStep"></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Level ledger</h2>
+    <p class="sub">L1–L15: one direct per level. From L16: one more direct for every 3 levels. Rows light up for the example above.</p>
+    <div class="panel scroll" style="padding:6px">
+      <table id="ledger">
+        <thead><tr><th>Level</th><th class="r">Commission</th><th class="r">Directs</th><th>Rank</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Ranks</h2>
+    <p class="sub">All three conditions are needed. R1 needs 6 directs so that L6–L9 can actually open.</p>
+    <div class="panel scroll" style="padding:6px">
+      <table>
+        <thead><tr><th>Rank</th><th class="r">Directs</th><th class="r">Own stake</th><th class="r">Team stake</th><th class="r">Monthly bonus</th><th>Unlocks</th></tr></thead>
+        <tbody class="num">
+          <tr><td>R1</td><td class="r">6</td><td class="r">500</td><td class="r">5,000</td><td class="r">100 OSG</td><td>L6–L15</td></tr>
+          <tr><td>R2</td><td class="r">15</td><td class="r">1,000</td><td class="r">10,000</td><td class="r">200 OSG</td><td>L16–L25</td></tr>
+          <tr><td>R3</td><td class="r">15</td><td class="r">3,000</td><td class="r">25,000</td><td class="r">500 OSG</td><td>L26–L50</td></tr>
+          <tr><td>R4</td><td class="r">15</td><td class="r">5,000</td><td class="r">50,000</td><td class="r">1,000 OSG</td><td>—</td></tr>
+          <tr><td>R5</td><td class="r">15</td><td class="r">10,000</td><td class="r">100,000</td><td class="r">2,000 OSG</td><td>—</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>How the daily referral pot is shared</h2>
+    <p class="sub">The pot is 31% of the daily release (about 1,823 OSG/day today). Inside it:</p>
+    <div class="split" aria-hidden="true">
+      <div style="width:55%;background:var(--g1)">Levels 55%+</div>
+      <div style="width:25%;background:var(--g2)">Rank 25%</div>
+      <div style="width:10%;background:var(--g3)">Spot</div>
+      <div style="width:10%;background:var(--g4)">Task</div>
+    </div>
+    <div class="legend">
+      <div class="stat"><div class="k">Levels (commission)</div><div class="v">at least 55%</div></div>
+      <div class="stat"><div class="k">Rank monthly bonus</div><div class="v">at most 25%</div></div>
+      <div class="stat"><div class="k">Spot · 3% one-time sponsor bonus</div><div class="v">at most 10%</div></div>
+      <div class="stat"><div class="k">Task / airdrop · seasonal</div><div class="v">at most 10%</div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Rules</h2>
+    <div class="panel">
+      <ul class="rules">
+        <li><b>Ceilings, not promises.</b> Every % is a maximum. If the pot runs short, all rates shrink in the same proportion; when demand falls they return to the full set rate, never above it.</li>
+        <li><b>Unused share is shared.</b> If one part does not use its share on a day, it goes wherever another part is short (levels, rank or spot). Budget nobody uses is not minted.</li>
+        <li><b>Adjustable without a new contract.</b> The owner can change any level %, the directs and rank needed, the number of active levels (up to 50), rank terms, Spot terms and the pot split in one signed change, within hard limits written into the contract.</li>
+        <li><b>48-hour notice.</b> Every change is announced to the community at least 48 hours before it is applied.</li>
+        <li><b>Spot has no end date.</b> It can be switched on or off by the owner.</li>
+        <li><b>One system.</b> v5 and the current Spot contract are closed; every member's team, balances owed, rank and Spot history move into v6 unchanged.</li>
+      </ul>
+    </div>
+  </section>
+
+  <footer>OSG Team · internal proposal for review · figures follow the daily release and can change.</footer>
+</div>
+
+<script>
+(function(){
+  var L=[];
+  for(var i=1;i<=50;i++){
+    var d=i<=15?i:15+Math.ceil((i-15)/3);
+    var p=i<=5?[15,10,5,3,2][i-1]:(i<=25?1:0.5);
+    var r=i<=5?0:(i<=15?1:(i<=25?2:3));
+    L.push({l:i,d:d,p:p,r:r});
+  }
+  var groups={1:["L1–L5 · 35%","var(--g1)"],6:["L6–L15 · 10% · Rank 1","var(--g2)"],16:["L16–L25 · 10% · Rank 2","var(--g3)"],26:["L26–L50 · 12.5% · Rank 3","var(--g4)"]};
+  var tb=document.querySelector("#ledger tbody"),html="";
+  L.forEach(function(x){
+    if(groups[x.l]) html+='<tr class="grp"><td colspan="4"><span class="bar" style="background:'+groups[x.l][1]+'"></span>'+groups[x.l][0]+'</td></tr>';
+    html+='<tr data-l="'+x.l+'"><td>L'+x.l+'</td><td class="r num">'+x.p+'%</td><td class="r num">'+x.d+'</td><td>'+(x.r?'<span class="pill">R'+x.r+'</span>':'—')+'</td></tr>';
+  });
+  html+='<tr class="tot"><td>Total</td><td class="r num">67.5%</td><td></td><td></td></tr>';
+  tb.innerHTML=html;
+  var dirs=document.getElementById("dirs"),rank=document.getElementById("rank");
+  function upd(){
+    var d=+dirs.value,r=+rank.value,n=0,pct=0;
+    document.getElementById("dirsOut").textContent=d;
+    L.forEach(function(x){
+      var ok=d>=x.d&&r>=x.r;
+      var row=tb.querySelector('tr[data-l="'+x.l+'"]');
+      row.className=ok?"open":"shut";
+      if(ok){n=x.l;pct+=x.p;}
+      else if(n===x.l-1) {}
+    });
+    // levels open counted as highest consecutive
+    var open=0,p2=0;
+    for(var i=0;i<50;i++){var x=L[i];if(d>=x.d&&r>=x.r){open=x.l;p2+=x.p;}else break;}
+    document.getElementById("lvOpen").textContent=open;
+    document.getElementById("pctOpen").textContent=(Math.round(p2*10)/10)+"%";
+    var nx=L[open],msg;
+    if(!nx) msg="All 50 levels are open.";
+    else{
+      var need=[];
+      if(d<nx.d) need.push((nx.d-d)+" more direct"+(nx.d-d>1?"s":""));
+      if(r<nx.r) need.push("Rank "+nx.r);
+      msg="Next: <b>L"+nx.l+" ("+nx.p+"%)</b> needs "+need.join(" and ")+".";
+    }
+    document.getElementById("nextStep").innerHTML=msg;
+  }
+  dirs.addEventListener("input",upd);rank.addEventListener("change",upd);upd();
+})();
+</script>
+</body></html>
