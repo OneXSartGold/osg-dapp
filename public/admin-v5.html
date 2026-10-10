@@ -183,6 +183,13 @@
         <div class="scroll"><table><thead><tr><th>#</th><th>Wallet</th><th>Upline</th><th class="num">Own stake</th><th class="num">Directs</th><th class="num">Levels open</th><th class="num">Volume</th><th class="num">Owed</th><th class="num">Paid</th><th>Rank proven</th><th>Eligible</th><th class="num">Team</th></tr></thead><tbody id="earnRows"></tbody></table></div>
         <div class="muted" style="margin-top:8px">Tap a row to open the full detail in Wallet lookup.</div>
       </div>
+      <div class="card">
+        <h2>Referral v6 migration: v5 snapshot</h2>
+        <p class="help">Reads everything Referral v6 needs from v5, the old staking tree and the Spot contract, and saves it as one file. Read only: nothing is sent and no wallet signature is asked.</p>
+        <div class="bar"><button class="gold" id="snapBtn">Export v5 snapshot</button></div>
+        <div class="grid" id="snapSum" style="margin-top:10px"></div>
+        <div class="muted" id="snapMsg">Takes a few minutes. Keep this tab open until the file downloads.</div>
+      </div>
     </section>
 
     <section class="panel" role="tabpanel" id="panel-tasks" aria-labelledby="tab-tasks" hidden>
@@ -1870,6 +1877,164 @@ document.getElementById("earnSort").onchange = renderEarners;
 document.getElementById("earnOwed").onchange = renderEarners;
 document.getElementById("earnCsv").onclick = earnCsv;
 document.getElementById("earnTeamBtn").onclick = earnTeam;
+// ===== Referral v6 migration: read-only snapshot of v5 + old staking tree + Spot =====
+// Every read is pinned to one block, so the file is one consistent picture.
+var MC3 = "0xcA11bde05977b3631167028862bE2a173976CA11"; // Multicall3 (Polygon)
+var MC3_ABI = ["function aggregate3(tuple(address target, bool allowFailure, bytes callData)[] calls) view returns (tuple(bool success, bytes returnData)[])"];
+var SNAP_V5 = ["function staking() view returns (address)", "function usersLength() view returns (uint256)", "function allUsers(uint256) view returns (address)",
+  "function nativeReferrer(address) view returns (address)", "function directCounted(address) view returns (bool)",
+  "function owed(address) view returns (uint256)", "function paid(address) view returns (uint256)", "function volume(address) view returns (uint256)",
+  "function rankOf(address) view returns (uint8)", "function rankSince(address) view returns (uint256)", "function lastBonusAt(address) view returns (uint256)",
+  "function bonusPaidTotal(address) view returns (uint256)", "function lastAccrualRank(address) view returns (uint8)", "function bonusOwed(address) view returns (uint256)",
+  "function airdropOwed(address) view returns (uint256)", "function airdropPaid(address) view returns (uint256)",
+  "function qualifyingStakeOf(address) view returns (uint256)", "function totalAirdropAssigned() view returns (uint256)", "function totalAirdropPaid() view returns (uint256)",
+  "function accrualFrozen() view returns (bool)", "function paused() view returns (bool)"];
+var SNAP_ST = ["function users(address) view returns (uint256 staked, uint256 rewardDebt, uint256 pendingHarvest, uint256 unstakeRequestAt, uint256 totalEarned, uint256 stakedAt, address referrer, uint256 totalReferrals, uint256 totalReferralEarned, uint256 totalTeamVolume, uint256 teamBonusEarned)",
+  "function getDirectReferrals(address) view returns (address[])"];
+var SNAP_SPOT = ["event SpotPaid(address indexed sponsor, uint256 indexed sourceId, address indexed staker, uint256 index, uint256 amount)",
+  "function underlyingOf(uint256) view returns (address)", "function rankReachedAt(address) view returns (uint256)", "function paidTo(address) view returns (uint256)",
+  "function totalPaid() view returns (uint256)", "function startAt() view returns (uint256)"];
+var SPOT_FROM_BLOCK = 94750000; // Spot was deployed just before this (1 Oct 2026)
+
+async function snapMulti(target, iface, fn, argsList, blockTag, size) {
+  var mc = new E.Contract(MC3, MC3_ABI, pv());
+  var out = [];
+  size = size || 150;
+  for (var i = 0; i < argsList.length; i += size) {
+    var part = argsList.slice(i, i + size);
+    var calls = part.map(function (a) { return { target: target, allowFailure: true, callData: iface.encodeFunctionData(fn, a) }; });
+    var res;
+    for (var t = 0; ; t++) {
+      try { res = await mc.aggregate3.staticCall(calls, { blockTag: blockTag }); break; }
+      catch (e) { if (t >= 3) throw e; await new Promise(function (r) { setTimeout(r, 1500); }); }
+    }
+    res.forEach(function (r) { out.push(r.success ? iface.decodeFunctionResult(fn, r.returnData) : null); });
+  }
+  return out;
+}
+function snapStat(id, rows) { fill(id, rows.map(function (r) { return stat(r[0], r[1], r[2] || "", r[3] || ""); }).join("")); }
+
+async function snapExport() {
+  var btn = document.getElementById("snapBtn");
+  btn.disabled = true;
+  try {
+    var block = await pv().getBlockNumber();
+    var bt = block;
+    note("snapMsg", "Block " + block + ": reading v5 wallet list...");
+    var v5i = new E.Interface(SNAP_V5);
+    var v5 = new E.Contract(A.referral, SNAP_V5, pv());
+    var stAddr = await v5.staking({ blockTag: bt });
+    var stI = new E.Interface(SNAP_ST);
+    var n = Number(await v5.usersLength({ blockTag: bt }));
+    var idx = []; for (var i = 0; i < n; i++) idx.push([i]);
+    var users = (await snapMulti(A.referral, v5i, "allUsers", idx, bt, 300)).map(function (r) { return r[0]; });
+
+    // 1) per-wallet v5 ledger
+    var F = ["nativeReferrer", "directCounted", "owed", "paid", "volume", "rankOf", "rankSince", "lastBonusAt", "bonusPaidTotal", "lastAccrualRank", "bonusOwed", "airdropOwed", "airdropPaid", "qualifyingStakeOf"];
+    var cols = {};
+    for (var f = 0; f < F.length; f++) {
+      note("snapMsg", "Block " + block + ": reading v5 " + F[f] + " for " + n + " wallets (" + (f + 1) + "/" + F.length + ")...");
+      cols[F[f]] = (await snapMulti(A.referral, v5i, F[f], users.map(function (u) { return [u]; }), bt)).map(function (r) { return r ? r[0] : null; });
+    }
+
+    // 2) old staking tree: walk down (getDirectReferrals) and up (referrer) from every v5 wallet
+    note("snapMsg", "Block " + block + ": walking the old staking tree...");
+    var seen = {}, info = {}, queue = [];
+    users.forEach(function (u) { var k = u.toLowerCase(); if (!seen[k]) { seen[k] = 1; queue.push(u); } });
+    while (queue.length) {
+      var batch = queue.splice(0, 150);
+      var us = await snapMulti(stAddr, stI, "users", batch.map(function (u) { return [u]; }), bt);
+      var ds = await snapMulti(stAddr, stI, "getDirectReferrals", batch.map(function (u) { return [u]; }), bt, 60);
+      batch.forEach(function (u, j) {
+        var r = us[j];
+        info[u.toLowerCase()] = { a: u, staked: r ? r.staked.toString() : "0", ref: r ? r.referrer : E.ZeroAddress, refs: r ? r.totalReferrals.toString() : "0" };
+        var nxt = (ds[j] ? Array.from(ds[j][0]) : []).concat(r && r.referrer !== E.ZeroAddress ? [r.referrer] : []);
+        nxt.forEach(function (x) { var k = x.toLowerCase(); if (!seen[k]) { seen[k] = 1; queue.push(x); } });
+      });
+      note("snapMsg", "Block " + block + ": old staking tree, " + Object.keys(info).length + " wallets so far...");
+    }
+
+    // 3) Spot: every stake already paid, and each sponsor's stop moment / total
+    note("snapMsg", "Block " + block + ": reading Spot payments...");
+    var spI = new E.Interface(SNAP_SPOT);
+    var topic = spI.getEvent("SpotPaid").topicHash;
+    var logs = [];
+    for (var from = SPOT_FROM_BLOCK; from <= block; from += 5000) {
+      var to = Math.min(block, from + 4999);
+      var got;
+      for (var t = 0; ; t++) {
+        try { got = await pv().getLogs({ address: A.spot, topics: [topic], fromBlock: from, toBlock: to }); break; }
+        catch (e) { if (t >= 3) throw e; await new Promise(function (r) { setTimeout(r, 1500); }); }
+      }
+      logs = logs.concat(got);
+    }
+    var srcIds = {}, paidRows = [], sponsors = {};
+    logs.forEach(function (l) {
+      var ev = spI.parseLog(l);
+      srcIds[ev.args.sourceId.toString()] = 1;
+      sponsors[ev.args.sponsor.toLowerCase()] = ev.args.sponsor;
+      paidRows.push({ sourceId: ev.args.sourceId.toString(), staker: ev.args.staker, index: ev.args.index.toString(), sponsor: ev.args.sponsor, amount: ev.args.amount.toString(), tx: l.transactionHash });
+    });
+    var ids = Object.keys(srcIds);
+    var und = await snapMulti(A.spot, spI, "underlyingOf", ids.map(function (x) { return [x]; }), bt);
+    var undOf = {}; ids.forEach(function (x, j) { undOf[x] = und[j] ? und[j][0] : null; });
+    paidRows.forEach(function (r) { r.underlying = undOf[r.sourceId]; });
+    var spList = Object.values(sponsors);
+    var stops = await snapMulti(A.spot, spI, "rankReachedAt", spList.map(function (x) { return [x]; }), bt);
+    var tots = await snapMulti(A.spot, spI, "paidTo", spList.map(function (x) { return [x]; }), bt);
+    var spot = new E.Contract(A.spot, SNAP_SPOT, pv());
+    var spotTotal = await spot.totalPaid({ blockTag: bt });
+
+    // 4) assemble + check sums
+    var sum = { owed: 0n, bonusOwed: 0n, airdropOwed: 0n, airdropPaid: 0n };
+    var rows = users.map(function (u, j) {
+      var g = function (k) { var v = cols[k][j]; return v === null ? null : (typeof v === "bigint" ? v.toString() : v); };
+      ["owed", "bonusOwed", "airdropOwed", "airdropPaid"].forEach(function (k) { if (cols[k][j] !== null) sum[k] += cols[k][j]; });
+      var st = info[u.toLowerCase()] || {};
+      return { a: u, nativeRef: g("nativeReferrer"), legacyRef: st.ref || E.ZeroAddress, legacyDirects: st.refs || "0", activeStake: st.staked || "0",
+        directCounted: g("directCounted"), owed: g("owed"), paid: g("paid"), volume: g("volume"), rank: g("rankOf"), rankSince: g("rankSince"),
+        lastBonusAt: g("lastBonusAt"), bonusPaid: g("bonusPaidTotal"), lastAccrualRank: g("lastAccrualRank"), bonusOwed: g("bonusOwed"),
+        airdropOwed: g("airdropOwed"), airdropPaid: g("airdropPaid"), hookedStake: g("qualifyingStakeOf") };
+    });
+    var inV5 = {}; users.forEach(function (u) { inV5[u.toLowerCase()] = 1; });
+    var legacyOnly = Object.values(info).filter(function (x) { return !inV5[x.a.toLowerCase()]; });
+    var failed = users.filter(function (u, j) { return F.some(function (k) { return cols[k][j] === null; }); }).length;
+    var activeOnly = rows.filter(function (r) { return BigInt(r.activeStake) > 0n && BigInt(r.hookedStake || "0") < 100n * 10n ** 18n; }).length;
+    var res = await Promise.all([v5.totalAirdropAssigned({ blockTag: bt }), v5.totalAirdropPaid({ blockTag: bt }), v5.accrualFrozen({ blockTag: bt }), v5.paused({ blockTag: bt })]);
+
+    var file = {
+      kind: "OSG Referral v5 snapshot for v6", version: 1, block: block, takenAt: new Date().toISOString(),
+      contracts: { referralV5: A.referral, oldStaking: stAddr, spot: A.spot },
+      v5State: { frozen: res[2], paused: res[3], totalAirdropAssigned: res[0].toString(), totalAirdropPaid: res[1].toString() },
+      sums: { owed: sum.owed.toString(), bonusOwed: sum.bonusOwed.toString(), airdropOwed: sum.airdropOwed.toString(), airdropPaid: sum.airdropPaid.toString() },
+      counts: { v5Wallets: rows.length, oldTreeOnly: legacyOnly.length, spotPayments: paidRows.length, spotSponsors: spList.length, readFailures: failed, activeOnlyStakers: activeOnly },
+      users: rows,
+      oldTreeOnly: legacyOnly,
+      spot: { totalPaid: spotTotal.toString(), payments: paidRows, sponsors: spList.map(function (x, j) { return { a: x, stopAt: stops[j] ? stops[j][0].toString() : null, paidTo: tots[j] ? tots[j][0].toString() : null }; }) }
+    };
+    var blob = new Blob([JSON.stringify(file)], { type: "application/json" });
+    var link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "osg-v5-snapshot-" + block + ".json";
+    link.click();
+
+    var spotSum = paidRows.reduce(function (s, r) { return s + BigInt(r.amount); }, 0n);
+    snapStat("snapSum", [
+      ["Block", String(block)],
+      ["v5 wallets", String(rows.length)],
+      ["Old-tree wallets outside v5", String(legacyOnly.length)],
+      ["Owed commission (sum)", osg(sum.owed) + " OSG"],
+      ["Rank bonus owed (sum)", osg(sum.bonusOwed) + " OSG"],
+      ["Airdrop owed (sum)", osg(sum.airdropOwed) + " OSG", sum.airdropOwed === res[0] ? "good" : "warn", sum.airdropOwed === res[0] ? "" : "Does not match v5 total " + osg(res[0])],
+      ["Spot payments", paidRows.length + " (" + osg(spotSum) + " OSG)", spotSum === spotTotal ? "good" : "warn", spotSum === spotTotal ? "" : "Spot total says " + osg(spotTotal)],
+      ["Active-staking-only wallets", String(activeOnly), activeOnly ? "warn" : "", activeOnly ? "Need Term/LP/Tiers stake for v6 commission." : ""],
+      ["Read failures", String(failed), failed ? "bad" : "good", failed ? "Export again." : ""]
+    ]);
+    note("snapMsg", "Saved osg-v5-snapshot-" + block + ".json - send this file.", "good");
+  } catch (e) { note("snapMsg", "Export stopped: " + errText(e), "bad"); }
+  btn.disabled = false;
+}
+document.getElementById("snapBtn").onclick = snapExport;
 </script>
 </body>
 </html>
