@@ -5,6 +5,8 @@ import {
   JsonRpcProvider,
   FetchRequest,
   Contract,
+  AbiCoder,
+  keccak256,
   formatUnits,
   parseUnits,
   isAddress,
@@ -32,6 +34,9 @@ PAIR_ABI,
   REFERRAL_V42_ABI,
   REFERRAL_LENS_ABI,
   REFERRAL_HEALTH_ABI,
+  REF_V6,
+  SPOT_V6_ABI,
+  REFERRAL_V6_SLOTS,
 } from "./contracts.js";
 import {
   calculateRequiredPOL,
@@ -1198,6 +1203,30 @@ async function mintPreflight(runner, who) {
   }
 }
 
+// The lens wallet card. On Referral v6, "paid" and "bonusPaidTotal" have
+// no public getter, so they are read straight from v6 storage (slots from
+// the compiler's storage layout) and put back into a plain copy.
+async function walletCardOf(lens, wallet) {
+  const c = await lens.walletCard(wallet);
+  if (!REF_V6) return c;
+  const o = c.toObject();
+  try {
+    const r = lens.runner;
+    const p = (r && r.provider) || r;
+    const at = function (slot) {
+      return p.getStorage(ADDRESSES.referralV6, keccak256(AbiCoder.defaultAbiCoder().encode(["address", "uint256"], [wallet, slot])));
+    };
+    const [pd, bp] = await Promise.all([at(REFERRAL_V6_SLOTS.paid), at(REFERRAL_V6_SLOTS.bonusPaidTotal)]);
+    o.paid = BigInt(pd);
+    o.bonusPaidTotal = BigInt(bp);
+  } catch (e) {}
+  return o;
+}
+// How many commission levels the live referral contract has.
+function refLevels() {
+  return REF_V6 ? 50 : 15;
+}
+
 // Event pass. The rules live in /event-pass.json, so windows and amounts can
 // change without touching this file. Three kinds of step, any one is enough:
 //   "self"    -- the wallet's OWN new stake inside the window (minSelf)
@@ -2085,7 +2114,7 @@ function PoolCards({ getProvider, wallet, oldStaked, setTab }) {
         name: "Term Staking",
         icon: ICO.term,
         tag: "OPEN",
-        sub: "Locked 180 days · 45% referral across 15 levels",
+        sub: REF_V6 ? "Locked 180 days · referral across 50 levels" : "Locked 180 days · 45% referral across 15 levels",
         ink: "#F7D27A",
         tint: "#17150D",
         tint2: "rgba(233,185,73,.14)",
@@ -4357,7 +4386,63 @@ const SPOT_SOURCE_ABI = [
 ];
 const SPOT_MAX_BATCH = 20;
 
+// Referral v6: spot lives in OSGSpotV6 and is paid inside the referral
+// pot. Settings come from the v6 core (spot()); there is no Treasury pool
+// and no separate daily limit to show -- the claim test decides.
+async function loadSpotStateV6(p, wallet, directs) {
+  const core = new Contract(ADDRESSES.referralV6, REFERRAL_V42_ABI, p);
+  const spot = new Contract(ADDRESSES.spotV6, SPOT_V6_ABI, p);
+  const [cfg, self, n, stop, got, startAt] = await Promise.all([
+    core.spot(), core.stakeOf(wallet), spot.sourcesCount(), spot.stopAt(wallet), spot.paidTo(wallet), spot.spotStartAt(),
+  ]);
+  const BIG = 10n ** 30n;
+  const out = {
+    v6: true, started: true, startAt: startAt, paused: !cfg.enabled, rateBps: Number(cfg.rateBps), minSelf: cfg.minSelfStake,
+    selfStake: self, eligible: self >= cfg.minSelfStake, reachedAt: stop, received: got,
+    pool: BIG, todayLeft: BIG, items: [], total: 0n, rankRecorded: stop > 0n, blockedByRank: false,
+  };
+  if (out.paused || self < cfg.minSelfStake) return out;
+  const ids = [];
+  for (let i = 0; i < Number(n); i++) ids.push(i);
+  const srcs = await Promise.all(ids.map(function (i) { return spot.sources(i); }));
+  const live = [];
+  srcs.forEach(function (s, i) {
+    if (s.active) live.push({ id: i, c: new Contract(s.src, SPOT_SOURCE_ABI, p) });
+  });
+  const seen = {};
+  const people = (directs || []).filter(function (a) {
+    const k = String(a).toLowerCase();
+    if (seen[k]) return false;
+    seen[k] = true;
+    return true;
+  });
+  const jobs = [];
+  people.forEach(function (d) {
+    live.forEach(function (s) {
+      jobs.push((async function () {
+        const cnt = Number(await s.c.spotPositionCount(d));
+        for (let k = cnt - 1; k >= 0; k--) {
+          const pos = await s.c.spotPosition(d, k);
+          if (pos.startTime < startAt) break;
+          if (!pos.open) continue;
+          const q = await spot.quote(wallet, s.id, d, k);
+          if (Number(q.reason) === 0 && q.amount > 0n) {
+            out.items.push({ sourceId: s.id, staker: d, index: k, amount: q.amount });
+          } else if (Number(q.reason) === 6) {
+            out.blockedByRank = true;
+          }
+        }
+      })());
+    });
+  });
+  await Promise.all(jobs);
+  out.items.sort(function (a, b) { return a.amount > b.amount ? -1 : a.amount < b.amount ? 1 : 0; });
+  out.total = out.items.reduce(function (s, x) { return s + x.amount; }, 0n);
+  return out;
+}
+
 async function loadSpotState(p, wallet, directs) {
+  if (REF_V6) return loadSpotStateV6(p, wallet, directs);
   const spot = new Contract(SPOT_ADDR, SPOT_ABI, p);
   const tre = new Contract(ADDRESSES.treasury, ["function airdropPool() view returns (uint256)"], p);
   const [startAt, paused, rate, minSelf, n, st, pool, today] = await Promise.all([
@@ -4485,15 +4570,25 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
   const [card, setCard] = useState(null);
   // Proved rank straight from Referral v5 rankOf: the Achiever card shows this rank only.
   const [provedRank, setProvedRank] = useState(0);
+  // v6 only: when the rank was last proven. Rank-gated levels stay open
+  // for RANK_VALIDITY (8 days) after that.
+  const [rankValidUntil, setRankValidUntil] = useState(0);
   const [achieverOpen, setAchieverOpen] = useState(false);
   useEffect(() => {
     let alive = true;
     setProvedRank(0);
+    setRankValidUntil(0);
     if (!wallet || !getReadProvider) return;
-    new Contract(ADDRESSES.referralV42, REFERRAL_V42_ABI, getReadProvider())
+    const core = new Contract(ADDRESSES.referralV42, REFERRAL_V42_ABI, getReadProvider());
+    core
       .rankOf(wallet)
       .then((v) => { if (alive) setProvedRank(Number(v)); })
       .catch(() => {});
+    if (REF_V6) {
+      Promise.all([core.rankProvedAt(wallet), core.RANK_VALIDITY()])
+        .then((v) => { if (alive) setRankValidUntil(v[0] > 0n ? Number(v[0] + v[1]) : 0); })
+        .catch(() => {});
+    }
     return () => { alive = false; };
   }, [wallet, card]);
 // Spot bonus: what this wallet can collect from its directs' new stakes.
@@ -4539,12 +4634,19 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
           lens.levelSummary(wallet, 3000).catch(function () { return null; }),
           lens.uplineView(wallet),
           lens.directsView(wallet),
-          lens.walletCard(wallet),
+          walletCardOf(lens, wallet),
           ref.bonusOwed(wallet),
           ref.tiers(1), ref.tiers(2), ref.tiers(3), ref.tiers(4), ref.tiers(5),
         ]);
-        const levels = (res ? res.rows : []).map(function (r) {
+        // v6 levels can also need a rank; the lens rows carry directs only.
+        const minRanks = REF_V6 && res
+          ? await Promise.all(res.rows.map(function (_, i) {
+              return ref.levels(i).then(function (x) { return Number(x.minRank); }, function () { return 0; });
+            }))
+          : [];
+        const levels = (res ? res.rows : []).map(function (r, i) {
           return {
+            minRank: minRanks[i] || 0,
             count: Number(r.members),
             staked: r.totalStake,
             // The contract's own rule for whether a member counts toward
@@ -4638,8 +4740,8 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
         return x.addr;
       })
     : data.directReferrals || [];
-  const labels = ["L1","L2","L3","L4","L5","L6","L7","L8","L9","L10","L11","L12","L13","L14","L15"],
-    colors = [C.gold1,"#C0C0C0","#CD7F32",C.green,C.blue,C.gold1,"#C0C0C0","#CD7F32",C.green,C.blue,C.gold1,"#C0C0C0","#CD7F32",C.green,C.blue];
+  const labels = Array.from({ length: 50 }, function (_, i) { return "L" + (i + 1); }),
+    colors = Array.from({ length: 50 }, function (_, i) { return [C.gold1, "#C0C0C0", "#CD7F32", C.green, C.blue][i % 5]; });
     const [claiming, setClaiming] = useState(false);
   const [bonus, setBonus] = useState(null);
   const [tiers, setTiers] = useState(null);
@@ -4662,7 +4764,7 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
     try {
       const p = getProvider();
       const lens = new Contract(ADDRESSES.referralLens, REFERRAL_LENS_ABI, p);
-      setCard(await lens.walletCard(wallet));
+      setCard(await walletCardOf(lens, wallet));
     } catch {}
   }
     // step 6 -- engine only, no button yet.
@@ -4792,10 +4894,34 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
         setSpotBusy(false);
         return;
       }
-      const c = new Contract(SPOT_ADDR, SPOT_ABI, signer);
       const a = pick.map(function (x) { return x.sourceId; });
       const b = pick.map(function (x) { return x.staker; });
       const k = pick.map(function (x) { return x.index; });
+      if (REF_V6) {
+        // v6: paid inside the referral pot. The test call answers for the
+        // whole batch; "NoBudget" means today's spot share is used up.
+        const c6 = new Contract(ADDRESSES.spotV6, SPOT_V6_ABI, signer);
+        let got6;
+        try {
+          got6 = await c6.claimSpot.staticCall(a, b, k);
+        } catch (e0) {
+          const m0 = String((e0 && (e0.shortMessage || e0.reason || e0.message)) || "");
+          showToast(/NoBudget/.test(m0)
+            ? "⏳ Today's spot bonus budget is used up. Your bonus stays safe; collect it tomorrow."
+            : "❌ " + m0);
+          setSpotBusy(false);
+          setSpotTick(function (n) { return n + 1; });
+          return;
+        }
+        const gas6 = await c6.claimSpot.estimateGas(a, b, k);
+        showToast("Collecting " + fmt(f18(got6), 2) + " OSG…");
+        await (await c6.claimSpot(a, b, k, { gasLimit: gas6 + 900000n })).wait();
+        showToast("✅ " + fmt(f18(got6), 2) + " OSG spot bonus is in your secured rewards. Press Claim on Home to bring it to your wallet.");
+        setSpotBusy(false);
+        setSpotTick(function (n) { return n + 1; });
+        return;
+      }
+      const c = new Contract(SPOT_ADDR, SPOT_ABI, signer);
       const got = await c.claimMany.staticCall(a, b, k);
       if (got === 0n) {
         showToast("ℹ️ You have reached Rank 2, so these stakes no longer pay a spot bonus.");
@@ -4889,7 +5015,8 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
                 </button>
               )}
               <div style={{ fontSize: 11.5, color: C.txt3, marginTop: 10, lineHeight: 1.6 }}>
-                {"You get " + (spot.rateBps / 100) + "% of every new stake your direct members open from 1 October 2026, once per stake, while it is still open. It is paid straight to your wallet."}
+                {"You get " + (spot.rateBps / 100) + "% of every new stake your direct members open from 1 October 2026, once per stake, while it is still open. " +
+                  (spot.v6 ? "It goes to your secured rewards; press Claim on Home to bring it to your wallet." : "It is paid straight to your wallet.")}
               </div>
               <div style={{ fontSize: 11.5, color: C.gold1, marginTop: 8, lineHeight: 1.6 }}>
                 {spot.paused
@@ -4969,6 +5096,25 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
                       })(Number(card.rankHoldRemaining))
                     : "Earning now"}
                 </div>
+                {REF_V6 && rankValidUntil > 0 && (
+                  <div style={{ fontSize: 11.5, color: rankValidUntil * 1000 < Date.now() ? C.red : C.txt2, marginTop: 6, lineHeight: 1.6 }}>
+                    {rankValidUntil * 1000 < Date.now()
+                      ? "Your rank levels are closed until you prove your rank again."
+                      : "Your rank levels stay open until " + new Date(rankValidUntil * 1000).toLocaleString() +
+                        ". Collecting your bonus or pressing Keep rank active renews this for 8 days."}
+                  </div>
+                )}
+                {REF_V6 && qual >= have && (
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    style={{ marginTop: 10, minHeight: 44 }}
+                    disabled={proving}
+                    onClick={proveRank}
+                  >
+                    {proving ? "Working…" : "Keep rank active"}
+                  </button>
+                )}
                 <div style={{ fontSize: 11.5, color: C.txt3, marginTop: 6, lineHeight: 1.6 }}>
                   A rank earns nothing for its first 24 hours. After that it
                   builds day by day at the rate above, and proving a new rank
@@ -5185,7 +5331,7 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
               <div className="k">Levels open</div>
               <div className="vv">
                 {String(card.levelsOpen)}
-                <span style={{ fontSize: 13, color: C.txt3 }}> of 15</span>
+                <span style={{ fontSize: 13, color: C.txt3 }}>{" of " + refLevels()}</span>
               </div>
             </div>
             <div className={miniCls(card.activeBps, "osg")}>
@@ -5199,13 +5345,20 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
               <div className="vv">{fmt(f18(card.volume), 2)}</div>
             </div>
           </div>
-          {Number(card.levelsOpen) < 15 && (
-            <div style={{ fontSize: 12.5, color: C.gold1, marginTop: 12 }}>
-              🔓 {Number(card.levelsOpen) + 1 - Number(card.directsForLevels)} more
-              direct{Number(card.levelsOpen) + 1 - Number(card.directsForLevels) === 1 ? "" : "s"}
-              {" "}opens level {Number(card.levelsOpen) + 1}
-            </div>
-          )}
+          {Number(card.levelsOpen) < refLevels() && (function () {
+            // The next level's own condition from the chain (levelSummary),
+            // falling back to the v5 rule "level L needs L directs".
+            var L = Number(card.levelsOpen) + 1;
+            var row = levelStats && levelStats[L - 1];
+            var more = (row ? row.need : L) - Number(card.directsForLevels);
+            return (
+              <div style={{ fontSize: 12.5, color: C.gold1, marginTop: 12 }}>
+                {more > 0
+                  ? "🔓 " + more + " more direct" + (more === 1 ? "" : "s") + " opens level " + L
+                  : "🔓 Level " + L + " opens with a higher rank — prove your rank below"}
+              </div>
+            );
+          })()}
         </div>
       )}
             {card && (
@@ -5298,7 +5451,7 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
                     return s + l.count;
                   }, 0),
                 )}
-                sub={t.allLevels || "15 Levels"}
+                sub={refLevels() + " Levels"}
                 accent={C.purple}
               />
               <Stat
@@ -5365,7 +5518,9 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
                 </div>
                                 {!lvl.open && (
                   <div style={{ fontSize: 12, color: C.txt3, marginTop: 10 }}>
-                    🔒 {lvl.need} direct{lvl.need === 1 ? "" : "s"} needed to open this level
+                    {"🔒 " + lvl.need + " direct" + (lvl.need === 1 ? "" : "s") +
+                      (lvl.minRank ? " and Rank " + lvl.minRank + " (proved in the last 8 days)" : "") +
+                      " needed to open this level"}
                   </div>
                 )}
                                 {openLvl === i && (
@@ -6718,7 +6873,7 @@ function Earn({ wallet, ensureReady, showToast }) {
       const [bal, n, card] = await Promise.all([
         osg.balanceOf(wallet),
         term.positionCount(wallet),
-        lens.walletCard(wallet),
+        walletCardOf(lens, wallet),
       ]);
       setOsgBal(f18(bal));
 
@@ -7109,7 +7264,7 @@ function Earn({ wallet, ensureReady, showToast }) {
               </div>
               <div className={miniCls(team.levels, "team")}>
                 <div className="k">Levels open</div>
-                <div className="vv">{team.levels} of 15</div>
+                <div className="vv">{team.levels + " of " + refLevels()}</div>
               </div>
               <div className={miniCls(team.bps, "osg")}>
                 <div className="k">Your share</div>
@@ -10788,7 +10943,7 @@ function AIAssistant({ wallet, staked, liveData, holders, polUsd, getReadProvide
     // ---- Referral v4.2, read through the lens ----
     try {
       var lens = new Contract(ADDRESSES.referralLens, REFERRAL_LENS_ABI, p);
-      var c = await lens.walletCard(wallet);
+      var c = await walletCardOf(lens, wallet);
       var rankName = ["none", "R1", "R2", "R3", "R4", "R5"][Number(c.rank)] || "none";
       out.push(
         "Their referral standing: referrer " +
@@ -10797,7 +10952,7 @@ function AIAssistant({ wallet, staked, liveData, holders, polUsd, getReadProvide
           Number(c.directsForLevels) +
           ", levels currently open " +
           Number(c.levelsOpen) +
-          " of 15, active commission " +
+          " of " + refLevels() + ", active commission " +
           (Number(c.activeBps) / 100).toFixed(2) +
           "%, commission claimable now " +
           Number(f18(c.owed)).toFixed(2) +
@@ -11882,7 +12037,7 @@ export default function App() {
     (async function () {
       try {
         var lens = new Contract(ADDRESSES.referralLens, REFERRAL_LENS_ABI, getReadProvider());
-        var c = await lens.walletCard(wallet);
+        var c = await walletCardOf(lens, wallet);
         if (!off) setMyRank(Number(c.rank) || 0);
       } catch (e) {}
     })();
