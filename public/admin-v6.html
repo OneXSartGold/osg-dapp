@@ -112,8 +112,8 @@
         <div id="wireSteps"></div>
       </div>
       <div class="card" id="cutCard" style="display:none">
-        <h2>Cut-over status (stage C)</h2>
-        <p class="help">Read only. Shows where money and hooks go today. The cut-over is done after seeding is locked, with 48 hours notice: pause v5 and the old spot, take a fresh snapshot, seed the difference, lock, then make v6 the referral distributor and point the sources at v6.</p>
+        <h2>Cut-over (stages B and C)</h2>
+        <p class="help">In order, one step at a time. Each line shows what the chain says now; a button appears only when the steps before it are done. Every step is tested first.</p>
         <div id="cutSteps"></div>
       </div>
     </section>
@@ -268,7 +268,8 @@ var MAIN = {
   pool: "0xDc4fE983ed301AD42F4E4C43951aa07A7a182855",
   flexi: "0x048E814C02e85ec1438Ab8C1d2e9150A5289A886",
   v5: "0x58383A8171014a8008d28e7CbB509e21412ec52A",
-  spotV1: "0x7Ee98AE2BeAEf2251A8bBB3810006495F62b7C92"
+  spotV1: "0x7Ee98AE2BeAEf2251A8bBB3810006495F62b7C92",
+  treasury: "0x4669b2d38098Ae28D0332F03D1630B334aDDDF50"
 };
 var KNOWN = {
   "0xb3de3956df62a069c9ac428ec58120b3d9cd7ccc": "Term",
@@ -280,15 +281,19 @@ var KNOWN = {
 };
 function nameAt(a) { return KNOWN[String(a).toLowerCase()] || short(a); }
 var MINI = {
-  v5: ["function stakeSourceCount() view returns (uint256)", "function stakeSources(uint256) view returns (address addr, bytes4 selector)", "function paused() view returns (bool)", "function accrualFrozen() view returns (bool)"],
-  spotV1: ["function sourcesCount() view returns (uint256)", "function sources(uint256) view returns (address src, uint16 baseBps, bool active)", "function startAt() view returns (uint256)", "function paused() view returns (bool)"],
-  pool: ["function distributorType(address) view returns (uint8)", "function distributorActive(address) view returns (bool)", "function distributorCount() view returns (uint256)", "function governance() view returns (address)"],
-  src: ["function referralContract() view returns (address)"]
+  v5: ["function stakeSourceCount() view returns (uint256)", "function stakeSources(uint256) view returns (address addr, bytes4 selector)", "function paused() view returns (bool)", "function accrualFrozen() view returns (bool)",
+    "function pause()", "function setAccrualFrozen(bool frozen)"],
+  spotV1: ["function sourcesCount() view returns (uint256)", "function sources(uint256) view returns (address src, uint16 baseBps, bool active)", "function startAt() view returns (uint256)", "function paused() view returns (bool)",
+    "function pause()"],
+  pool: ["function distributorType(address) view returns (uint8)", "function distributorActive(address) view returns (bool)", "function distributorCount() view returns (uint256)", "function governance() view returns (address)",
+    "function setDistributor(address addr, uint8 cat)", "function removeDistributor(address addr)"],
+  src: ["function referralContract() view returns (address)", "function setReferralContract(address _referral)"],
+  treasury: ["function isSpender(address) view returns (bool)", "function allowSpender(address spender, bool allowed)"]
 };
 function M(kind, at) { return new E.Contract(at, MINI[kind], rd); }
 var RPCS = [location.origin + "/api/rpc", "https://polygon-bor-rpc.publicnode.com", "https://polygon.drpc.org", "https://1rpc.io/matic"];
 var ADDR_KEYS = [
-  ["core", "OSGReferralV6"], ["spot", "OSGSpotV6"], ["rules", "OSGReferralV6Rules"],
+  ["core", "OSGReferralV6"], ["spot", "OSGSpotV6"], ["rules", "OSGReferralV6Rules"], ["lens", "OSGReferralLensV6 (views)"],
   ["pool", "Reward pool"], ["staking", "Old Active staking"], ["source", "Test stake source (Amoy)"]
 ];
 var PART_NAMES = ["Levels", "Rank", "Spot", "Task"];
@@ -391,7 +396,7 @@ async function multi(calls) {
 async function sendTx(o) {
   try {
     note(o.msg, "Testing...");
-    var c = new E.Contract(o.to, abiOf(o.name), signer);
+    var c = new E.Contract(o.to, o.abi || abiOf(o.name), signer);
     var f = c.getFunction(o.fn);
     try { await f.staticCall(...o.args); }
     catch (e) { note(o.msg, "Test failed, nothing sent: " + errText(e), "bad"); return false; }
@@ -425,7 +430,7 @@ async function deployTx(o) {
     if (!window.confirm("Deploy " + o.name + " on " + NETS[CHAIN].name + "?\n\n" + (o.what || "") + "\n\nTest passed. Amount 0 POL.")) { note(o.msg, "Cancelled."); return false; }
     note(o.msg, "Waiting for the wallet...");
     var c = await f.deploy(...o.args);
-    note(o.msg, "Sent, waiting for confirmation...");
+    note(o.msg, "Sent " + (c.deploymentTransaction() ? c.deploymentTransaction().hash : "") + ", waiting for confirmation...");
     await c.waitForDeployment();
     var at = await c.getAddress();
     ADDR[o.key] = at;
@@ -609,30 +614,74 @@ async function renderWiring() {
   renderCutover();
 }
 
-// Polygon cut-over (stage C) status: read only in this version.
+// Polygon cut-over, in order. Each step shows what the chain says now and
+// offers its button only when the steps before it are done.
 async function renderCutover() {
   var card = $("cutCard");
   if (NETS[CHAIN].test) { card.style.display = "none"; return; }
   card.style.display = "";
   var el = $("cutSteps");
+  if (!ADDR.core || !ADDR.spot) { el.innerHTML = '<div class="muted">Set the v6 addresses first.</div>'; return; }
   try {
-    var pool = M("pool", MAIN.pool), v5 = M("v5", MAIN.v5), s1 = M("spotV1", MAIN.spotV1);
-    var v = await Promise.all([v5.paused(), v5.accrualFrozen(), s1.paused(), pool.distributorCount(), pool.distributorActive(MAIN.v5),
-      ADDR.core ? pool.distributorActive(ADDR.core) : false, ADDR.core ? pool.distributorType(ADDR.core) : 0n, v5.stakeSourceCount()]);
-    var rows = [
-      ["Referral v5 paused", v[0] ? "Yes" : "No", v[0] ? "good" : "warn"],
-      ["Referral v5 accrual frozen", v[1] ? "Yes" : "No", v[1] ? "good" : "warn"],
-      ["Old spot paused", v[2] ? "Yes" : "No", v[2] ? "good" : "warn"],
-      ["v6 is a reward pool distributor (referral)", v[5] && Number(v[6]) === 3 ? "Yes" : "No", v[5] && Number(v[6]) === 3 ? "good" : "warn"],
-      ["v5 is still a reward pool distributor", v[4] ? "Yes" : "No", v[4] ? "warn" : "good"],
-      ["Reward pool distributors", v[3] + " / 10", Number(v[3]) < 10 ? "" : "bad"]
-    ];
-    for (var i = 0; i < Number(v[7]); i++) {
-      var a = (await v5.stakeSources(i))[0], r = null;
+    var pool = M("pool", MAIN.pool), v5 = M("v5", MAIN.v5), s1 = M("spotV1", MAIN.spotV1), tre = M("treasury", MAIN.treasury);
+    var core = R("core"), spot = R("spot");
+    var v = await Promise.all([v5.paused(), v5.accrualFrozen(), s1.paused(), core.seedLocked(), spot.seedLocked(),
+      pool.distributorActive(ADDR.core), pool.distributorType(ADDR.core), core.paused(), core.accrualFrozen(),
+      pool.distributorActive(MAIN.v5), tre.isSpender(MAIN.spotV1), pool.distributorCount(), v5.stakeSourceCount()]);
+    var srcs = [];
+    for (var i = 0; i < Number(v[12]); i++) {
+      var a = (await v5.stakeSources(i))[0];
+      if (srcs.some(function (x) { return same(x.a, a); })) continue;
+      var r = null;
       try { r = await M("src", a).referralContract(); } catch (e) {}
-      rows.push([nameAt(a) + " sends hooks to", r === null ? "Could not read" : same(r, ADDR.core) ? "v6" : same(r, MAIN.v5) ? "v5" : short(r), r !== null && same(r, ADDR.core) ? "good" : "warn"]);
+      srcs.push({ a: a, r: r });
     }
-    el.innerHTML = rows.map(function (r, k) { return stepRow("cut" + k, esc(r[0]), esc(r[1]), r[2]); }).join("");
+    var lensOk = await hasCode(ADDR.lens);
+    var spotOn = (await core.spot())[2];
+    var v6dist = v[5] && Number(v[6]) === 3;
+    var locked = v[3] && v[4];
+    var started = !v[7] && !v[8];
+    var allHooks = srcs.every(function (x) { return x.r !== null && same(x.r, ADDR.core); });
+    // [id, title, done, ready, waitText, action]
+    var steps = [
+      ["cx_lens", "0. Deploy the v6 lens (read-only views for the DApp)", lensOk, true, "", null],
+      ["cx_p5", "B1. Pause Referral v5 (claims and register stop)", v[0], true, "", { to: MAIN.v5, abi: MINI.v5, fn: "pause", args: [] }],
+      ["cx_f5", "B2. Freeze Referral v5 accrual (commission stops counting there)", v[1], v[0], "After B1", { to: MAIN.v5, abi: MINI.v5, fn: "setAccrualFrozen", args: [true] }],
+      ["cx_ps", "B3. Pause the old spot contract", v[2], v[1], "After B2", { to: MAIN.spotV1, abi: MINI.spotV1, fn: "pause", args: [] }],
+      ["cx_seed", "B4. Seed tab: fresh v5 snapshot, send new batches, all green, then lock both", locked, v[2], "After B3", null],
+      ["cx_dist", "C1. Make v6 the referral distributor in the RewardPool", v6dist, locked && Number(v[11]) < 10, locked ? "Pool is full (10)" : "After B4", { to: MAIN.pool, abi: MINI.pool, fn: "setDistributor", args: [ADDR.core, 3] }],
+      ["cx_up", "C2. Unpause v6 (claims and register open)", !v[7], locked && v6dist, "After C1", { to: ADDR.core, name: NAME_OF.core, fn: "unpause", args: [] }],
+      ["cx_acc", "C3. Start v6 accrual (commission counts from here)", !v[8], !v[7], "After C2", { to: ADDR.core, name: NAME_OF.core, fn: "setAccrualFrozen", args: [false] }],
+      ["cx_spot", "C3b. Turn the v6 spot bonus on (the old spot is paused)", spotOn, started, "After C3", { to: ADDR.core, name: NAME_OF.core, fn: "setSpotEnabled", args: [true] }]
+    ];
+    srcs.forEach(function (x, k) {
+      var done = x.r !== null && same(x.r, ADDR.core);
+      steps.push(["cx_h" + k, "C" + (4 + k) + ". " + nameAt(x.a) + " sends hooks to v6 (now: " + (x.r === null ? "?" : same(x.r, MAIN.v5) ? "v5" : same(x.r, ADDR.core) ? "v6" : short(x.r)) + ")",
+        done, started, "After C3", { to: x.a, abi: MINI.src, fn: "setReferralContract", args: [ADDR.core] }]);
+    });
+    var n = 4 + srcs.length;
+    steps.push(["cx_rm5", "C" + n + ". Remove Referral v5 from the RewardPool", !v[9], started && allHooks, "After every source points at v6", { to: MAIN.pool, abi: MINI.pool, fn: "removeDistributor", args: [MAIN.v5] }]);
+    steps.push(["cx_tre", "C" + (n + 1) + ". Stop the old spot spending from the Treasury", !v[10], v[2] && started, "After C3", { to: MAIN.treasury, abi: MINI.treasury, fn: "allowSpender", args: [MAIN.spotV1, false] }]);
+    el.innerHTML = '<div class="goldnote">Between B2 and the hook steps, staking reward claims earn no commission. Do B1 to C' + (n - 1) + ' in one sitting, and ask members not to claim staking rewards during the upgrade.</div>' +
+      steps.map(function (x) {
+        if (x[2]) return stepRow(x[0], esc(x[1]), "Done", "good", null);
+        if (!x[3]) return stepRow(x[0], esc(x[1]), x[4], "warn", null);
+        return stepRow(x[0], esc(x[1]), "Ready", "warn", x[5] || x[0] === "cx_lens" ? (x[0] === "cx_lens" ? "Deploy" : "Send") : null);
+      }).join("");
+    steps.forEach(function (x) {
+      var b = $(x[0] + "_b");
+      if (!b) return;
+      b.onclick = async function () {
+        var ok;
+        if (x[0] === "cx_lens") {
+          ok = await deployTx({ msg: x[0] + "_m", name: "OSGReferralLensV6", key: "lens", args: [ADDR.core], what: "Read-only views over v6 at " + ADDR.core + ". No owner, holds nothing." });
+        } else {
+          ok = await sendTx({ msg: x[0] + "_m", to: x[5].to, abi: x[5].abi, name: x[5].name, fn: x[5].fn, args: x[5].args, title: x[1],
+            what: "Contract: " + x[5].to + "\nCall: " + x[5].fn + "(" + x[5].args.join(", ") + ")" });
+        }
+        if (ok) { renderCutover(); renderFinal(); }
+      };
+    });
   } catch (e) { el.innerHTML = '<div class="bad">' + esc(errText(e)) + "</div>"; }
 }
 
@@ -735,6 +784,7 @@ function buildPlan(d) {
 $("snapFile").onchange = function () {
   var f = this.files && this.files[0];
   if (!f) return;
+  note("seedMsg", "Reading the file...");
   var rdr = new FileReader();
   rdr.onload = async function () {
     try {

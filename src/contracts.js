@@ -1,3 +1,5 @@
+import { Contract } from "ethers";
+
 // ======================================================================
 //  OSG Contract Config -- Polygon Mainnet
 //  Updated 11 August 2026: Treasury, TermStaking v2, LPMining v7,
@@ -64,6 +66,13 @@ export const ADDRESSES = {
   pair:    "0xA15214B09a9b3E1c821B94fB97d6d3BcA8201Cd2",   // OSG/WPOL QuickSwap V2
   spot:    "0x7Ee98AE2BeAEf2251A8bBB3810006495F62b7C92",   // OSGSpotReward
   lpTiers: "0x333a6c51Baa2d19Af036f45f32eaCF10234F17C8",   // OSGLPMiningTiers v1.2 (6 + 18 months)
+
+  // -- Referral v6 set (deployed 11 Oct 2026, seeded from the v5 snapshot) --
+  // Born paused. The app switches to it by itself once it is unpaused
+  // (see activateReferralV6 below); until then everything stays on v5.
+  referralV6:     "0xb452A678539F18Ca6492a72DB9a69D9b7a340b74",
+  spotV6:         "0x41F955dCF8E45e14406B7fBD846Ff2D56cE2bCe1",
+  referralLensV6: "",   // OSGReferralLensV6: set once deployed
 
   // -- Retired. Empty, unwired, kept only so old links resolve. --
   // termStakingV1: "0x9432B8C2B67C4c86c26EdB98893611013FAdF562",
@@ -643,7 +652,7 @@ export const REFERRAL_V4_ABI = [
  *    health  -> why a button would fail, rank previews, wiring
  * ===================================================================== */
 
-export const REFERRAL_V42_ABI = [
+export let REFERRAL_V42_ABI = [
   /* ---- the tree ---- */
   "function referrerOf(address user) view returns (address)",
   "function nativeReferrer(address) view returns (address)",
@@ -751,3 +760,97 @@ export const REFERRAL_HEALTH_ABI = [
   "function selectorFor(string signature) pure returns (bytes4)",
   "function version() pure returns (string)",
 ];
+
+/* ---------------------------------------------------------------------
+ *  Referral v6
+ *
+ *  The app keeps calling "referralV42", "referralLens" and
+ *  "referralHealth". activateReferralV6() repoints those three at the v6
+ *  core and the v6 lens (which serves both the lens and the health calls
+ *  with the v5 signatures) and swaps the core ABI, so the screens need no
+ *  second code path. Runs once, before the first render.
+ * ------------------------------------------------------------------- */
+export const REFERRAL_V6_ABI = [
+  "function referrerOf(address user) view returns (address)",
+  "function nativeReferrer(address) view returns (address)",
+  "function directReferrals(address user) view returns (uint256)",
+  "function registeredDirects(address) view returns (uint256)",
+  "function childrenCount(address user) view returns (uint256)",
+  "function stakeOf(address user) view returns (uint256)",
+  "function qualifyingStakeOf(address user) view returns (uint256)",
+  "function cachedStake(address) view returns (uint256)",
+  "function teamStake(address) view returns (uint256)",
+  "function minDirectStake() view returns (uint256)",
+  "function minReferrerStake() view returns (uint256)",
+  "function owed(address) view returns (uint256)",
+  "function volume(address) view returns (uint256)",
+  "function totalLevelBps() view returns (uint256)",
+  "function levelCount() view returns (uint8)",
+  "function levels(uint256) view returns (uint16 bps, uint8 directs, uint8 minRank)",
+  "function rankOf(address) view returns (uint8)",
+  "function rankSince(address) view returns (uint256)",
+  "function rankProvedAt(address) view returns (uint256)",
+  "function lastBonusAt(address) view returns (uint256)",
+  "function bonusOwed(address) view returns (uint256)",
+  "function airdropOwed(address) view returns (uint256)",
+  "function RANK_VALIDITY() view returns (uint256)",
+  // Same positions as v5 for the first four, which is all the rank card reads.
+  "function tiers(uint256) view returns (uint256 directsNeeded, uint256 selfStakeNeeded, uint256 teamStakeNeeded, uint256 monthlyPayout)",
+  "function spot() view returns (uint16 rateBps, uint8 stopRank, bool enabled, uint256 minSelfStake, uint256 maxPerStake)",
+  "function stakeSourceCount() view returns (uint256)",
+  "function paused() view returns (bool)",
+  "function accrualFrozen() view returns (bool)",
+  "function register(address referrer)",
+  "function claimMyReferral()",
+  "function claimBonusOwed()",
+  "function claimAirdrop()",
+  "function claimAll()",
+  "function accrueRankBonus(address user, address[] directs)",
+  "function refreshRank(address user, address[] directs)",
+  "function syncDirect(address user)",
+  "error AlreadyRegistered()", "error CannotReferSelf()", "error UplineInLegacy()", "error ReferrerStakeTooLow()",
+  "error WouldLoop()", "error NothingOwed()", "error NoBudget()", "error PartPaused()", "error NoRank()",
+  "error RankHoldNotMet()", "error RankNoLongerMet()", "error NothingAccrued()", "error ListMustAscend()",
+  "error NotYourDirect()", "error TooMany()", "error SelfOrOwnerOnly()", "error EnforcedPause()",
+  "event Registered(address indexed user, address indexed referrer, bool legacy)",
+  "event CommissionAccrued(address indexed earner, address indexed from, uint8 level, uint256 amount)",
+  "event Paid(address indexed user, uint256 levels, uint256 rank, uint256 task, uint256 total)",
+  "event RankUpdated(address indexed user, uint8 oldRank, uint8 newRank)",
+];
+
+export const SPOT_V6_ABI = [
+  "function spotStartAt() view returns (uint256)",
+  "function sourcesCount() view returns (uint256)",
+  "function sources(uint256) view returns (address src, address underlying, uint16 baseBps, bool active)",
+  "function quote(address sponsor, uint256 id, address staker, uint256 index) view returns (uint256 amount, uint8 reason)",
+  "function stopAt(address) view returns (uint256)",
+  "function paidTo(address) view returns (uint256)",
+  "function claimSpot(uint256[] ids, address[] stakers, uint256[] indexes) returns (uint256 total)",
+  // Errors, so a failed test call reads as a name (the core's are bubbled).
+  "error SpotOff()", "error BadLength()", "error BadSource()", "error SourceOff()", "error NotYourDirect()",
+  "error NotEligible()", "error BeforeStart()", "error AfterRank()", "error PositionClosed()", "error AlreadyPaid()",
+  "error ZeroAmount()", "error UnderlyingChanged()", "error TooMuch()", "error NoBudget()", "error PartPaused()",
+];
+
+// Storage slots of v6 balances that have no public getter (from the
+// compiler's storage layout of OSGReferralV6 as deployed).
+export const REFERRAL_V6_SLOTS = { paid: 122, bonusPaidTotal: 131, airdropPaid: 134 };
+
+export let REF_V6 = false;
+
+export async function activateReferralV6(provider, stillOpen) {
+  // A failed read throws, so the caller can try the next node. The
+  // switch itself only happens while stillOpen() says the app has not
+  // started rendering, so a late answer can never flip it half way.
+  if (!ADDRESSES.referralLensV6) return false;
+  const c = new Contract(ADDRESSES.referralV6, ["function paused() view returns (bool)"], provider);
+  const isPaused = await c.paused();
+  if (isPaused || (stillOpen && !stillOpen())) return false;
+  ADDRESSES.referralV5 = ADDRESSES.referralV42;
+  ADDRESSES.referralV42 = ADDRESSES.referralV6;
+  ADDRESSES.referralLens = ADDRESSES.referralLensV6;
+  ADDRESSES.referralHealth = ADDRESSES.referralLensV6;
+  REFERRAL_V42_ABI = REFERRAL_V6_ABI;
+  REF_V6 = true;
+  return true;
+}
