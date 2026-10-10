@@ -99,8 +99,8 @@
         <div class="bar"><button class="gold" id="saveAddr">Save addresses</button><span class="muted" id="addrMsg"></span></div>
       </div>
       <div class="card" id="deployCard">
-        <h2>Amoy test kit: deploy</h2>
-        <p class="help">Deploys the three test stand-ins (reward pool, old Active staking, one stake source) and the three v6 contracts. The connected wallet becomes the owner of all of them. Needs test POL from the Amoy faucet.</p>
+        <h2 id="deployTitle">Deploy</h2>
+        <p class="help" id="deployHelp"></p>
         <div class="bar">
           <input id="seedDaysIn" placeholder="Seeding window in days (1-90)" value="14" style="flex:0 1 220px">
         </div>
@@ -110,6 +110,11 @@
         <h2>Wiring</h2>
         <p class="help">Connects the v6 contracts to the stake source and the spot module. Each line shows what the chain says now.</p>
         <div id="wireSteps"></div>
+      </div>
+      <div class="card" id="cutCard" style="display:none">
+        <h2>Cut-over status (stage C)</h2>
+        <p class="help">Read only. Shows where money and hooks go today. The cut-over is done after seeding is locked, with 48 hours notice: pause v5 and the old spot, take a fresh snapshot, seed the difference, lock, then make v6 the referral distributor and point the sources at v6.</p>
+        <div id="cutSteps"></div>
       </div>
     </section>
 
@@ -258,6 +263,29 @@ var NETS = {
 };
 // Live Polygon contracts v6 reads from.
 var MAIN_DEFAULTS = { pool: "0xDc4fE983ed301AD42F4E4C43951aa07A7a182855", staking: "0x048E814C02e85ec1438Ab8C1d2e9150A5289A886" };
+var MAIN = {
+  owner: "0xF8acaA5617DfF6DB3d0cb44ca8de0E50A449BB83",
+  pool: "0xDc4fE983ed301AD42F4E4C43951aa07A7a182855",
+  flexi: "0x048E814C02e85ec1438Ab8C1d2e9150A5289A886",
+  v5: "0x58383A8171014a8008d28e7CbB509e21412ec52A",
+  spotV1: "0x7Ee98AE2BeAEf2251A8bBB3810006495F62b7C92"
+};
+var KNOWN = {
+  "0xb3de3956df62a069c9ac428ec58120b3d9cd7ccc": "Term",
+  "0x1f04f1441208ee8ddd3a124defc4a493d768d0fc": "LP Mining",
+  "0x333a6c51baa2d19af036f45f32eacf10234f17c8": "LP Tiers",
+  "0x7cbfd31fc4ea31d5390f20adbffd0cbfb839912e": "Term spot adapter",
+  "0xdd065840f5bd458dc4e9deeaed7f1946812870a6": "LP spot adapter",
+  "0x048e814c02e85ec1438ab8c1d2e9150a5289a886": "Flexi"
+};
+function nameAt(a) { return KNOWN[String(a).toLowerCase()] || short(a); }
+var MINI = {
+  v5: ["function stakeSourceCount() view returns (uint256)", "function stakeSources(uint256) view returns (address addr, bytes4 selector)", "function paused() view returns (bool)", "function accrualFrozen() view returns (bool)"],
+  spotV1: ["function sourcesCount() view returns (uint256)", "function sources(uint256) view returns (address src, uint16 baseBps, bool active)", "function startAt() view returns (uint256)", "function paused() view returns (bool)"],
+  pool: ["function distributorType(address) view returns (uint8)", "function distributorActive(address) view returns (bool)", "function distributorCount() view returns (uint256)", "function governance() view returns (address)"],
+  src: ["function referralContract() view returns (address)"]
+};
+function M(kind, at) { return new E.Contract(at, MINI[kind], rd); }
 var RPCS = [location.origin + "/api/rpc", "https://polygon-bor-rpc.publicnode.com", "https://polygon.drpc.org", "https://1rpc.io/matic"];
 var ADDR_KEYS = [
   ["core", "OSGReferralV6"], ["spot", "OSGSpotV6"], ["rules", "OSGReferralV6Rules"],
@@ -386,14 +414,15 @@ async function sendTx(o) {
 
 async function deployTx(o) {
   try {
-    if (!NETS[CHAIN].test) throw new Error("Deploying from this page is for Amoy only");
+    if (!NETS[CHAIN].test && /^Test/.test(o.name)) throw new Error("Test stand-ins are for Amoy only");
+    if (!NETS[CHAIN].test && !same(ME, MAIN.owner)) throw new Error("On Polygon, connect the OSG-MAIN owner wallet");
     note(o.msg, "Testing...");
     var a = ART.contracts[o.name];
     var f = new E.ContractFactory(a.abi, a.bytecode, signer);
     var req = await f.getDeployTransaction(...o.args);
     try { await signer.estimateGas(req); }
     catch (e) { note(o.msg, "Test failed, nothing sent: " + errText(e), "bad"); return false; }
-    if (!window.confirm("Deploy " + o.name + " on Amoy?\n\n" + (o.what || "") + "\n\nTest passed. Amount 0 POL.")) { note(o.msg, "Cancelled."); return false; }
+    if (!window.confirm("Deploy " + o.name + " on " + NETS[CHAIN].name + "?\n\n" + (o.what || "") + "\n\nTest passed. Amount 0 POL.")) { note(o.msg, "Cancelled."); return false; }
     note(o.msg, "Waiting for the wallet...");
     var c = await f.deploy(...o.args);
     note(o.msg, "Sent, waiting for confirmation...");
@@ -448,32 +477,60 @@ function stepRow(id, title, status, cls, btn) {
 async function hasCode(a) { return !!a && (await rd.getCode(a)) !== "0x"; }
 
 async function renderDeploy() {
-  $("deployCard").style.display = NETS[CHAIN].test ? "" : "none";
-  if (!NETS[CHAIN].test) return;
-  var list = [
+  var test = NETS[CHAIN].test;
+  $("deployTitle").textContent = test ? "Amoy test kit: deploy" : "Polygon: deploy v6";
+  $("deployHelp").textContent = test
+    ? "Deploys the three test stand-ins (reward pool, old Active staking, one stake source) and the three v6 contracts. The connected wallet becomes the owner of all of them. Needs test POL from the Amoy faucet."
+    : "Deploys the three v6 contracts from the OSG-MAIN wallet. v6 is born paused with accrual frozen, and it is not a reward pool distributor, so it cannot pay anything until the cut-over. Uses Flexi " + short(MAIN.flexi) + ", RewardPool " + short(MAIN.pool) + " and the old spot start time.";
+  if (!test && !$("seedDaysIn").dataset.set) { $("seedDaysIn").value = "30"; $("seedDaysIn").dataset.set = "1"; }
+  var list = test ? [
     ["pool", "TestRewardPool", "Test reward pool (started 120 days ago)"],
     ["staking", "TestLegacyStaking", "Test old Active staking"],
     ["source", "TestStakeSource", "Test stake source (acts as Term/LP)"],
     ["rules", "OSGReferralV6Rules", "v6 settings rules"],
     ["core", "OSGReferralV6", "v6 referral (born paused and frozen)"],
     ["spot", "OSGSpotV6", "v6 spot module"]
+  ] : [
+    ["rules", "OSGReferralV6Rules", "1. v6 settings rules"],
+    ["core", "OSGReferralV6", "2. v6 referral (born paused and frozen)"],
+    ["spot", "OSGSpotV6", "3. v6 spot module"]
   ];
   var have = await Promise.all(list.map(function (x) { return hasCode(ADDR[x[0]]); }));
-  $("deploySteps").innerHTML = list.map(function (x, i) {
-    return stepRow("dp_" + x[0], esc(x[2]) + (ADDR[x[0]] && have[i] ? '<div class="muted mono">' + ADDR[x[0]] + "</div>" : ""),
-      have[i] ? "Deployed" : "Not yet", have[i] ? "good" : "warn", have[i] ? "Deploy again" : "Deploy");
-  }).join("");
+  // On Polygon a deployed contract is never offered again: clear its address field first.
+  $("deploySteps").innerHTML = (!test && !same(ME, MAIN.owner) ? '<div class="rednote">Connect the OSG-MAIN owner wallet to deploy.</div>' : "") +
+    list.map(function (x, i) {
+      return stepRow("dp_" + x[0], esc(x[2]) + (ADDR[x[0]] && have[i] ? '<div class="muted mono">' + ADDR[x[0]] + "</div>" : ""),
+        have[i] ? "Deployed" : "Not yet", have[i] ? "good" : "warn", have[i] ? (test ? "Deploy again" : null) : "Deploy");
+    }).join("");
   list.forEach(function (x) {
-    $("dp_" + x[0] + "_b").onclick = async function () {
-      var args = [];
+    var b = $("dp_" + x[0] + "_b");
+    if (!b) return;
+    b.onclick = async function () {
+      var args = [], what = "Owner: " + ME;
       try {
         var days = Number($("seedDaysIn").value);
         if (!(days >= 1 && days <= 90)) throw new Error("Seeding window must be 1 to 90 days");
         if (x[0] === "pool") args = [120];
-        if (x[0] === "core") { need(["staking", "pool", "rules"]); args = [ADDR.staking, ADDR.pool, ME, ADDR.rules, days]; }
-        if (x[0] === "spot") { need(["core"]); args = [ADDR.core, ME, Math.floor(Date.now() / 1000), days]; }
+        if (test) {
+          if (x[0] === "core") { need(["staking", "pool", "rules"]); args = [ADDR.staking, ADDR.pool, ME, ADDR.rules, days]; }
+          if (x[0] === "spot") { need(["core"]); args = [ADDR.core, ME, Math.floor(Date.now() / 1000), days]; }
+        } else {
+          if (x[0] === "core") {
+            need(["rules"]);
+            args = [MAIN.flexi, MAIN.pool, MAIN.owner, ADDR.rules, days];
+            what = "Old Active staking (Flexi): " + MAIN.flexi + "\nRewardPool: " + MAIN.pool + "\nOwner: " + MAIN.owner + "\nRules: " + ADDR.rules + "\nSeeding window: " + days + " days";
+          }
+          if (x[0] === "spot") {
+            need(["core"]);
+            var st = await M("spotV1", MAIN.spotV1).startAt();
+            if (st === 0n) throw new Error("The old spot contract has no start time");
+            args = [ADDR.core, MAIN.owner, st, days];
+            what = "v6 referral: " + ADDR.core + "\nOwner: " + MAIN.owner + "\nSpot start (same as the old spot): " + when(st) + "\nSeeding window: " + days + " days";
+          }
+          if (x[0] === "rules") what = "Pure settings checker, no owner, no state.";
+        }
       } catch (e) { note("dp_" + x[0] + "_m", errText(e), "bad"); return; }
-      var ok = await deployTx({ msg: "dp_" + x[0] + "_m", name: x[1], key: x[0], args: args, what: "Owner: " + ME });
+      var ok = await deployTx({ msg: "dp_" + x[0] + "_m", name: x[1], key: x[0], args: args, what: what });
       if (ok) { await renderDeploy(); await renderWiring(); }
     };
   });
@@ -484,14 +541,16 @@ async function renderWiring() {
   if (!ADDR.core || !ADDR.spot) { el.innerHTML = '<div class="muted">Set the v6 referral and spot addresses first.</div>'; return; }
   var test = NETS[CHAIN].test;
   var sel = E.id("stakedOf(address)").slice(0, 10);
-  var rows = [];
+  var rows = [], acts = {};
   try {
     var core = R("core"), spot = R("spot");
     var base = await Promise.all([core.spotModule(), core.stakeSourceCount(), spot.sourcesCount(), core.owner(), spot.owner()]);
     var srcs = [];
     for (var i = 0; i < Number(base[1]); i++) srcs.push(await core.stakeSources(i));
-    rows.push(["w_owner", "Owner of v6 referral / spot", same(base[3], ME) && same(base[4], ME) ? "You" : short(base[3]), same(base[3], ME) && same(base[4], ME) ? "good" : "warn"]);
+    var mine = same(base[3], ME) && same(base[4], ME);
+    rows.push(["w_owner", "Owner of v6 referral / spot", mine ? "You" : short(base[3]), mine ? "good" : "warn"]);
     rows.push(["w_spotmod", "Spot module set in v6 referral", same(base[0], ADDR.spot) ? "Yes" : "No", same(base[0], ADDR.spot) ? "good" : "bad", "Set"]);
+    acts.w_spotmod = { key: "core", fn: "setSpotModule", args: [ADDR.spot], title: "Set the spot module" };
     if (test && ADDR.source) {
       var s = R("source");
       var t = await Promise.all([s.ref(), core.isSource(ADDR.source), spot.isUnderlying(ADDR.source)]);
@@ -500,27 +559,81 @@ async function renderWiring() {
       rows.push(["w_src", "v6 accepts hooks from the test source", t[1] ? "Yes" : "No", t[1] ? "good" : "bad", "Allow"]);
       rows.push(["w_stake", "v6 reads stake from the test source", staked ? "Yes" : "No", staked ? "good" : "bad", "Add"]);
       rows.push(["w_spotsrc", "Spot pays on test source stakes (100% base)", t[2] ? "Yes" : "No", t[2] ? "good" : "bad", "Add"]);
+      acts.w_ref = { key: "source", fn: "setRef", args: [ADDR.core], title: "Point the test source at v6" };
+      acts.w_src = { key: "core", fn: "setSource", args: [ADDR.source, true], title: "Allow hooks from the test source" };
+      acts.w_stake = { key: "core", fn: "addStakeSource", args: [ADDR.source, sel], title: "Read stake from the test source (stakedOf)" };
+      acts.w_spotsrc = { key: "spot", fn: "addSource", args: [ADDR.source, 10000], title: "Spot source: test source, base 100%" };
+    }
+    if (!test) {
+      // Stake sources and hook senders: exactly the list v5 uses today.
+      var v5 = M("v5", MAIN.v5), n5 = Number(await v5.stakeSourceCount());
+      for (var a = 0; a < n5; a++) {
+        var ss = await v5.stakeSources(a), nm = nameAt(ss[0]);
+        var have = srcs.some(function (x) { return same(x[0], ss[0]) && x[1] === ss[1]; });
+        var hook = await core.isSource(ss[0]);
+        rows.push(["w_st" + a, "v6 reads stake from " + nm + " (" + ss[1] + ", same as v5)", have ? "Yes" : "No", have ? "good" : "bad", "Add"]);
+        rows.push(["w_hk" + a, "v6 accepts hooks from " + nm, hook ? "Yes" : "No", hook ? "good" : "bad", "Allow"]);
+        acts["w_st" + a] = { key: "core", fn: "addStakeSource", args: [ss[0], ss[1]], title: "v6 reads stake from " + nm, what: "Copy of v5 stake source " + a + ": " + ss[0] + " selector " + ss[1] + ". Read only; moves no money." };
+        acts["w_hk" + a] = { key: "core", fn: "setSource", args: [ss[0], true], title: "v6 accepts hooks from " + nm, what: nm + " still sends its hooks to v5 until the cut-over. This only allows it to call v6 later." };
+      }
+      // Spot sources: the adapters and base % the old spot uses today.
+      var s1 = M("spotV1", MAIN.spotV1), n1 = Number(await s1.sourcesCount()), n6 = Number(base[2]), mine6 = [];
+      for (var j = 0; j < n6; j++) mine6.push(await spot.sources(j));
+      for (var b = 0; b < n1; b++) {
+        var o = await s1.sources(b), on = nameAt(o[0]);
+        var at = -1;
+        mine6.forEach(function (x, k) { if (same(x[0], o[0])) at = k; });
+        var label = "Spot source " + on + ", base " + bpsTxt(o[1]) + (o[2] ? "" : " (off in the old spot)");
+        if (at < 0) {
+          rows.push(["w_sp" + b, label, "Missing", "bad", "Add"]);
+          acts["w_sp" + b] = { key: "spot", fn: "addSource", args: [o[0], o[1]], title: "Spot source " + on, what: "Copy of old spot source " + b + ": " + o[0] + ", base " + bpsTxt(o[1]) + "." };
+        } else {
+          var match = Number(mine6[at][2]) === Number(o[1]) && mine6[at][3] === o[2];
+          rows.push(["w_sp" + b, label, match ? "Yes" : "Different", match ? "good" : "bad", "Match"]);
+          acts["w_sp" + b] = { key: "spot", fn: "setSource", args: [at, o[1], o[2]], title: "Match spot source " + on, what: "v6 spot source " + at + ": base " + bpsTxt(o[1]) + ", " + (o[2] ? "on" : "off") + "." };
+        }
+      }
     }
     el.innerHTML = rows.map(function (r) { return stepRow(r[0], esc(r[1]), r[2], r[3], r[3] === "good" || !r[4] ? null : r[4]); }).join("") +
-      '<div class="muted" style="margin-top:8px">Stake sources in v6: ' + (srcs.length ? srcs.map(function (x) { return short(x[0]) + " " + x[1]; }).join(", ") : "none") + "</div>" +
-      (test ? "" : '<div class="goldnote">Polygon wiring (Term, LP, LP Tiers and the spot adapters) is added after the Amoy rehearsal passes.</div>');
+      '<div class="muted" style="margin-top:8px">Stake sources in v6: ' + (srcs.length ? srcs.map(function (x) { return esc(nameAt(x[0])) + " " + x[1]; }).join(", ") : "none") + "</div>";
   } catch (e) { el.innerHTML = '<div class="bad">' + esc(errText(e)) + "</div>"; return; }
-  var acts = {
-    w_spotmod: { key: "core", fn: "setSpotModule", args: [ADDR.spot], title: "Set the spot module" },
-    w_ref: { key: "source", fn: "setRef", args: [ADDR.core], title: "Point the test source at v6" },
-    w_src: { key: "core", fn: "setSource", args: [ADDR.source, true], title: "Allow hooks from the test source" },
-    w_stake: { key: "core", fn: "addStakeSource", args: [ADDR.source, sel], title: "Read stake from the test source (stakedOf)" },
-    w_spotsrc: { key: "spot", fn: "addSource", args: [ADDR.source, 10000], title: "Spot source: test source, base 100%" }
-  };
   Object.keys(acts).forEach(function (id) {
     var b = $(id + "_b");
     if (!b) return;
     b.onclick = async function () {
       var a = acts[id];
-      var ok = await sendTx({ msg: id + "_m", to: ADDR[a.key], name: NAME_OF[a.key], fn: a.fn, args: a.args, title: a.title });
+      var ok = await sendTx({ msg: id + "_m", to: ADDR[a.key], name: NAME_OF[a.key], fn: a.fn, args: a.args, title: a.title, what: a.what });
       if (ok) renderWiring();
     };
   });
+  renderCutover();
+}
+
+// Polygon cut-over (stage C) status: read only in this version.
+async function renderCutover() {
+  var card = $("cutCard");
+  if (NETS[CHAIN].test) { card.style.display = "none"; return; }
+  card.style.display = "";
+  var el = $("cutSteps");
+  try {
+    var pool = M("pool", MAIN.pool), v5 = M("v5", MAIN.v5), s1 = M("spotV1", MAIN.spotV1);
+    var v = await Promise.all([v5.paused(), v5.accrualFrozen(), s1.paused(), pool.distributorCount(), pool.distributorActive(MAIN.v5),
+      ADDR.core ? pool.distributorActive(ADDR.core) : false, ADDR.core ? pool.distributorType(ADDR.core) : 0n, v5.stakeSourceCount()]);
+    var rows = [
+      ["Referral v5 paused", v[0] ? "Yes" : "No", v[0] ? "good" : "warn"],
+      ["Referral v5 accrual frozen", v[1] ? "Yes" : "No", v[1] ? "good" : "warn"],
+      ["Old spot paused", v[2] ? "Yes" : "No", v[2] ? "good" : "warn"],
+      ["v6 is a reward pool distributor (referral)", v[5] && Number(v[6]) === 3 ? "Yes" : "No", v[5] && Number(v[6]) === 3 ? "good" : "warn"],
+      ["v5 is still a reward pool distributor", v[4] ? "Yes" : "No", v[4] ? "warn" : "good"],
+      ["Reward pool distributors", v[3] + " / 10", Number(v[3]) < 10 ? "" : "bad"]
+    ];
+    for (var i = 0; i < Number(v[7]); i++) {
+      var a = (await v5.stakeSources(i))[0], r = null;
+      try { r = await M("src", a).referralContract(); } catch (e) {}
+      rows.push([nameAt(a) + " sends hooks to", r === null ? "Could not read" : same(r, ADDR.core) ? "v6" : same(r, MAIN.v5) ? "v5" : short(r), r !== null && same(r, ADDR.core) ? "good" : "warn"]);
+    }
+    el.innerHTML = rows.map(function (r, k) { return stepRow("cut" + k, esc(r[0]), esc(r[1]), r[2]); }).join("");
+  } catch (e) { el.innerHTML = '<div class="bad">' + esc(errText(e)) + "</div>"; }
 }
 
 // ---------------------------------------------------------------- snapshot -> plan
@@ -623,10 +736,12 @@ $("snapFile").onchange = function () {
   var f = this.files && this.files[0];
   if (!f) return;
   var rdr = new FileReader();
-  rdr.onload = function () {
+  rdr.onload = async function () {
     try {
       SNAP = JSON.parse(String(rdr.result));
       PLAN = buildPlan(SNAP);
+      $("snapSum").innerHTML = '<div class="muted">Reading the chain...</div>';
+      await refineTree(PLAN);
     } catch (e) { SNAP = PLAN = null; $("snapSum").innerHTML = '<div class="bad">' + esc(errText(e)) + "</div>"; return; }
     renderSnapSummary();
     renderMock();
@@ -635,6 +750,29 @@ $("snapFile").onchange = function () {
   };
   rdr.readAsText(f);
 };
+
+// A second (fresh) snapshot at the cut-over must only bond the wallets
+// that are not on the chain yet: seedTree refuses a wallet already bonded.
+async function refineTree(plan) {
+  plan.info.treeDone = 0; plan.info.treeConflicts = [];
+  if (!ADDR.core) return;
+  var tree = plan.steps.filter(function (st) { return st.kind === "tree"; });
+  var u = [], r = [], l = [];
+  tree.forEach(function (st) { u = u.concat(st.users); r = r.concat(st.refs); l = l.concat(st.legacy); });
+  var cur = await multi(u.map(function (a) { return { key: "core", fn: "nativeReferrer", args: [a] }; }));
+  var keep = [];
+  u.forEach(function (a, i) {
+    if (cur[i] === null) throw new Error("Could not read the chain; try again");
+    if (same(cur[i], Z)) keep.push(i);
+    else if (same(cur[i], r[i])) plan.info.treeDone += 1;
+    else plan.info.treeConflicts.push([a, cur[i], r[i]]);
+  });
+  var fresh = chunk(keep, BATCH).map(function (c, k) {
+    return { id: "tree" + k + "_" + plan.info.treeDone, kind: "tree", label: "Tree bonds " + (k + 1) + " (" + c.length + ")",
+      users: c.map(function (i) { return u[i]; }), refs: c.map(function (i) { return r[i]; }), legacy: c.map(function (i) { return l[i]; }) };
+  });
+  plan.steps = fresh.concat(plan.steps.filter(function (st) { return st.kind !== "tree"; }));
+}
 
 function renderSnapSummary() {
   var i = PLAN.info;
@@ -652,6 +790,9 @@ function renderSnapSummary() {
     (i.owedOk && i.spotOk ? '<div class="muted good" style="margin-top:8px">File totals match the snapshot summary.</div>' : '<div class="rednote">The file totals do not add up. Do not seed from this file.</div>') +
     (i.activeOnly.length ? '<div class="goldnote">Only old Active staking (no level commission in v6 until they stake in Term or LP):<br>' +
       i.activeOnly.map(function (u) { return '<span class="mono">' + esc(u.a) + "</span> Active " + osg(big(u.activeStake)) + ", Term/LP " + osg(big(u.hookedStake)); }).join("<br>") + "</div>" : "") +
+    (i.treeDone ? '<div class="muted good" style="margin-top:8px">' + i.treeDone + " bonds are already on the chain and are skipped.</div>" : "") +
+    (i.treeConflicts && i.treeConflicts.length ? '<div class="rednote">Bonded on the chain under a different referrer than in this snapshot (fix with Members, Move, if intended):<br>' +
+      i.treeConflicts.map(function (c) { return '<span class="mono">' + esc(c[0]) + "</span>: chain " + esc(short(c[1])) + ", snapshot " + esc(short(c[2])); }).join("<br>") + "</div>" : "") +
     '<div class="muted" style="margin-top:6px">Rank holders must prove their rank again within 8 days of seeding.</div>';
 }
 
@@ -797,14 +938,27 @@ async function renderFinal() {
       stat("Seeding closes", when(v[9])) +
       "</div>";
     var ready = batchesOk && ok.every(Boolean);
+    var cutReady = true, v5Paused = true;
+    if (!NETS[CHAIN].test) {
+      var pl = M("pool", MAIN.pool);
+      var cv = await Promise.all([pl.distributorActive(ADDR.core), pl.distributorType(ADDR.core), M("v5", MAIN.v5).paused()]);
+      v5Paused = cv[2];
+      cutReady = cv[0] && Number(cv[1]) === 3 && cv[2];
+    }
     var steps = [
       ["l_core", "Lock seeding in v6 referral (cannot be undone)", v[5], "Lock", { key: "core", fn: "lockSeeding", args: [] }],
       ["l_spot", "Lock seeding in spot (cannot be undone)", v[6], "Lock", { key: "spot", fn: "lockSeeding", args: [] }],
       ["l_unpause", "Unpause v6 referral (claims and register open)", !v[7], "Unpause", { key: "core", fn: "unpause", args: [] }],
       ["l_unfreeze", "Start accrual (commission starts counting)", !v[8], "Start", { key: "core", fn: "setAccrualFrozen", args: [false] }]
     ];
+    var gated = { l_unpause: 1, l_unfreeze: 1 };
     $("launchSteps").innerHTML = (ready ? "" : '<div class="rednote">Not every line is green. Finish and check every batch before locking.</div>') +
-      steps.map(function (x) { return stepRow(x[0], esc(x[1]), x[2] ? "Done" : "Not yet", x[2] ? "good" : "warn", x[2] ? null : x[3]); }).join("") +
+      steps.map(function (x) {
+        if (!x[2] && gated[x[0]] && !cutReady) return stepRow(x[0], esc(x[1]), "After stage C", "warn", null);
+        // Polygon: seeding stays open until v5 is paused and the fresh snapshot is seeded (stage B).
+        if (!x[2] && !gated[x[0]] && !v5Paused) return stepRow(x[0], esc(x[1]), "After v5 pause", "warn", null);
+        return stepRow(x[0], esc(x[1]), x[2] ? "Done" : "Not yet", x[2] ? "good" : "warn", x[2] ? null : x[3]);
+      }).join("") +
       '<div class="goldnote">On Polygon: point Term, LP and LP Tiers at v6 only after "Start accrual". Rewards claimed before that earn no commission.</div>';
     steps.forEach(function (x) {
       var b = $(x[0] + "_b");
@@ -1154,6 +1308,7 @@ function initTabs() {
 }
 async function refreshAll() {
   MC_OK = null;
+  $("mockLoadCard").style.display = NETS[CHAIN].test ? "" : "none";
   renderAddrForm();
   await Promise.allSettled([renderDeploy(), renderWiring(), loadHealth(), loadSettings(), loadTestPool()]);
   if (PLAN) { renderMock(); renderSeedSteps(); checkAll(); }
