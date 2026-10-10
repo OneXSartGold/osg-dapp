@@ -4939,6 +4939,84 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
     setSpotBusy(false);
     setSpotTick(function (n) { return n + 1; });
   }
+  // Claim all (Referral v6). One button, up to four transactions, each
+  // tested first and skipped when it has nothing to do:
+  //   1. accrue the rank bonus (this also keeps rank levels open 8 days)
+  //   2. collect the spot bonus
+  //   3. claimAll(): commission + rank bonus + task in one transaction
+  //   4. mint everything secured to the wallet (RewardPool claim)
+  const [allBusy, setAllBusy] = useState(false);
+  const [allStep, setAllStep] = useState("");
+  async function claimEverything() {
+    const signer = await ensureReady();
+    if (!signer) return;
+    setAllBusy(true);
+    const errMsg = function (e) { return String((e && (e.shortMessage || e.reason || e.message)) || ""); };
+    const send = async function (c, fn, args, label) {
+      const f = c.getFunction(fn);
+      await f.staticCall(...args);
+      const gas = await f.estimateGas(...args);
+      setAllStep(label);
+      showToast(label);
+      await (await f(...args, { gasLimit: gas + 900000n })).wait();
+    };
+    let secured = false;
+    try {
+      const ref = new Contract(ADDRESSES.referralV42, REFERRAL_V42_ABI, signer);
+      // 1. rank bonus
+      if (card && Number(card.rank) > 0 && Number(card.rankHoldRemaining) === 0) {
+        const list = rankDirects();
+        if (list.length) {
+          try { await send(ref, "accrueRankBonus", [wallet, list], "1/4 — Adding up your rank bonus…"); }
+          catch (e) { /* nothing new to add yet, or the rank is not met today */ }
+        }
+      }
+      // 2. spot bonus
+      if (spot && spot.v6 && !spot.paused && spot.items && spot.items.length && spot.selfStake >= spot.minSelf) {
+        const pick = spot.items.slice(0, SPOT_MAX_BATCH);
+        const c6 = new Contract(ADDRESSES.spotV6, SPOT_V6_ABI, signer);
+        try {
+          await send(c6, "claimSpot", [pick.map(function (x) { return x.sourceId; }), pick.map(function (x) { return x.staker; }), pick.map(function (x) { return x.index; })],
+            "2/4 — Collecting your spot bonus…");
+          secured = true;
+        } catch (e) {
+          if (/NoBudget/.test(errMsg(e))) showToast("⏳ Today's spot budget is used up; the spot bonus waits for tomorrow.");
+        }
+      }
+      // 3. commission + rank bonus + task
+      try {
+        await send(ref, "claimAll", [], "3/4 — Moving commission and bonuses to your secured rewards…");
+        secured = true;
+      } catch (e) {
+        if (/NoBudget/.test(errMsg(e))) showToast("⏳ Today's referral budget is used up. What you are owed stays safe; claim again tomorrow.");
+      }
+      // 4. mint to the wallet
+      const pf = await mintPreflight(signer, wallet);
+      if (pf.ok && pf.owed <= 0) {
+        showToast(secured ? "ℹ️ Secured. Nothing to mint right now." : "ℹ️ Nothing to claim right now.");
+      } else if (pf.ok && pf.mintable <= 0) {
+        showToast("⏳ This hour's 500 OSG limit is used up. Your " + pf.owed.toFixed(2) + " OSG stays safe on-chain. Try again in about " + pf.waitMin + " min.");
+      } else {
+        const poolR = new Contract(ADDRESSES.pool, POOL_ABI, signer);
+        try {
+          setAllStep("4/4 — Minting OSG to your wallet…");
+          showToast("4/4 — Minting OSG to your wallet…");
+          await (await poolR.claim({ gasLimit: (await poolR.claim.estimateGas()) + 900000n, type: 0 })).wait();
+          showToast("💰 Claimed. The OSG is in your wallet.");
+        } catch (e2) {
+          showToast("⏳ Could not mint just now. Everything stays safe on-chain; try again in about an hour.");
+        }
+      }
+    } catch (e) {
+      showToast("❌ " + (errMsg(e) || "Transaction failed"));
+    }
+    setAllStep("");
+    setAllBusy(false);
+    setSpotTick(function (n) { return n + 1; });
+    await refreshCard();
+    try { setBonus(await new Contract(ADDRESSES.referralV42, REFERRAL_V42_ABI, getProvider()).bonusOwed(wallet)); } catch (e) {}
+  }
+
   async function claimCommission() {
     const signer = await ensureReady();
     if (!signer) return;
@@ -4982,6 +5060,28 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
       <div className="page-head">
         <h1>{t.referral}</h1>
       </div>
+
+      {REF_V6 && wallet && card && (function () {
+        var owedNow = Number(f18(card.owed)) + (bonus ? Number(f18(bonus)) : 0) + (spot && spot.v6 && spot.total ? Number(f18(spot.total)) : 0);
+        var rankReady = Number(card.rank) > 0 && Number(card.rankHoldRemaining) === 0;
+        return (
+          <div className="card" style={{ marginTop: 14 }}>
+            <div className="sec">Claim all</div>
+            <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 15, color: toneNum(owedNow.toFixed(2), "good") }}>
+              {fmt(owedNow, 2) + " OSG ready"}
+            </div>
+            <div style={{ fontSize: 11.5, color: C.txt3, marginTop: 6, lineHeight: 1.6 }}>
+              Commission, rank bonus and spot bonus in one go{rankReady ? ", and your rank stays active for 8 more days" : ""}. Steps with nothing to collect are skipped, so you only pay for what moves.
+            </div>
+            <button className="btn-gold" style={{ marginTop: 12 }} disabled={allBusy} onClick={claimEverything}>
+              {allBusy ? (allStep || "Working…") : "Claim all"}
+            </button>
+            <div style={{ fontSize: 11.5, color: C.gold1, marginTop: 8, lineHeight: 1.6 }}>
+              Press it once a week. Up to 500 OSG mints per hour across everyone.
+            </div>
+          </div>
+        );
+      })()}
 
 {spot && !spot.error && spot.started && !spot.paused && (
         <div className="card" style={{ marginTop: 14 }}>
