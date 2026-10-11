@@ -1,0 +1,2253 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>OSG Admin</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.2/ethers.umd.min.js" integrity="sha384-gpR0Q6Hx/O+uevlbpbANbS0LWjbejPV1sqD/8w422l/fW8whGY0EPmKw3uG7ACYP" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<style>
+  * { box-sizing: border-box; }
+  html, body { overflow-x: hidden; }
+  body { margin: 0; background: #08080B; color: #F4F4F5; font-family: system-ui, -apple-system, sans-serif; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 12px 12px 40px; }
+  h1 { font-size: 16px; margin: 0; color: #F7D27A; letter-spacing: .06em; }
+  h2 { font-size: 13px; margin: 0 0 4px; color: #9A9AA8; letter-spacing: .08em; text-transform: uppercase; }
+  .help { font-size: 12.5px; color: #9A9AA8; margin: 0 0 10px; line-height: 1.45; }
+  .card { background: #15151E; border: 1px solid rgba(255,255,255,.08); border-radius: 16px; padding: 14px; margin-bottom: 12px; min-width: 0; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+  .stat { background: #1B1B26; border-radius: 10px; padding: 10px; min-width: 0; }
+  .stat .k { font-size: 11px; color: #9A9AA8; }
+  .stat .v { font-size: 17px; font-weight: 600; margin-top: 3px; overflow-wrap: anywhere; }
+  .stat .why { font-size: 11.5px; margin-top: 4px; color: #F2675C; overflow-wrap: anywhere; }
+  .good { color: #46D08A; } .bad { color: #F2675C; } .warn { color: #F7D27A; }
+  button { min-height: 44px; padding: 11px 14px; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  button:focus-visible { outline: 2px solid #F7D27A; outline-offset: 2px; }
+  .gold { background: #E9B949; color: #1b1406; }
+  .ghost { background: #1B1B26; color: #F4F4F5; border: 1px solid rgba(255,255,255,.12); }
+  input { width: 100%; min-width: 0; padding: 10px; background: #0E0E14; color: #F4F4F5; border: 1px solid rgba(255,255,255,.12); border-radius: 10px; font-size: 13px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th, td { text-align: left; padding: 7px 6px; border-bottom: 1px solid rgba(255,255,255,.06); }
+  th { color: #9A9AA8; font-weight: 500; }
+  .mono { font-family: ui-monospace, monospace; }
+  .muted { color: #9A9AA8; font-size: 12.5px; }
+  .scroll { overflow-x: auto; max-width: 100%; }
+  #app { display: none; }
+  select { min-height: 44px; padding: 9px; background: #0E0E14; color: #F4F4F5; border: 1px solid rgba(255,255,255,.12); border-radius: 10px; font-size: 13px; max-width: 100%; }
+  .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0; }
+  .bar > input { flex: 1 1 180px; }
+  th.num, td.num { text-align: right; }
+  .top { position: sticky; top: 0; z-index: 20; background: rgba(8,8,11,.94); border-bottom: 1px solid rgba(233,185,73,.18); backdrop-filter: blur(6px); }
+  .top .in { max-width: 760px; margin: 0 auto; padding: 8px 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .top .sp { flex: 1; }
+  .badge { font-size: 11px; font-weight: 700; letter-spacing: .06em; padding: 3px 9px; border-radius: 999px; }
+  .badge.owner { color: #1b1406; background: #E9B949; }
+  .badge.sub { color: #07210f; background: #46D08A; }
+  .badge.viewer { color: #CFE0FF; background: rgba(90,150,255,.18); border: 1px solid rgba(90,150,255,.5); }
+  .top .who { font-size: 12px; color: #9A9AA8; }
+  .top .upd { font-size: 11.5px; color: #9A9AA8; }
+  .top button { min-height: 40px; padding: 8px 12px; font-size: 13px; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 12px; }
+  .tabs button { flex: 1 1 auto; min-height: 44px; padding: 10px 12px; font-size: 13px; background: #15151E; color: #C9C9D2; border: 1px solid rgba(255,255,255,.1); }
+  .tabs button[aria-selected="true"] { background: rgba(233,185,73,.14); color: #F7D27A; border-color: rgba(233,185,73,.55); }
+  .panel[hidden] { display: none; }
+  .goldnote { margin-top: 10px; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(233,185,73,.35); background: rgba(233,185,73,.06); color: #F7D27A; font-size: 12.5px; line-height: 1.45; }
+  .redline { margin-top: 8px; color: #F2675C; font-size: 12.5px; }
+  tr.total td { font-weight: 700; border-top: 1px solid rgba(255,255,255,.18); }
+  h3 { font-size: 13px; margin: 14px 0 6px; color: #C9C9D2; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  textarea { width: 100%; min-width: 0; min-height: 90px; padding: 10px; background: #0E0E14; color: #F4F4F5; border: 1px solid rgba(255,255,255,.12); border-radius: 10px; font-size: 13px; font-family: ui-monospace, monospace; }
+  td input { padding: 6px; font-size: 12.5px; }
+  .step { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,.06); }
+  .step .t { flex: 1 1 220px; font-size: 13px; min-width: 0; }
+  .step .s { font-size: 12px; min-width: 70px; }
+  .step button { min-height: 40px; padding: 8px 12px; font-size: 13px; }
+  label.chk { display: flex; gap: 8px; align-items: center; font-size: 13px; }
+  label.chk input { width: auto; }
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="in">
+    <h1>OSG ADMIN</h1>
+    <span class="badge" id="roleBadge" style="display:none"></span>
+    <span class="who mono" id="whoAddr"></span>
+    <span class="sp"></span>
+    <span class="upd" id="lastUpd"></span>
+    <button class="ghost" id="refreshBtn" style="display:none">Refresh all</button>
+  </div>
+</div>
+<div class="wrap">
+  <div class="card" id="gate">
+    <div class="muted" id="gateMsg">Connect your admin wallet to continue.</div>
+    <div style="margin-top:10px"><button class="gold" id="connectBtn">Connect wallet</button></div>
+  </div>
+
+  <div id="app">
+    <div class="tabs" role="tablist" aria-label="Admin sections">
+      <button role="tab" id="tab-overview" data-tab="overview" aria-controls="panel-overview">Overview</button>
+      <button role="tab" id="tab-mining" data-tab="mining" aria-controls="panel-mining">Mining</button>
+      <button role="tab" id="tab-referral" data-tab="referral" aria-controls="panel-referral">Referral</button>
+      <button role="tab" id="tab-treasury" data-tab="treasury" aria-controls="panel-treasury">Treasury</button>
+      <button role="tab" id="tab-members" data-tab="members" aria-controls="panel-members">Members</button>
+      <button role="tab" id="tab-tasks" data-tab="tasks" aria-controls="panel-tasks" style="display:none">Bonuses &amp; Tasks</button>
+      <button role="tab" id="tab-dao" data-tab="dao" aria-controls="panel-dao">DAO</button>
+      <button role="tab" id="tab-access" data-tab="access" aria-controls="panel-access" style="display:none">Access</button>
+    </div>
+    <div class="muted" id="canLine" style="display:none;margin:-4px 2px 12px"></div>
+
+    <section class="panel" role="tabpanel" id="panel-overview" aria-labelledby="tab-overview">
+      <div class="card">
+        <h2>Emission</h2>
+        <p class="help">Daily OSG released and how it is split.</p>
+        <div class="grid" id="emi"></div>
+      </div>
+      <div class="card">
+        <h2>OSG token</h2>
+        <p class="help">Supply and the hourly / daily mint limits.</p>
+        <div class="grid" id="tok"></div>
+      </div>
+    </section>
+
+    <section class="panel" role="tabpanel" id="panel-mining" aria-labelledby="tab-mining" hidden>
+      <div class="card">
+        <h2>Mining shares</h2>
+        <p class="help">How the daily mining budget is shared between the programmes.</p>
+        <div id="shares"></div>
+      </div>
+      <div class="card" id="lpAllCard" style="display:none">
+        <h2>LP counting (all locks)</h2>
+        <p class="help">Checks LP 12 months and LP 6 &amp; 18 months together and fixes whichever is off.</p>
+        <div id="lpAllCtl"></div>
+      </div>
+      <div class="card">
+        <h2>LP 12 months (V81)</h2>
+        <p class="help">The 365-day LP lock: how LP is counted and its daily rate.</p>
+        <div class="grid" id="lpw"></div><div id="lpCtl" style="margin-top:10px"></div>
+      </div>
+      <div class="card">
+        <h2>LP 6 &amp; 18 months (Tiers)</h2>
+        <p class="help">The 180 and 540-day LP locks: rates, capacity and payout health.</p>
+        <div class="grid" id="tiers"></div><div id="tiersCtl" style="margin-top:10px"></div>
+      </div>
+      <div class="card">
+        <h2>Term staking (closed to new stakes)</h2>
+        <p class="help">Existing Term positions keep running; check the budget and payouts here.</p>
+        <div class="grid" id="term"></div><div id="termCtl" style="margin-top:10px"></div>
+      </div>
+      <div class="card">
+        <h2>Old Flexi staking (1%)</h2>
+        <p class="help">The old flexible staking pool that still gets the staking share.</p>
+        <div class="grid" id="flexi"></div>
+      </div>
+    </section>
+
+    <section class="panel" role="tabpanel" id="panel-referral" aria-labelledby="tab-referral" hidden>
+      <div class="card">
+        <h2>Referral programme</h2>
+        <p class="help">Referral v6: is commission running, and today's referral budget.</p>
+        <div class="grid" id="prog"></div>
+      </div>
+      <div class="card">
+        <h2>Referral v6 state</h2>
+        <div class="grid" id="hState"><div class="muted">Reading...</div></div>
+      </div>
+      <div class="card">
+        <h2>Totals</h2>
+        <div class="grid" id="hTotals"></div>
+      </div>
+      <div class="card">
+        <h2>Today's pot</h2>
+        <p class="help">Spent today by part, and the reward pool's referral room. Scales are 100% when demand fits the budget.</p>
+        <div class="grid" id="hPot"></div>
+      </div>
+      <div class="card">
+        <h2>Deferred walks</h2>
+        <p class="help">A claim that ran short of gas stores the rest of its commission walk. Anyone may finish it. Settings cannot change while one is open.</p>
+        <div class="grid" id="hDeferred"></div>
+        <div class="bar"><button class="ghost" id="findWalks">Find open walks</button><span class="muted" id="walkMsg"></span></div>
+        <div id="walkList"></div>
+      </div>
+      <div class="card">
+        <h2>Switches</h2>
+        <p class="help">Pause or resume the whole contract, one part (Levels, Rank, Spot, Task), or the spot bonus. Owner only.</p>
+        <div id="switches"></div>
+        <div class="muted" id="swMsg"></div>
+      </div>
+      <div class="card" id="v6SetCard" style="display:none">
+        <h2>All settings (one transaction)</h2>
+        <div class="goldnote">Announce every change to the community 48 hours before sending it. Changes apply to future accruals only; nothing already owed is reduced.</div>
+        <h3>Level commission</h3>
+        <div class="scroll"><table id="lvTable"></table></div>
+        <div class="bar"><button class="ghost" id="lvAdd">Add level</button><button class="ghost" id="lvDel">Remove last level</button><span class="muted" id="lvSum"></span></div>
+        <h3>Rank bonus tiers</h3>
+        <div class="scroll"><table id="trTable"></table></div>
+        <div class="bar"><button class="ghost" id="trAdd">Add rank</button><button class="ghost" id="trDel">Remove last rank</button></div>
+        <h3>Daily pot</h3>
+        <div class="grid" id="potForm"></div>
+        <h3>Spot bonus</h3>
+        <div class="grid" id="spotForm"></div>
+        <h3>Stake thresholds (the 100 OSG rules)</h3>
+        <p class="help">"A direct counts from" = a direct's own Term/LP stake needed to count. "Upline earns from" = the upline's own stake needed to earn commission.</p>
+        <div class="grid" id="thrForm"></div>
+        <div class="bar"><button class="ghost" id="setReload">Reload from chain</button><button class="gold" id="setSend">Check and send</button></div>
+        <div class="muted" id="setMsg"></div>
+        <div id="setDiff"></div>
+      </div>
+    </section>
+
+    <section class="panel" role="tabpanel" id="panel-treasury" aria-labelledby="tab-treasury" hidden>
+      <div class="card">
+        <h2>Treasury</h2>
+        <p class="help">Airdrop and team bonus pools, and who may pay from them. Referral v6 and its spot bonus never pay from the Treasury; they are paid from the daily referral budget.</p>
+        <div class="grid" id="tre"></div><div id="treCtl" style="margin-top:10px"></div>
+      </div>
+    </section>
+
+    <section class="panel" role="tabpanel" id="panel-members" aria-labelledby="tab-members" hidden>
+      <div class="card">
+        <h2>Wallet lookup</h2>
+        <p class="help">Check any wallet: stake, directs, levels, owed and rank.</p>
+        <div class="bar"><input id="lookAddr" placeholder="0x..."><button class="gold" id="lookBtn">Check</button><button class="ghost" id="lkSync">Sync this wallet</button></div>
+        <div class="grid" id="look" style="margin-top:10px"></div>
+        <h3>Referral v6 detail</h3>
+        <div class="grid" id="lkOut"></div>
+        <div class="muted" id="lkMsg"></div>
+        <div id="lookTeam"></div>
+      </div>
+
+      <div class="card">
+        <h2>Listed wallets</h2>
+        <p class="help">Every wallet Referral v6 lists (seeded or registered, or has earned), with export.</p>
+        <div class="muted" id="earnMeta">Wallets listed in Referral v6. If someone is missing, use Wallet lookup.</div>
+        <div class="bar">
+          <button class="ghost" id="earnBtn">Load next 25</button>
+          <button class="ghost" id="earnAllBtn">Load all</button>
+          <select id="earnSort"><option value="">Order joined</option><option value="owed">Owed</option><option value="paid">Paid</option><option value="volume">Volume</option><option value="stake">Own stake</option><option value="directs">Directs</option><option value="team">Team</option><option value="rnum">Rank proven</option><option value="elig">Eligible rank</option></select>
+          <label class="muted"><input type="checkbox" id="earnOwed" style="width:auto"> Only owed &gt; 0</label>
+          <button class="ghost" id="earnTeamBtn">Add team + eligible rank</button>
+          <button class="ghost" id="earnCsv">Export CSV</button>
+        </div>
+        <div class="scroll"><table><thead><tr><th>#</th><th>Wallet</th><th>Upline</th><th class="num">Own stake</th><th class="num">Directs</th><th class="num">Levels open</th><th class="num">Volume</th><th class="num">Owed</th><th class="num">Paid</th><th>Rank proven</th><th>Eligible</th><th class="num">Team</th></tr></thead><tbody id="earnRows"></tbody></table></div>
+        <div class="muted" style="margin-top:8px">Tap a row to open the full detail in Wallet lookup.</div>
+      </div>
+      <div class="card" id="mvCard" style="display:none">
+        <h2>Move wallets to another referrer</h2>
+        <p class="help">Owner only. One wallet per line (up to 300). Only the bond moves: balances, ranks and anything owed stay with each wallet. Every move is a public event (ReferrerMoved).</p>
+        <textarea id="mvList" placeholder="0x...&#10;0x..."></textarea>
+        <div class="bar"><input id="mvTo" placeholder="New referrer 0x..."><button class="ghost" id="mvPreview">Preview</button><button class="gold" id="mvSend">Check and send</button></div>
+        <div class="muted" id="mvMsg"></div>
+        <div class="scroll" id="mvOut"></div>
+      </div>
+    </section>
+
+    <section class="panel" role="tabpanel" id="panel-tasks" aria-labelledby="tab-tasks" hidden>
+      <div class="card" id="tbCard" style="display:none">
+        <h2>Task board link to Referral v6</h2>
+        <p class="help">Task rewards are paid through the referral contract. Both lines must say Yes / Referral v6. Owner only; two steps, each tested first.</p>
+        <div class="grid" id="tbLink"><div class="muted">Reading...</div></div>
+        <div class="bar"><button class="gold" id="tbFix1" style="display:none">Step 1: task board uses Referral v6</button><button class="gold" id="tbFix2" style="display:none">Step 2: Referral v6 accepts the task board</button></div>
+        <div class="muted" id="tbMsg"></div>
+      </div>
+      <div class="card" id="bonusCard" style="display:none">
+        <h2>Give a bonus</h2>
+        <p class="help">Add OSG to a member's task balance in Referral v6, e.g. a prize or a correction.</p>
+        <div id="bonusCtl"></div>
+      </div>
+      <div class="card">
+        <h2>Task campaigns</h2>
+        <p class="help">Reward campaigns on the task board: who qualifies, the prize and the budget.</p>
+        <div class="scroll" id="taskList"><div class="muted">Reading tasks...</div></div>
+        <div id="taskEdit"></div>
+        <div id="taskTools"></div>
+        <div class="muted" id="taskMsg" style="margin-top:8px">Every change is tested first, then you approve it in your wallet.</div>
+      </div>
+    </section>
+
+    <section class="panel" role="tabpanel" id="panel-dao" aria-labelledby="tab-dao" hidden>
+      <div class="card">
+        <h2>DAO queue</h2>
+        <p class="help">Timelock actions: what is queued, ready or done.</p>
+        <div class="grid" id="dao"></div><div class="scroll" id="daoList" style="margin-top:10px"></div>
+      </div>
+    </section>
+
+    <section class="panel" role="tabpanel" id="panel-access" aria-labelledby="tab-access" hidden>
+      <div class="card" id="subCard" style="display:none">
+        <h2>Admin access</h2>
+        <p class="help">Check what a wallet may do, and give or remove its permissions.</p>
+        <div id="subCtl"></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+var E = ethers;
+var OWNER = "0xF8acaA5617DfF6DB3d0cb44ca8de0E50A449BB83";
+var A = {
+  token: "0xba05176748347944CC26900c821AbFeBeBC57415",
+  referral: "0xb452A678539F18Ca6492a72DB9a69D9b7a340b74",   // Referral v6 (core)
+  lens: "0xDb57Af6Fd1184a5b55ec99d0b601b5F5290c799E",       // Referral v6 lens
+  health: "0xDb57Af6Fd1184a5b55ec99d0b601b5F5290c799E",     // programmeStats lives in the v6 lens
+  referralV5: "0x58383A8171014a8008d28e7CbB509e21412ec52A", // retired (paused, frozen)
+  spotV1: "0x7Ee98AE2BeAEf2251A8bBB3810006495F62b7C92",     // retired spot (paused)
+  treasury: "0x4669b2d38098Ae28D0332F03D1630B334aDDDF50",
+  term: "0xb3DE3956DF62a069c9AC428Ec58120b3d9CD7cCc",
+  lp: "0x1F04F1441208ee8dDD3a124DEfc4a493d768d0fC",
+  spot: "0x41F955dCF8E45e14406B7fBD846Ff2D56cE2bCe1",       // Spot v6
+  pool: "0xDc4fE983ed301AD42F4E4C43951aa07A7a182855",  // RewardPool v2
+  tiers: "0x333a6c51Baa2d19Af036f45f32eaCF10234F17C8", // LP 6 & 18 months
+  flexi: "0x048E814C02e85ec1438Ab8C1d2e9150A5289A886"  // old Flexi staking (1%)
+};
+// Contract names for display (governance, DAO targets, Spot sources).
+var NAMES = { "0xba05176748347944cc26900c821abfebebc57415": "OSG token", "0xa0b2dcb18cf0bdf61bcb9d33f538167df501becb": "RewardStorage", "0xdc4fe983ed301ad42f4e4c43951aa07a7a182855": "RewardPool v2", "0xf8acaa5617dff6db3d0cb44ca8de0e50a449bb83": "OSG-MAIN", "0x58383a8171014a8008d28e7cbb509e21412ec52a": "Referral v5 (retired)", "0xb452a678539f18ca6492a72db9a69d9b7a340b74": "Referral v6", "0x41f955dcf8e45e14406b7fbd846ff2d56ce2bce1": "Spot v6", "0x2dde97a3ebd315144af4b78925c6f51e9be58faf": "Referral v6 rules", "0xdb57af6fd1184a5b55ec99d0b601b5f5290c799e": "Referral v6 lens", "0x4669b2d38098ae28d0332f03d1630b334adddf50": "Treasury", "0x1f04f1441208ee8ddd3a124defc4a493d768d0fc": "LP Mining", "0xb3de3956df62a069c9ac428ec58120b3d9cd7ccc": "Term staking", "0x333a6c51baa2d19af036f45f32eacf10234f17c8": "LP 6 & 18 months", "0x048e814c02e85ec1438ab8c1d2e9150a5289a886": "Old Flexi staking", "0x7ee98ae2beaef2251a8bbb3810006495f62b7c92": "Spot v1 (retired)", "0x7cbfd31fc4ea31d5390f20adbffd0cbfb839912e": "Spot adapter (Term)", "0xdd065840f5bd458dc4e9deeaed7f1946812870a6": "Spot adapter (LP)", "0xe2e82a8acdd3af7fa74eacb3331231a769d80d4c": "DAO timelock" };
+function nameOf(a) { return NAMES[String(a).toLowerCase()] || short(a); }
+// Our own paid route first (/api/rpc, key on the server), public nodes after it.
+var RPCS = [location.origin + "/api/rpc", "https://polygon-bor-rpc.publicnode.com", "https://polygon.drpc.org", "https://1rpc.io/matic"];
+var ABI = {
+  token: ["function paused() view returns (bool)", "function totalSupply() view returns (uint256)", "function mintedThisHour() view returns (uint256)", "function dailyMinted() view returns (uint256)", "function owner() view returns (address)", "function governance() view returns (address)"],
+  referral: ["function usersLength() view returns (uint256)", "function allUsers(uint256) view returns (address)", "function totalAirdropAssigned() view returns (uint256)", "function totalAirdropPaid() view returns (uint256)", "function taskBoard() view returns (address)", "function currentRank(address user, address[] directs) view returns (uint8)"],
+  lens: ["function walletCard(address user) view returns (tuple(address referrer, bool hasUpline, bool uplineIsLegacy, uint256 legacyDirects, uint256 registeredDirects, uint256 qualifiedDirects, uint256 directsForLevels, uint256 levelsOpen, uint256 activeBps, uint256 stake, uint256 qualifyingStake, bool countsAsDirect, uint256 owed, uint256 paid, uint256 volume, uint8 rank, uint256 rankHoldRemaining, uint256 bonusCooldownRemaining, uint256 bonusPaidTotal) card)", "function directsView(address user) view returns (tuple(uint8 level, address wallet, uint256 stake, uint256 qualifyingStake, bool qualified, bool isLegacy, address referrer, uint256 joinedAt)[] list)", "function levelSummary(address user, uint256 maxNodes) view returns (tuple(uint8 level, uint256 members, uint256 legacyMembers, uint256 qualified, uint256 totalStake, uint256 levelBps, uint256 directsNeeded, bool open)[] rows, uint256 totalMembers, bool truncated)"],
+  health: ["function programmeStats() view returns (uint256 totalLevelBps, uint256 referralBudgetToday, uint256 minDirectStake, uint256 minReferrerStake, uint256 sourceCount, bool wired, bool paused, bool seedOpen)"],
+  treasury: ["function airdropPool() view returns (uint256)", "function teamBonusPool() view returns (uint256)", "function endsAt() view returns (uint256)", "function monthlyCap() view returns (uint256)", "function isSpender(address) view returns (bool)"],
+  term: ["function getPositions(address user) view returns (tuple(uint256 amount, uint256 cap, uint256 rewardDebt, uint256 rewardPaid, uint256 unpaid, uint256 startTime, bool capped, bool closed)[])"],
+  lp: ["function positionCount(address user) view returns (uint256)", "function positions(address, uint256) view returns (uint256 lpAmount, uint256 osgValue, uint256 rewardDebt, uint256 rewardPaid, uint256 unpaid, uint256 startTime, bool closed)"]
+};
+var RANKS = ["-", "Bronze", "Silver", "Gold", "Diamond", "Platinum"];
+var MIN_DIRECT = 100;
+var TEAM_CAP = 3000;
+
+// Tries each node in order and moves on after an HTTP error (529, 429, 5xx),
+// a rate-limit reply or 4 s without an answer. FallbackProvider with quorum 1
+// took the first error as the answer and never tried the next node.
+class FailoverRpc extends E.JsonRpcProvider {
+  constructor(urls) {
+    super(urls[0], 137, { staticNetwork: true, batchMaxCount: 10 });
+    this._urls = urls;
+    this._at = 0;
+  }
+  async _send(payload) {
+    var lastErr = null;
+    for (var k = 0; k < this._urls.length; k++) {
+      var idx = (this._at + k) % this._urls.length;
+      try {
+        var req = new E.FetchRequest(this._urls[idx]);
+        req.body = JSON.stringify(payload);
+        req.setHeader("content-type", "application/json");
+        req.timeout = 4000;
+        req.setThrottleParams({ maxAttempts: 1 });
+        var res = await req.send();
+        res.assertOk();
+        var out = res.bodyJson;
+        var arr = Array.isArray(out) ? out : [out];
+        if (arr.some(function (r) { return r && r.error && /rate|limit|capacity|too many/i.test(String(r.error.message || "")); })) throw new Error("rpc limited");
+        this._at = idx;
+        return arr;
+      } catch (e) { lastErr = e; }
+    }
+    throw lastErr;
+  }
+}
+var provider = null;
+function pv() {
+  if (!provider) provider = new FailoverRpc(RPCS);
+  return provider;
+}
+function C(name) { return new E.Contract(A[name], ABI[name], pv()); }
+function osg(v, d) { return Number(E.formatUnits(v, 18)).toLocaleString("en-US", { maximumFractionDigits: d === undefined ? 2 : d }); }
+function short(a) { return a.slice(0, 6) + "..." + a.slice(-4); }
+function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+// why = short reason, shown under a "bad" value so it is never colour only.
+function stat(k, v, cls, why) { return '<div class="stat"><div class="k">' + esc(k) + '</div><div class="v ' + (cls || "") + '">' + esc(v) + "</div>" + (why ? '<div class="why">' + esc(why) + "</div>" : "") + "</div>"; }
+function fill(id, html) { document.getElementById(id).innerHTML = html; }
+function fail(id, e) { fill(id, stat("Error", (e && (e.shortMessage || e.message)) || String(e), "bad", "Read failed - tap Refresh all to try again.")); }
+
+async function loadProgramme() {
+  try {
+    var s = await C("health").programmeStats();
+    var r = C("referral");
+    var n = await r.usersLength();
+    MIN_DIRECT = Number(E.formatUnits(s.minDirectStake, 18));
+    fill("prog",
+      stat("Wired", s.wired ? "Yes" : "No", s.wired ? "good" : "bad", s.wired ? "" : "Not wired to the reward pool - no commission accrues.") +
+      stat("Paused", s.paused ? "Yes" : "No", s.paused ? "bad" : "good", s.paused ? "Referral programme is paused." : "") +
+      stat("Budget today", osg(s.referralBudgetToday) + " OSG") +
+      stat("Min direct stake", osg(s.minDirectStake, 0) + " OSG") +
+      stat("Stake sources", s.sourceCount.toString()) +
+      stat("Wallets listed", n.toString()));
+  } catch (e) { fail("prog", e); }
+}
+
+async function loadToken() {
+  try {
+    var t = C("token");
+    var res = await Promise.all([t.paused(), t.totalSupply(), t.mintedThisHour(), t.dailyMinted()]);
+    var hour = Number(E.formatUnits(res[2], 18));
+    var day = Number(E.formatUnits(res[3], 18));
+    fill("tok",
+      stat("Paused", res[0] ? "Yes" : "No", res[0] ? "bad" : "good", res[0] ? "Token is paused - transfers and mints stop." : "") +
+      stat("Total supply", osg(res[1], 0) + " / 23,000,000") +
+      stat("Minted this hour", hour.toFixed(2) + " / 500", hour > 400 ? "warn" : "") +
+      stat("Minted today", day.toFixed(2) + " / 9,000", day > 7200 ? "warn" : ""));
+  } catch (e) { fail("tok", e); }
+}
+
+async function loadTreasury() {
+  try {
+    var tr = C("treasury");
+    var res = await Promise.all([tr.airdropPool(), tr.teamBonusPool(), tr.endsAt(), tr.isSpender(A.referralV5), tr.isSpender(A.spotV1)]);
+    var ends = new Date(Number(res[2]) * 1000).toISOString().slice(0, 10);
+    fill("tre",
+      stat("Airdrop pool", osg(res[0]) + " OSG") +
+      stat("Team bonus pool", osg(res[1]) + " OSG") +
+      stat("Season ends", ends) +
+      stat("Retired Referral v5 may spend", res[3] ? "Yes" : "No", res[3] ? "warn" : "good", res[3] ? "Retired - you may remove it below." : "") +
+      stat("Retired Spot v1 may spend", res[4] ? "Yes" : "No", res[4] ? "warn" : "good", res[4] ? "Retired - you may remove it below." : ""));
+  } catch (e) { fail("tre", e); }
+}
+
+async function loadLpWeight() {
+  try {
+    var m = new E.Contract(A.lp, ["function lpToken() view returns (address)", "function lpWeight() view returns (uint256)", "function totalStakeValue() view returns (uint256)", "function maxRateBps() view returns (uint256)", "function effectiveRateBps() view returns (uint256)"], pv());
+    var a = await Promise.all([m.lpToken(), m.lpWeight(), m.totalStakeValue(), m.maxRateBps(), m.effectiveRateBps()]);
+    var p = new E.Contract(a[0], ["function getReserves() view returns (uint112, uint112, uint32)", "function token0() view returns (address)", "function token1() view returns (address)", "function totalSupply() view returns (uint256)"], pv());
+    var b = await Promise.all([p.getReserves(), p.token0(), p.token1(), p.totalSupply()]);
+    var osgRes;
+    if (b[1].toLowerCase() === A.token.toLowerCase()) osgRes = b[0][0];
+    else if (b[2].toLowerCase() === A.token.toLowerCase()) osgRes = b[0][1];
+    else throw new Error("LP pair does not hold OSG");
+    if (b[3] === 0n || osgRes === 0n) throw new Error("LP pair is empty");
+    var now = a[1];
+    var right = (2n * osgRes * 1000000000000000000n) / b[3];
+    var lc = lpCounting(now, right);
+    var diff = lc.diff;
+    var abs = Math.abs(diff);
+    var oneCall = right <= now * 2n && right * 2n >= now;
+    var rateNow = Number(a[4]) / 100;
+    var rateMax = Number(a[3]) / 100;
+    var counts = lc.counts;
+    fill("lpw",
+      stat("100 OSG added now counts as", counts.toFixed(1) + " OSG", abs > 3 ? "warn" : "good") +
+      stat("It should count as", "200 OSG") +
+      stat("Off by", (diff > 0 ? "+" : "") + diff.toFixed(2) + "%", abs > 10 ? "bad" : abs > 3 ? "warn" : "good", abs > 10 ? "LP counting is more than 10% off the pool price." : "") +
+      stat("Status", abs <= 1 ? "Correct" : diff > 0 ? "Counts too high - fix" : "Counts too low - fix", abs > 1 ? "warn" : "good") +
+      stat("Can fix in one step", oneCall ? "Yes" : "No - needs two steps", oneCall ? "good" : "bad", oneCall ? "" : "Weight may change at most 2x per step.") +
+      stat("Total counted in LP mining", osg(a[2], 0) + " OSG") +
+      stat("LP daily reward now", rateNow.toFixed(2) + "% (limit " + rateMax.toFixed(2) + "%)", a[4] < a[3] ? "warn" : "good"));
+  } catch (e) { fail("lpw", e); }
+}
+ // ===== Owner actions: every write is simulated first, then confirmed =====
+var signer = null;
+async function getSigner() {
+  if (!signer) signer = await new E.BrowserProvider(window.ethereum).getSigner();
+  var who = await signer.getAddress();
+  if (who.toLowerCase() !== OWNER.toLowerCase()) throw new Error("Connected wallet is not the owner");
+  return signer;
+}
+function note(id, text, cls) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.className = "muted " + (cls || "");
+  el.textContent = text;
+}
+function errText(e) { return (e && (e.shortMessage || e.reason || e.message)) || String(e); }
+// Sub-admin writes (o.admin) are signed by the connected admin wallet; the
+// contract itself checks that wallet's permission.
+async function getAdminSigner() {
+  if (!signer) signer = await new E.BrowserProvider(window.ethereum).getSigner();
+  var who = await signer.getAddress();
+  if (!ROLE.addr || who.toLowerCase() !== String(ROLE.addr).toLowerCase()) throw new Error("The connected wallet changed - reload the page");
+  return signer;
+}
+async function ownerTx(o) {
+  try {
+    var c = new E.Contract(o.addr, [o.abi], o.admin ? await getAdminSigner() : await getSigner());
+    var f = c.getFunction(o.fn);
+    note(o.msg, "Testing...");
+    try { await f.staticCall(...o.args); }
+    catch (e) { note(o.msg, "Test failed, nothing sent: " + errText(e), "bad"); return; }
+    if (!window.confirm(o.name + "\n\n" + o.what + "\n\nTest passed. Send this change from the " + (o.admin ? "connected admin" : "owner") + " wallet?")) { note(o.msg, "Cancelled. Nothing sent."); return; }
+    note(o.msg, "Waiting for the wallet...");
+    var tx = await f(...o.args);
+    note(o.msg, "Sent " + tx.hash + " - waiting for confirmation...");
+    var r = await tx.wait();
+    note(o.msg, (r.status === 1 ? "Done in block " + r.blockNumber + ": " : "Failed: ") + tx.hash, r.status === 1 ? "good" : "bad");
+    if (r.status === 1 && o.done) o.done(r);
+    if (o.reload) o.reload();
+    return r.status === 1;
+  } catch (e) { note(o.msg, "Not sent: " + errText(e), "bad"); }
+}
+function pctToBps(txt, lo, hi) {
+  var x = Number(String(txt).trim());
+  if (!isFinite(x) || String(txt).trim() === "") throw new Error("Enter a number");
+  var bps = Math.round(x * 100);
+  if (Math.abs(bps - x * 100) > 1e-6) throw new Error("Use at most 2 decimals");
+  if (bps < lo || bps > hi) throw new Error("Allowed " + (lo / 100).toFixed(2) + "% to " + (hi / 100).toFixed(2) + "%");
+  return bps;
+}
+async function lpWeightNow() {
+  var m = new E.Contract(A.lp, ["function lpToken() view returns (address)", "function lpWeight() view returns (uint256)"], pv());
+  var a = await Promise.all([m.lpToken(), m.lpWeight()]);
+  var p = new E.Contract(a[0], ["function getReserves() view returns (uint112, uint112, uint32)", "function token0() view returns (address)", "function totalSupply() view returns (uint256)"], pv());
+  var b = await Promise.all([p.getReserves(), p.token0(), p.totalSupply()]);
+  var osgRes = b[1].toLowerCase() === A.token.toLowerCase() ? b[0][0] : b[0][1];
+  if (b[2] === 0n || osgRes === 0n) throw new Error("LP pair is empty");
+  return { now: a[1], right: (2n * osgRes * 1000000000000000000n) / b[2] };
+}
+// Shared by both LP cards and the "all locks" button. now/right are the
+// current and correct lpWeight (1 LP = x OSG, 18 decimals); 1 LP should
+// count as 2 x its OSG side, so 100 OSG + matching POL counts as 200 OSG.
+// Changing lpWeight only affects NEW deposits; existing positions keep
+// their counted value.
+function lpCounting(now, right) {
+  var diff = Number(((now - right) * 10000n) / right) / 100;
+  return {
+    counts: Number((200n * 1000000000000000000n * now) / right) / 1e18,
+    diff: diff,
+    ok: Math.abs(diff) <= 1,
+  };
+}
+function loadLpControls() {
+  fill("lpCtl",
+    '<div class="bar"><input id="lpRateIn" placeholder="New LP daily reward limit in % (0.10 to 2.00)" style="flex:1"><button class="gold" id="lpRateBtn">Change LP reward</button></div>' +
+    '<div class="bar"><button class="ghost" id="lpWBtn">Fix: make 100 OSG count as 200 (12 months)</button></div>' +
+    '<div class="muted" id="lpMsg">Every change is tested first, then you approve it in the wallet.</div>');
+  document.getElementById("lpRateBtn").onclick = async function () {
+    var bps;
+    try { bps = pctToBps(document.getElementById("lpRateIn").value, 10, 200); } catch (e) { note("lpMsg", errText(e), "bad"); return; }
+    var old = await new E.Contract(A.lp, ["function maxRateBps() view returns (uint256)"], pv()).maxRateBps();
+    if (BigInt(bps) === old) { note("lpMsg", "That is already the limit.", "warn"); return; }
+    ownerTx({ msg: "lpMsg", name: "Change LP daily reward limit", addr: A.lp, abi: "function setMaxRateBps(uint256 newBps)", fn: "setMaxRateBps", args: [bps],
+      what: "LP daily reward limit: " + (Number(old) / 100).toFixed(2) + "% -> " + (bps / 100).toFixed(2) + "% a day.\nIf the daily budget is short, the contract pays a little less by itself.",
+      reload: function () { loadLpWeight(); } });
+  };
+  document.getElementById("lpWBtn").onclick = async function () {
+    var w;
+    try { w = await lpWeightNow(); } catch (e) { note("lpMsg", errText(e), "bad"); return; }
+    if (w.right === w.now) { note("lpMsg", "Already correct: 100 OSG counts as 200.", "good"); return; }
+    if (!(w.right <= w.now * 2n && w.right * 2n >= w.now)) { note("lpMsg", "Too far off to fix in one step. Nothing sent.", "bad"); return; }
+    var diff = Number(((w.right - w.now) * 10000n) / w.now) / 100;
+    ownerTx({ msg: "lpMsg", name: "Fix LP counting", addr: A.lp, abi: "function setLpWeight(uint256 newWeight)", fn: "setLpWeight", args: [w.right],
+      what: "100 OSG added counts as: " + (Number((200n * 1000000000000000000n * w.now) / w.right) / 1e18).toFixed(1) + " OSG -> 200 OSG.\nOnly new LP deposits are affected; existing ones stay as they are.",
+      reload: function () { loadLpWeight(); } });
+  };
+}
+// ===== Treasury: who may pay from it, and adding OSG to the airdrop pool =====
+var TRE_R = ["function isSpender(address) view returns (bool)", "function airdropPool() view returns (uint256)", "function closesAt() view returns (uint256)"];
+var TOK_R = ["function balanceOf(address) view returns (uint256)", "function allowance(address, address) view returns (uint256)"];
+function spenderName(a) {
+  var l = a.toLowerCase();
+  return nameOf(a);
+}
+function loadTreasuryControls() {
+  fill("treCtl",
+    '<div class="bar"><input id="treSpIn" value="' + A.referralV5 + '" style="flex:1"><button class="ghost" id="treSpCheck">Check</button></div>' +
+    '<div class="bar"><button class="gold" id="treSpAllow">Allow to pay from Treasury</button><button class="ghost" id="treSpRemove">Remove</button></div>' +
+    field("treFundIn", "OSG to add to the airdrop pool (from the owner wallet)", "treFundBtn", "Add to airdrop pool") +
+    '<div class="muted" id="treMsg">The address above is the retired Referral v5. Paste any contract address to check or change whether it may pay from the Treasury.</div>');
+  var T = function () { return new E.Contract(A.treasury, TRE_R, pv()); };
+  var re = function () { loadTreasury(); };
+  function spAddr() {
+    var a = document.getElementById("treSpIn").value.trim();
+    if (!E.isAddress(a)) throw new Error("Not a valid address");
+    return E.getAddress(a);
+  }
+  document.getElementById("treSpCheck").onclick = async function () {
+    try {
+      var a = spAddr();
+      var ok = await T().isSpender(a);
+      note("treMsg", spenderName(a) + (ok ? " may pay from the Treasury." : " may not pay from the Treasury."), ok ? "good" : "warn");
+    } catch (e) { note("treMsg", errText(e), "bad"); }
+  };
+  function setSpender(allow) {
+    return async function () {
+      var a; try { a = spAddr(); } catch (e) { note("treMsg", errText(e), "bad"); return; }
+      try {
+        note("treMsg", "Reading...");
+        var now = await T().isSpender(a);
+        if (now === allow) { note("treMsg", spenderName(a) + (allow ? " is already allowed." : " is already not allowed."), "warn"); return; }
+        if (allow && (await pv().getCode(a)) === "0x") { note("treMsg", "That address is not a contract. Nothing sent.", "bad"); return; }
+      } catch (e) { note("treMsg", "Could not read the chain, nothing sent: " + errText(e), "bad"); return; }
+      ownerTx({ msg: "treMsg", name: allow ? "Allow Treasury spender" : "Remove Treasury spender", addr: A.treasury, abi: "function allowSpender(address spender, bool allowed)", fn: "allowSpender", args: [a, allow],
+        what: allow ? spenderName(a) + " (" + a + ") may pay members from the Treasury pools.\nTakes effect at once." : spenderName(a) + " may no longer pay from the Treasury.\nTakes effect at once.",
+        reload: re });
+    };
+  }
+  document.getElementById("treSpAllow").onclick = setSpender(true);
+  document.getElementById("treSpRemove").onclick = setSpender(false);
+  document.getElementById("treFundBtn").onclick = async function () {
+    var v; try { v = osgIn("treFundIn"); } catch (e) { note("treMsg", errText(e), "bad"); return; }
+    try {
+      var tok = new E.Contract(A.token, TOK_R, pv());
+      var r = await Promise.all([tok.balanceOf(OWNER), tok.allowance(OWNER, A.treasury), T().airdropPool(), T().closesAt()]);
+      if (BigInt(Math.floor(Date.now() / 1000)) >= r[3]) { note("treMsg", "The Treasury is closed. Nothing sent.", "bad"); return; }
+      if (r[0] < v) { note("treMsg", "The owner wallet holds only " + osg(r[0]) + " OSG. Nothing sent.", "bad"); return; }
+      if (r[1] < v) {
+        ownerTx({ msg: "treMsg", name: "Step 1 of 2: let the Treasury take OSG", addr: A.token, abi: "function approve(address spender, uint256 amount)", fn: "approve", args: [A.treasury, v],
+          what: "Let the Treasury take exactly " + osg(v) + " OSG from the owner wallet.\nNothing moves yet. After this, press Add to airdrop pool again for step 2." });
+        return;
+      }
+      ownerTx({ msg: "treMsg", name: "Step 2 of 2: add OSG to the airdrop pool", addr: A.treasury, abi: "function fundAirdrop(uint256 amount)", fn: "fundAirdrop", args: [v],
+        what: "Move " + osg(v) + " OSG from the owner wallet into the Treasury airdrop pool.\nPool: " + osg(r[2]) + " -> " + osg(r[2] + v) + " OSG.\nIt cannot be taken back out until the Treasury closes.",
+        reload: re });
+    } catch (e) { note("treMsg", errText(e), "bad"); }
+  };
+}
+// ===== Roles: the owner wallet changes settings; sub-admins hold the =====
+// ===== permissions set on chain; admins.json wallets only read.     =====
+// Referral v6 adminPerms bit 1 = PERM_GRANT (grantAirdrop). It has no getter in
+// v6, so it is read from storage: mapping(address => uint8) at slot 4.
+// TaskBoard adminPerms bit 1 = PERM_MARK (mark / unmark MANUAL tasks),
+// bit 2 = PERM_TASK (create / update / turn tasks on or off).
+var IS_OWNER = false;
+var ROLE = { kind: "", grant: false, mark: false, task: false, addr: "" };
+var PERM_R = ["function adminPerms(address) view returns (uint8)"];
+var _taskBoard = null;
+var V6_PERMS_SLOT = 4;
+// The TaskBoard address is read from Referral v6 taskBoard(); until that is
+// set it falls back to the retired v5 taskBoard(). Not hard-coded.
+async function taskBoardAddr() {
+  if (_taskBoard) return _taskBoard;
+  var tb = await V6.tbOf();
+  if (tb === E.ZeroAddress) throw new Error("No task board found");
+  _taskBoard = tb;
+  return tb;
+}
+async function permsOf(a) {
+  var tb = await taskBoardAddr();
+  var r = await Promise.all([V6.slotOf(a, V6_PERMS_SLOT), new E.Contract(tb, PERM_R, pv()).adminPerms(a)]);
+  var g = Number(r[0] & 0xffn), t = Number(r[1]);
+  return { v6: g, tb: t, grant: (g & 1) !== 0, mark: (t & 1) !== 0, task: (t & 2) !== 0 };
+}
+async function inAdminsJson(a) {
+  try {
+    var j = await (await fetch("/admins.json?t=" + Date.now())).json();
+    return (j.wallets || []).some(function (x) { return String(x).toLowerCase() === a.toLowerCase(); });
+  } catch (e) { return false; }
+}
+// { kind: "owner" | "sub" | "view" | "", grant, mark, task }
+async function roleOf(a) {
+  if (a.toLowerCase() === OWNER.toLowerCase()) return { kind: "owner", grant: true, mark: true, task: true };
+  var p = null;
+  try { p = await permsOf(a); } catch (e) {}
+  if (p && (p.grant || p.mark || p.task)) return { kind: "sub", grant: p.grant, mark: p.mark, task: p.task };
+  if (await inAdminsJson(a)) return { kind: "view", grant: false, mark: false, task: false };
+  return { kind: "", grant: false, mark: false, task: false };
+}
+function field(inId, hint, btnId, label) {
+  return '<div class="bar"><input id="' + inId + '" placeholder="' + esc(hint) + '" style="flex:1"><button class="gold" id="' + btnId + '">' + esc(label) + "</button></div>";
+}
+function osgIn(id) {
+  var t = String(document.getElementById(id).value).trim().replace(/,/g, "");
+  if (!t || !(Number(t) > 0)) throw new Error("Enter an amount above 0");
+  return E.parseUnits(t, 18);
+}
+var TERM_R = ["function maxRateBps() view returns (uint256)", "function miningShareBps() view returns (uint256)", "function maxShareBps() view returns (uint256)", "function minDeposit() view returns (uint256)", "function capacity() view returns (uint256)", "function paused() view returns (bool)"];
+var LP_R = ["function miningShareBps() view returns (uint256)", "function maxShareBps() view returns (uint256)", "function minDeposit() view returns (uint256)", "function capacityLp() view returns (uint256)", "function paused() view returns (bool)"];
+// ===== One shares guard for the three programmes on the Mining bucket =====
+var SHARE_PROGS = { term: "Term", lp: "LP 12 months", tiers: "LP 6 & 18 months" };
+async function sharesNow() {
+  var keys = Object.keys(SHARE_PROGS);
+  var r = await Promise.all(keys.map(function (k) { return new E.Contract(A[k], ["function miningShareBps() view returns (uint256)"], pv()).miningShareBps(); }));
+  var out = {};
+  keys.forEach(function (k, i) { out[k] = r[i]; });
+  return out;
+}
+// Total with `key` set to `bps`. Over 10,000 -> err (names the largest other
+// share to lower first). Otherwise text for the confirm: what the others keep
+// and how much of the Mining budget stays unused.
+function shareGuard(s, key, bps) {
+  var total = BigInt(bps), others = [];
+  Object.keys(SHARE_PROGS).forEach(function (k) { if (k !== key) { total += s[k]; others.push(k); } });
+  if (total > 10000n) {
+    var big = others.slice().sort(function (a, b) { return s[b] > s[a] ? 1 : s[b] < s[a] ? -1 : 0; })[0];
+    return { err: "This would make the shares add up to " + (Number(total) / 100).toFixed(2) + "%. Lower " + SHARE_PROGS[big] + " first. Nothing sent." };
+  }
+  var keep = others.map(function (k) { return SHARE_PROGS[k] + " keeps " + (Number(s[k]) / 100).toFixed(2) + "%"; }).join(", ") + ".";
+  var unused = 10000n - total;
+  return { text: keep + "\n" + (unused > 0n ? (Number(unused) / 100).toFixed(2) + "% of the Mining budget will stay unused." : "All three together use 100% of the Mining budget.") };
+}
+function pauseTx(o) {
+  return async function () {
+    var paused = await new E.Contract(o.addr, ["function paused() view returns (bool)"], pv()).paused();
+    ownerTx({ msg: o.msg, name: (paused ? "Resume " : "Pause ") + o.label, addr: o.addr, abi: "function " + (paused ? "unpause" : "pause") + "()", fn: paused ? "unpause" : "pause", args: [],
+      what: paused ? o.label + " is paused now. Resume deposits and claims?" : "Stop new deposits and claims in " + o.label + " until you resume.\nMembers can still take out a finished position.",
+      reload: o.reload });
+  };
+}
+function loadTermControls() {
+  fill("termCtl",
+    field("termRateIn", "New Term daily reward limit in % (0.10 to 2.00)", "termRateBtn", "Change Term reward") +
+    field("termShareIn", "Term share of the mining budget in % (all three together at most 100)", "termShareBtn", "Change Term share") +
+    field("termMinIn", "Smallest Term stake in OSG", "termMinBtn", "Change minimum") +
+    field("termCapIn", "Raise Term limit to (total OSG, can only go up)", "termCapBtn", "Raise limit") +
+    '<div class="bar"><button class="ghost" id="termPauseBtn">Pause or resume Term staking</button></div>' +
+    '<div class="muted" id="termMsg">Every change is tested first, then you approve it in the wallet.</div>');
+  var T = function () { return new E.Contract(A.term, TERM_R, pv()); };
+  var re = function () { loadTerm(); };
+  document.getElementById("termRateBtn").onclick = async function () {
+    var bps; try { bps = pctToBps(document.getElementById("termRateIn").value, 10, 200); } catch (e) { note("termMsg", errText(e), "bad"); return; }
+    var old = await T().maxRateBps();
+    if (BigInt(bps) === old) { note("termMsg", "That is already the limit.", "warn"); return; }
+    ownerTx({ msg: "termMsg", name: "Change Term daily reward limit", addr: A.term, abi: "function setMaxRate(uint256 newBps)", fn: "setMaxRate", args: [bps],
+      what: "Term daily reward limit: " + (Number(old) / 100).toFixed(2) + "% -> " + (bps / 100).toFixed(2) + "% a day.\nEach position still stops at 2x; only the speed changes.", reload: re });
+  };
+  document.getElementById("termShareBtn").onclick = async function () {
+    var bps; try { bps = pctToBps(document.getElementById("termShareIn").value, 0, 10000); } catch (e) { note("termMsg", errText(e), "bad"); return; }
+    var r, sh;
+    try { r = await Promise.all([T().miningShareBps(), T().maxShareBps()]); sh = await sharesNow(); } catch (e) { note("termMsg", "Could not read the shares, nothing sent: " + errText(e), "bad"); return; }
+    if (BigInt(bps) > r[1]) { note("termMsg", "Above the Term ceiling of " + (Number(r[1]) / 100).toFixed(2) + "%. Nothing sent.", "bad"); return; }
+    var g = shareGuard(sh, "term", bps);
+    if (g.err) { note("termMsg", g.err, "bad"); return; }
+    ownerTx({ msg: "termMsg", name: "Change Term share of mining budget", addr: A.term, abi: "function setMiningShareBps(uint256 newBps)", fn: "setMiningShareBps", args: [bps],
+      what: "Term share: " + (Number(r[0]) / 100).toFixed(2) + "% -> " + (bps / 100).toFixed(2) + "%.\n" + g.text, reload: function () { re(); loadShares(); } });
+  };
+  document.getElementById("termMinBtn").onclick = async function () {
+    var v; try { v = osgIn("termMinIn"); } catch (e) { note("termMsg", errText(e), "bad"); return; }
+    var old = await T().minDeposit();
+    ownerTx({ msg: "termMsg", name: "Change smallest Term stake", addr: A.term, abi: "function setMinDeposit(uint256 newMin)", fn: "setMinDeposit", args: [v],
+      what: "Smallest Term stake: " + osg(old) + " -> " + osg(v) + " OSG.", reload: re });
+  };
+  document.getElementById("termCapBtn").onclick = async function () {
+    var v; try { v = osgIn("termCapIn"); } catch (e) { note("termMsg", errText(e), "bad"); return; }
+    var old = await T().capacity();
+    if (v <= old) { note("termMsg", "The limit can only go up. Now " + osg(old, 0) + " OSG. Nothing sent.", "bad"); return; }
+    ownerTx({ msg: "termMsg", name: "Raise Term limit", addr: A.term, abi: "function setCapacity(uint256 newCapacity)", fn: "setCapacity", args: [v],
+      what: "Term limit: " + osg(old, 0) + " -> " + osg(v, 0) + " OSG.\nThis can never be lowered again.", reload: re });
+  };
+  document.getElementById("termPauseBtn").onclick = pauseTx({ msg: "termMsg", addr: A.term, label: "Term staking", reload: re });
+}
+function loadLpMoreControls() {
+  var box = document.getElementById("lpCtl");
+  box.insertAdjacentHTML("beforeend",
+    '<div id="lpMore">' +
+    field("lpShareIn", "LP share of the mining budget in % (all three together at most 100)", "lpShareBtn", "Change LP share") +
+    field("lpMinIn", "Smallest LP deposit (LP tokens)", "lpMinBtn", "Change minimum") +
+    field("lpCapIn", "Raise LP limit to (total LP tokens, can only go up)", "lpCapBtn", "Raise limit") +
+    '<div class="bar"><button class="ghost" id="lpPauseBtn">Pause or resume LP mining</button></div></div>');
+  var L = function () { return new E.Contract(A.lp, LP_R, pv()); };
+  var re = function () { loadLpWeight(); };
+  document.getElementById("lpShareBtn").onclick = async function () {
+    var bps; try { bps = pctToBps(document.getElementById("lpShareIn").value, 0, 10000); } catch (e) { note("lpMsg", errText(e), "bad"); return; }
+    var r, sh;
+    try { r = await Promise.all([L().miningShareBps(), L().maxShareBps()]); sh = await sharesNow(); } catch (e) { note("lpMsg", "Could not read the shares, nothing sent: " + errText(e), "bad"); return; }
+    if (BigInt(bps) > r[1]) { note("lpMsg", "Above the LP ceiling of " + (Number(r[1]) / 100).toFixed(2) + "%. Nothing sent.", "bad"); return; }
+    var g = shareGuard(sh, "lp", bps);
+    if (g.err) { note("lpMsg", g.err, "bad"); return; }
+    ownerTx({ msg: "lpMsg", name: "Change LP share of mining budget", addr: A.lp, abi: "function setMiningShareBps(uint256 newBps)", fn: "setMiningShareBps", args: [bps],
+      what: "LP 12 months share: " + (Number(r[0]) / 100).toFixed(2) + "% -> " + (bps / 100).toFixed(2) + "%.\n" + g.text, reload: function () { re(); loadShares(); } });
+  };
+  document.getElementById("lpMinBtn").onclick = async function () {
+    var v; try { v = osgIn("lpMinIn"); } catch (e) { note("lpMsg", errText(e), "bad"); return; }
+    var old = await L().minDeposit();
+    ownerTx({ msg: "lpMsg", name: "Change smallest LP deposit", addr: A.lp, abi: "function setMinDeposit(uint256 newMin)", fn: "setMinDeposit", args: [v],
+      what: "Smallest LP deposit: " + osg(old, 4) + " -> " + osg(v, 4) + " LP.", reload: re });
+  };
+  document.getElementById("lpCapBtn").onclick = async function () {
+    var v; try { v = osgIn("lpCapIn"); } catch (e) { note("lpMsg", errText(e), "bad"); return; }
+    var old = await L().capacityLp();
+    if (v <= old) { note("lpMsg", "The limit can only go up. Now " + osg(old, 0) + " LP. Nothing sent.", "bad"); return; }
+    ownerTx({ msg: "lpMsg", name: "Raise LP limit", addr: A.lp, abi: "function setCapacityLp(uint256 newCapacity)", fn: "setCapacityLp", args: [v],
+      what: "LP limit: " + osg(old, 0) + " -> " + osg(v, 0) + " LP.\nThis can never be lowered again.", reload: re });
+  };
+  document.getElementById("lpPauseBtn").onclick = pauseTx({ msg: "lpMsg", addr: A.lp, label: "LP mining", reload: re });
+}
+function loadSubAdmins() {
+  fill("subCtl",
+    '<div class="bar"><input id="subAddr" placeholder="Admin wallet 0x..." style="flex:1"><button class="ghost" id="subCheck">Check</button></div>' +
+    '<div class="scroll" id="subNow"></div>' +
+    '<div class="bar"><label class="muted"><input type="checkbox" id="subGrant" style="width:auto"> Give bonuses</label>' +
+    '<label class="muted"><input type="checkbox" id="subMark" style="width:auto"> Mark manual tasks</label>' +
+    '<label class="muted"><input type="checkbox" id="subTask" style="width:auto"> Create and edit tasks</label></div>' +
+    '<div class="bar"><button class="gold" id="subSave1">Save</button><button class="ghost" id="subSave2">Remove all permissions</button></div>' +
+    '<div class="muted" id="subMsg">Check a wallet first. Save sends only the permissions that change (Referral v6 and/or the task board), each tested first.</div>' +
+    '<div class="goldnote">View-only access is the list in public/admins.json — edit it on GitHub.</div>');
+  function addr() {
+    var a = document.getElementById("subAddr").value.trim();
+    if (!E.isAddress(a)) throw new Error("Not a valid address");
+    if (a.toLowerCase() === OWNER.toLowerCase()) throw new Error("That is the owner");
+    return E.getAddress(a);
+  }
+  function yn(b) { return b ? '<td class="good">Yes</td>' : '<td class="muted">No</td>'; }
+  document.getElementById("subCheck").onclick = async function () {
+    var a; try { a = addr(); } catch (e) { note("subMsg", errText(e), "bad"); return; }
+    try {
+      note("subMsg", "Reading...");
+      var r = await Promise.all([permsOf(a), inAdminsJson(a)]);
+      var p = r[0];
+      document.getElementById("subGrant").checked = p.grant;
+      document.getElementById("subMark").checked = p.mark;
+      document.getElementById("subTask").checked = p.task;
+      fill("subNow", "<table><thead><tr><th>" + esc(short(a)) + " can</th><th>Today</th></tr></thead><tbody>" +
+        "<tr><td>Give bonuses (Referral v6)</td>" + yn(p.grant) + "</tr><tr><td>Mark manual tasks (task board)</td>" + yn(p.mark) + "</tr>" +
+        "<tr><td>Create and edit tasks (task board)</td>" + yn(p.task) + "</tr><tr><td>Listed in admins.json (view only)</td>" + yn(r[1]) + "</tr></tbody></table>");
+      note("subMsg", p.grant || p.mark || p.task ? "Current permissions ticked above." : "No permissions on chain yet.", p.grant || p.mark || p.task ? "good" : "");
+    } catch (e) { note("subMsg", errText(e), "bad"); }
+  };
+  function names(g, m, t) { var l = [g ? "give bonuses" : "", m ? "mark manual tasks" : "", t ? "create and edit tasks" : ""].filter(Boolean); return l.length ? l.join(", ") : "nothing"; }
+  async function save(g, m, t) {
+    var a; try { a = addr(); } catch (e) { note("subMsg", errText(e), "bad"); return; }
+    var p, tb;
+    try { p = await permsOf(a); tb = await taskBoardAddr(); } catch (e) { note("subMsg", "Could not read the current permissions, nothing sent: " + errText(e), "bad"); return; }
+    // Keep any bits this page does not manage.
+    // Referral v6 accepts only 0 or 1 (setAdmin reverts above PERM_GRANT).
+    var newV6 = g ? 1 : 0;
+    var newTb = (p.tb & ~3) | (m ? 1 : 0) | (t ? 2 : 0);
+    if (newV6 === p.v6 && newTb === p.tb) { note("subMsg", short(a) + " already has exactly these permissions. Nothing sent.", "warn"); return; }
+    if (newV6 !== p.v6) {
+      var ok = await ownerTx({ msg: "subMsg", name: g ? "Allow bonus giving (Referral v6)" : "Remove bonus giving (Referral v6)", addr: A.referral, abi: "function setAdmin(address who, uint8 perms)", fn: "setAdmin", args: [a, newV6],
+        what: short(a) + " give bonuses: " + (p.grant ? "Yes" : "No") + " -> " + (g ? "Yes" : "No") + ".\n" + (g ? "They may add OSG to any member's task balance." : "They may no longer give bonuses.") });
+      if (!ok) return;
+    }
+    if (newTb !== p.tb) {
+      await ownerTx({ msg: "subMsg", name: "Task board permissions", addr: tb, abi: "function setAdmin(address who, uint8 perms)", fn: "setAdmin", args: [a, newTb],
+        what: short(a) + " on the task board: " + names(false, p.mark, p.task) + " -> " + names(false, m, t) + ".",
+        reload: function () { document.getElementById("subCheck").onclick(); } });
+    } else document.getElementById("subCheck").onclick();
+  }
+  document.getElementById("subSave1").onclick = function () {
+    save(document.getElementById("subGrant").checked, document.getElementById("subMark").checked, document.getElementById("subTask").checked);
+  };
+  document.getElementById("subSave2").onclick = function () {
+    document.getElementById("subGrant").checked = false;
+    document.getElementById("subMark").checked = false;
+    document.getElementById("subTask").checked = false;
+    save(false, false, false);
+  };
+}
+ async function loadTerm() {
+  try {
+    var t = new E.Contract(A.term, ["function maxRateBps() view returns (uint256)", "function effectiveRateBps() view returns (uint256)", "function miningShareBps() view returns (uint256)", "function maxShareBps() view returns (uint256)", "function totalStaked() view returns (uint256)", "function totalPrincipal() view returns (uint256)", "function capacity() view returns (uint256)", "function capacityLeft() view returns (uint256)", "function minDeposit() view returns (uint256)", "function depositDeadline() view returns (uint256)", "function getTermStakingDailyBudget() view returns (uint256)", "function paused() view returns (bool)", "function payoutHealth() view returns (bool canPayNow, string reason)"], pv());
+    var a = await Promise.all([t.maxRateBps(), t.effectiveRateBps(), t.miningShareBps(), t.maxShareBps(), t.totalStaked(), t.totalPrincipal(), t.capacity(), t.capacityLeft(), t.minDeposit(), t.depositDeadline(), t.getTermStakingDailyBudget(), t.paused(), t.payoutHealth()]);
+    var maxR = Number(a[0]) / 100, effR = Number(a[1]) / 100;
+    var budget = a[10];
+    var needAtMax = (a[4] * a[0]) / 10000n;
+    var fitsUpTo = a[0] > 0n ? (budget * 10000n) / a[0] : 0n;
+    var dl = Number(a[9]);
+    var used = a[6] > 0n ? Number((a[5] * 10000n) / a[6]) / 100 : 0;
+    fill("term",
+      stat("Rate now", effR.toFixed(2) + "% / day (max " + maxR.toFixed(2) + "%)", a[1] < a[0] ? "warn" : "good") +
+      stat("Earning stake", osg(a[4], 0) + " OSG") +
+      stat("Principal held", osg(a[5], 0) + " OSG") +
+      stat("Capacity used", osg(a[5], 0) + " / " + osg(a[6], 0) + " (" + used.toFixed(1) + "%)", used > 90 ? "warn" : "") +
+      stat("Daily budget", osg(budget) + " OSG") +
+      stat("Needed at max rate", osg(needAtMax) + " OSG / day", needAtMax > budget ? "warn" : "good") +
+      stat("Max rate fits up to", osg(fitsUpTo, 0) + " OSG earning stake") +
+      stat("Mining share", (Number(a[2]) / 100).toFixed(2) + "% (max " + (Number(a[3]) / 100).toFixed(2) + "%)") +
+      stat("Min deposit", osg(a[8], 0) + " OSG") +
+      stat("Deposit deadline", dl === 0 ? "None" : new Date((dl + 19800) * 1000).toISOString().slice(0, 16).replace("T", " ") + " IST") +
+      stat("Paused", a[11] ? "Yes" : "No", a[11] ? "bad" : "good", a[11] ? "Claims are stopped." : "") +
+      stat("Payouts", a[12][0] ? "Ready" : String(a[12][1]), a[12][0] ? "good" : "bad", a[12][0] ? "" : "Payouts cannot run right now."));
+  } catch (e) { fail("term", e); }
+}
+async function loadDao() {
+  var DAO = "0xE2E82A8ACdd3Af7FA74Eacb3331231A769d80D4c";
+  function nm(a) { return nameOf(a); }
+  try {
+    var iface = new E.Interface(["event Queued(bytes32 indexed id, address indexed target, uint256 value, uint256 executeAfter, bytes32 dataHash, string description)", "event Executed(bytes32 indexed id, address indexed target, uint256 value)", "event Cancelled(bytes32 indexed id)", "event TxExpired(bytes32 indexed id)"]);
+    var d = new E.Contract(DAO, ["function admin() view returns (address)", "function pendingAdmin() view returns (address)", "function getStats() view returns (uint256 queued, uint256 executed, uint256 cancelled, uint256 minDelay, bool isPaused)", "function getTx(bytes32 id) view returns (address target, uint256 value, bytes data, uint256 executeAfter, bool executed, bool isReady, bool isExpired, string description)"], pv());
+    var res = await Promise.all([fetch("/api/dao-logs?t=" + Date.now()).then(function (r) { return r.json(); }), d.admin(), d.pendingAdmin(), d.getStats(), pv().getBalance(DAO)]);
+    var j = res[0];
+    if (!j.ok) throw new Error(j.error || "dao-logs failed");
+    var list = [], byId = {}, ev = [];
+    j.logs.forEach(function (lg) {
+      var p = null;
+      try { p = iface.parseLog({ topics: lg.topics, data: lg.data }); } catch (e) { p = null; }
+      if (p) ev.push({ p: p, time: lg.time });
+    });
+    ev.forEach(function (x) {
+      if (x.p.name !== "Queued") return;
+      var a = x.p.args;
+      byId[a.id] = { id: a.id, target: a.target, value: a.value, after: a.executeAfter, desc: a.description, at: x.time, st: "" };
+      list.push(byId[a.id]);
+    });
+    ev.forEach(function (x) {
+      var r = byId[x.p.args.id];
+      if (!r || x.p.name === "Queued") return;
+      r.st = x.p.name === "Executed" ? "Executed" : x.p.name === "Cancelled" ? "Cancelled" : "Expired (removed)";
+    });
+    var open = list.filter(function (x) { return !x.st; });
+    await Promise.all(open.map(async function (x) {
+      var t = await d.getTx(x.id);
+      x.st = t.target === E.ZeroAddress ? "Removed" : t.executed ? "Executed" : t.isReady ? "Ready" : t.isExpired ? "Expired (still stored)" : "Waiting";
+    }));
+    var live = list.filter(function (x) { return x.st === "Ready" || x.st === "Waiting"; });
+    var s = res[3];
+    fill("dao",
+      stat("Admin", nm(res[1]), res[1].toLowerCase() === OWNER.toLowerCase() ? "good" : "warn") +
+      stat("Pending admin", res[2] === E.ZeroAddress ? "None" : nm(res[2]), res[2] === E.ZeroAddress ? "good" : "warn") +
+      stat("Paused", s.isPaused ? "Yes" : "No", s.isPaused ? "bad" : "good", s.isPaused ? "DAO queue is paused." : "") +
+      stat("Queued / executed / cancelled", s.queued + " / " + s.executed + " / " + s.cancelled) +
+      stat("Can still execute", String(live.length), live.length ? "warn" : "good") +
+      stat("POL held by DAO", Number(E.formatEther(res[4])).toFixed(2) + " POL (cannot be spent)", res[4] > 0n ? "warn" : ""));
+    var rows = "";
+    list.slice().reverse().forEach(function (x) {
+      var cls = x.st === "Executed" ? "good" : x.st === "Ready" || x.st === "Waiting" ? "warn" : "muted";
+      var val = x.value > 0n ? Number(E.formatEther(x.value)).toFixed(2) + " POL" : "0";
+      var note = (x.st === "Ready" || x.st === "Waiting") && x.value > 0n ? '<div class="bad">Execute needs ' + val + " sent from your wallet. The DAO cannot use its own POL.</div>" : "";
+      rows += "<tr><td>" + ist(x.at) + "</td><td>" + esc(x.desc) + note + '</td><td class="mono" title="' + x.target + '">' + esc(nm(x.target)) + '</td><td class="num">' + val + "</td><td>" + ist(x.after) + '</td><td class="' + cls + '">' + x.st + '</td><td class="mono" title="' + x.id + '">' + x.id.slice(0, 10) + "</td></tr>";
+    });
+    fill("daoList", "<table><thead><tr><th>Queued</th><th>Description</th><th>Target</th><th class=\"num\">Value</th><th>Execute after</th><th>Status</th><th>Id</th></tr></thead><tbody>" + rows + "</tbody></table>");
+  } catch (e) { fail("dao", e); }
+}
+// Same three kinds of step as the app and the gate scanner: "self" = own new
+// stake in the window, "team" = directs' new stake in the window, "directs" =
+// at least minDirects directs who met one of the "of" steps. Term + LP, open
+// positions only. Returns the best step: the first one met, else the running one.
+async function passTotal(who) {
+  var cfg = await (await fetch("/event-pass.json?t=" + Date.now())).json();
+  var open = (cfg.batches || []).filter(function (x) { return x.open && !x.only; });
+  if (!open.length) return null;
+  var term = C("term");
+  var lp = C("lp");
+  var ONE = 10n ** 18n;
+  var seen = {};
+  async function posOf(w) {
+    var k = String(w).toLowerCase();
+    if (seen[k]) return seen[k];
+    var out = [];
+    var tp = await term.getPositions(w);
+    for (var j = 0; j < tp.length; j++) if (!tp[j].closed) out.push({ t: Number(tp[j].startTime), a: tp[j].amount });
+    var n = Number(await lp.positionCount(w));
+    for (var m = 0; m < n; m++) {
+      var p = await lp.positions(w, m);
+      if (!p.closed) out.push({ t: Number(p.startTime), a: p.osgValue });
+    }
+    seen[k] = out;
+    return out;
+  }
+  function sumIn(list, s, e) { var t = 0n; for (var i = 0; i < list.length; i++) if (list[i].t >= s && list[i].t < e) t += list[i].a; return t; }
+  function win(b) { return [Math.floor(Date.parse(b.start) / 1000), Math.floor(Date.parse(b.end) / 1000)]; }
+  var directs = null;
+  async function dirs() { if (!directs) directs = await C("lens").directsView(who); return directs; }
+  var now = Math.floor(Date.now() / 1000);
+  var steps = [];
+  for (var i = 0; i < open.length; i++) {
+    var b = open[i], w = win(b), kind = b.type || "team", total = 0n, need = 0n;
+    if (kind === "self") {
+      need = E.parseUnits(String(b.minSelf), 18);
+      total = sumIn(await posOf(who), w[0], w[1]);
+    } else if (kind === "directs") {
+      need = BigInt(b.minDirects || 3) * ONE;
+      var refs = open.filter(function (x) { return (b.of || []).indexOf(x.id) >= 0 && x.type === "self"; });
+      var ds = await dirs();
+      for (var d = 0; d < ds.length && total < need; d++) {
+        var list = await posOf(ds[d].wallet);
+        for (var r = 0; r < refs.length; r++) {
+          var wr = win(refs[r]);
+          if (sumIn(list, wr[0], wr[1]) >= E.parseUnits(String(refs[r].minSelf), 18)) { total += ONE; break; }
+        }
+      }
+    } else {
+      need = E.parseUnits(String(b.minNew), 18);
+      var dl = await dirs();
+      for (var q = 0; q < dl.length; q++) total += sumIn(await posOf(dl[q].wallet), w[0], w[1]);
+    }
+    var label = kind === "self" ? "own new stake" : kind === "directs" ? "directs with a pass" : "team new stake";
+    steps.push({ batch: b.id + " · " + label, total: total, need: need, ok: total >= need, live: now >= w[0] && now < w[1] });
+  }
+  var best = steps.filter(function (x) { return x.ok; })[0] || steps.filter(function (x) { return x.live; })[0] || steps[0];
+  return { batch: best.batch, total: best.total, need: best.need };
+}
+
+async function eligibleRank(who) {
+  var d = await C("lens").directsView(who);
+  var min = E.parseUnits(String(MIN_DIRECT), 18);
+  var ok = [];
+  for (var i = 0; i < d.length; i++) if (d[i].stake >= min) ok.push({ a: d[i].wallet, s: d[i].stake });
+  if (ok.length > 50) ok = ok.sort(function (x, y) { return y.s > x.s ? 1 : y.s < x.s ? -1 : 0; }).slice(0, 50);
+  var list = ok.map(function (x) { return x.a; }).sort(function (a, b) { var x = BigInt(a), y = BigInt(b); return x < y ? -1 : x > y ? 1 : 0; })
+    .filter(function (a, i, arr) { return i === 0 || a.toLowerCase() !== arr[i - 1].toLowerCase(); });
+  var r = await C("referral").currentRank(who, list);
+  return Number(r);
+}
+async function teamOf(who) {
+  var t = await C("lens").levelSummary(who, TEAM_CAP);
+  var stake = 0n;
+  for (var i = 0; i < t.rows.length; i++) stake += t.rows[i].totalStake;
+  return { rows: t.rows, members: Number(t.totalMembers), cut: t.truncated, stake: stake };
+}
+
+// paid and bonusPaidTotal are internal in v6 (no getter, the lens returns 0):
+// read them from storage, like the DApp. Slots from the v6 storage layout.
+var V6_SLOT = { paid: 122, bonusPaidTotal: 131 };
+var LEVELS = 50;
+async function v6Paid(w) {
+  var r = await Promise.all([V6.slotOf(w, V6_SLOT.paid), V6.slotOf(w, V6_SLOT.bonusPaidTotal)]);
+  return { paid: r[0], bonus: r[1] };
+}
+async function lookup() {
+  var addr = document.getElementById("lookAddr").value.trim();
+  if (!E.isAddress(addr)) { fill("look", stat("Error", "Not a valid address", "bad", "Paste a full 0x... wallet address.")); return; }
+  addr = E.getAddress(addr);
+  document.getElementById("lookTeam").innerHTML = "";
+  document.getElementById("lkOut").innerHTML = "";
+  fill("look", '<div class="muted">Reading...</div>');
+  V6.detail(addr);
+  // Team first: the event pass below may return early.
+  lookupTeam(addr);
+  try {
+    var both = await Promise.all([C("lens").walletCard(addr), v6Paid(addr)]);
+    var c = both[0], pd = both[1];
+    var html =
+      stat("Upline", c.hasUpline ? short(c.referrer) : "None") +
+      stat("Own stake", osg(c.stake) + " OSG") + stat("Counting stake", osg(c.qualifyingStake) + " OSG", c.qualifyingStake > 0n ? "" : "warn") +
+      stat("Counts as direct", c.countsAsDirect ? "Yes" : "No", c.countsAsDirect ? "good" : "") +
+      stat("Directs (qualified)", c.directsForLevels.toString() + " (" + c.qualifiedDirects.toString() + ")") +
+      stat("Levels open", c.levelsOpen.toString() + " of " + LEVELS) +
+      stat("Owed", osg(c.owed) + " OSG", c.owed > 0n ? "warn" : "") +
+      stat("Paid", osg(pd.paid) + " OSG") +
+      stat("Volume", osg(c.volume)) +
+      stat("Rank", RANKS[Number(c.rank)] || String(c.rank)) +
+      stat("Rank bonus paid", osg(pd.bonus) + " OSG");
+    fill("look", html + '<div class="stat" id="passStat"><div class="k">Event pass</div><div class="v muted">Counting...</div></div>');
+    var el = document.getElementById("passStat");
+    var ps;
+    // The event pass is extra: if it cannot be read, keep the wallet card.
+    try { ps = await passTotal(addr); } catch (e2) { el.innerHTML = '<div class="k">Event pass</div><div class="v muted">Could not read</div>'; return; }
+    if (!ps) { el.innerHTML = '<div class="k">Event pass</div><div class="v muted">No open batch</div>'; return; }
+    var ok = ps.total >= ps.need;
+    el.innerHTML = '<div class="k">Event pass (' + esc(ps.batch) + ')</div><div class="v ' + (ok ? "good" : "") + '">' + osg(ps.total) + " / " + osg(ps.need, 0) + (ok ? " ✓" : "") + "</div>";
+  } catch (e) { fail("look", e); }
+}
+async function lookupTeam(addr) {
+  var box = document.getElementById("lookTeam");
+  box.innerHTML = '<div class="muted">Reading team...</div>';
+  try {
+    var er = await eligibleRank(addr);
+    var t = await teamOf(addr);
+    var rows = "";
+    for (var i = 0; i < t.rows.length; i++) {
+      var r = t.rows[i];
+      if (Number(r.members) === 0 && i > 0 && Number(t.rows[i - 1].members) === 0) continue;
+      rows += "<tr><td>L" + r.level + '</td><td class="num">' + r.members.toString() + '</td><td class="num">' + r.qualified.toString() + '</td><td class="num">' + osg(r.totalStake) +
+        '</td><td class="' + (r.open ? "good" : "muted") + '">' + (r.open ? "Open" : "Needs " + r.directsNeeded.toString() + " directs") + "</td></tr>";
+    }
+    box.innerHTML = '<div class="grid" style="margin:10px 0">' +
+      stat("Eligible rank now", RANKS[er] || String(er), er > 0 ? "good" : "") +
+      stat("Team (" + LEVELS + " levels)", t.members + (t.cut ? "+" : "")) +
+      stat("Team stake", osg(t.stake) + " OSG") + "</div>" +
+      '<div class="scroll"><table><thead><tr><th>Level</th><th class="num">Members</th><th class="num">Counting</th><th class="num">Stake</th><th>Commission level</th></tr></thead><tbody>' + rows + "</tbody></table></div>" +
+      (t.cut ? '<div class="muted" style="margin-top:6px">Team is larger than ' + TEAM_CAP + " - counts stop there.</div>" : "");
+  } catch (e) {
+    box.innerHTML = '<div class="muted">Team could not be read: ' + esc((e && (e.shortMessage || e.message)) || e) + "</div>";
+  }
+}
+
+var earnNext = 0;
+var earnTotal = null;
+var earnData = [];
+function num(v) { return Number(E.formatUnits(v, 18)); }
+async function fetchEarner(i) {
+  var w = await C("referral").allUsers(i);
+  var both = await Promise.all([C("lens").walletCard(w), v6Paid(w)]);
+  var c = both[0], pd = both[1];
+  return {
+    i: i + 1, w: w, up: c.hasUpline ? c.referrer : "",
+    stake: num(c.stake), qstake: num(c.qualifyingStake), directs: Number(c.directsForLevels), qual: Number(c.qualifiedDirects),
+    levels: Number(c.levelsOpen), volume: num(c.volume), owed: num(c.owed), paid: num(pd.paid),
+    rank: RANKS[Number(c.rank)] || String(c.rank), rnum: Number(c.rank)
+  };
+}
+function f2(x) { return x.toLocaleString("en-US", { maximumFractionDigits: 2 }); }
+function renderEarners() {
+  var key = document.getElementById("earnSort").value;
+  var only = document.getElementById("earnOwed").checked;
+  var rows = earnData.filter(function (r) { return !only || r.owed > 0; });
+  if (key) rows = rows.slice().sort(function (a, b) { return (b[key] || 0) - (a[key] || 0); });
+  var body = document.getElementById("earnRows");
+  body.innerHTML = "";
+  rows.forEach(function (r) {
+    var tr = document.createElement("tr");
+    tr.innerHTML = "<td>" + r.i + '</td><td class="mono" title="' + r.w + '">' + short(r.w) + '</td><td class="mono">' + (r.up ? short(r.up) : "-") +
+      '</td><td class="num">' + f2(r.stake) + '</td><td class="num">' + r.directs + " (" + r.qual + ')</td><td class="num">' + r.levels +
+      '</td><td class="num">' + f2(r.volume) + '</td><td class="num ' + (r.owed > 0 ? "warn" : "") + '">' + f2(r.owed) + '</td><td class="num">' + f2(r.paid) + "</td><td>" + esc(r.rank) + "</td><td>" + (r.elig === undefined ? '<span class="muted">-</span>' : esc(RANKS[r.elig] || r.elig)) + '</td><td class="num">' + (r.team === undefined ? '<span class="muted">-</span>' : r.team) + "</td>";
+    tr.style.cursor = "pointer";
+    tr.onclick = function () { document.getElementById("lookAddr").value = r.w; lookup(); window.scrollTo(0, 0); };
+    body.appendChild(tr);
+  });
+  var shown = rows.length;
+  document.getElementById("earnMeta").textContent = "Loaded " + earnData.length + " of " + earnTotal + " wallets" + (only ? ", showing " + shown + " with owed > 0" : "") + ". If someone is missing, use Wallet lookup.";
+}
+async function loadEarners(all) {
+  var b1 = document.getElementById("earnBtn");
+  var b2 = document.getElementById("earnAllBtn");
+  b1.disabled = true; b2.disabled = true;
+  try {
+    if (earnTotal === null) earnTotal = Number(await C("referral").usersLength());
+    var end = all ? earnTotal : Math.min(earnNext + 25, earnTotal);
+    while (earnNext < end) {
+      var stop = Math.min(earnNext + 8, end);
+      var jobs = [];
+      for (var i = earnNext; i < stop; i++) jobs.push(fetchEarner(i));
+      var got = await Promise.all(jobs);
+      earnData = earnData.concat(got);
+      earnNext = stop;
+      renderEarners();
+      if (all) document.getElementById("earnMeta").textContent = "Loading " + earnNext + " of " + earnTotal + "...";
+    }
+    renderEarners();
+    if (earnNext >= earnTotal) { b1.style.display = "none"; b2.style.display = "none"; }
+  } catch (e) {
+    document.getElementById("earnMeta").textContent = "Error: " + ((e && (e.shortMessage || e.message)) || e) + " - tap Load again to continue.";
+  }
+  b1.disabled = false; b2.disabled = false;
+}
+async function earnTeam() {
+  var btn = document.getElementById("earnTeamBtn");
+  btn.disabled = true;
+  var only = document.getElementById("earnOwed").checked;
+  var todo = earnData.filter(function (r) { return r.team === undefined && (!only || r.owed > 0); });
+  var done = 0;
+  try {
+    for (var k = 0; k < todo.length; k += 4) {
+      await Promise.all(todo.slice(k, k + 4).map(async function (r) {
+        var t = await teamOf(r.w);
+        r.team = t.members;
+        r.elig = r.directs > 0 ? await eligibleRank(r.w) : 0;
+        done++;
+      }));
+      document.getElementById("earnMeta").textContent = "Team + rank: " + done + " of " + todo.length + "...";
+      renderEarners();
+    }
+    renderEarners();
+  } catch (e) {
+    document.getElementById("earnMeta").textContent = "Error: " + ((e && (e.shortMessage || e.message)) || e) + " - tap again to continue.";
+  }
+  btn.disabled = false;
+}
+function earnCsv() {
+  var head = "n,wallet,upline,own_stake,directs,qualified_directs,levels_open,volume,owed,paid,rank_proven,rank_eligible,team";
+  var lines = earnData.map(function (r) { return [r.i, r.w, r.up, r.stake, r.directs, r.qual, r.levels, r.volume, r.owed, r.paid, r.rank, r.elig === undefined ? "" : (RANKS[r.elig] || r.elig), r.team === undefined ? "" : r.team].join(","); });
+  var blob = new Blob([[head].concat(lines).join("\n")], { type: "text/csv" });
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "osg-v6-wallets.csv";
+  a.click();
+}
+
+// ===== Read-only cards: emission, mining shares, LP 6 & 18, Flexi =====
+// One Promise.allSettled per card. A failed read shows "-" with its reason,
+// never a made-up number.
+function okR(r) { return r && r.status === "fulfilled"; }
+function whyR(r) { return "Read failed: " + String(errText(r && r.reason)).slice(0, 90); }
+function rstat(k, r, fmt, look) {
+  if (!okR(r)) return stat(k, "—", "bad", whyR(r));
+  var v = r.value;
+  var l = look ? look(v) : "";
+  if (Array.isArray(l)) return stat(k, fmt(v), l[0], l[1]);
+  return stat(k, fmt(v), l || "");
+}
+function ist(t) {
+  var d = new Date((Number(t) + 19800) * 1000);
+  return isNaN(d.getTime()) ? String(t) : d.toISOString().slice(0, 16).replace("T", " ") + " IST";
+}
+function inDate(secs) { return ist(Math.floor(Date.now() / 1000) + Number(secs)); }
+function bpsPct(b, d) { return (Number(b) / 100).toFixed(d === undefined ? 2 : d) + "%"; }
+function yesBad(why) { return function (v) { return v ? ["bad", why] : "good"; }; }
+
+var POOL_R = ["function stakingPercent() view returns (uint256)", "function miningPercent() view returns (uint256)", "function referralPercent() view returns (uint256)", "function getDailyBase() view returns (uint256)",
+  "function getEmissionInfo() view returns (uint256 halving, uint256 dailyBase, uint256 nextHalvingIn, uint256 emissionEndsIn, uint256 remainingBudget, bool stopped, uint256 daysBehind, bool needsSync, bool inEmergency)",
+  "function getTodayStats() view returns (uint256 stakingUsedAmt, uint256 miningUsedAmt, uint256 referralUsedAmt, uint256 stakingAvail, uint256 miningAvail, uint256 referralAvail, uint256 dailyBase)",
+  "function distributorCount() view returns (uint256)", "function governance() view returns (address)"];
+async function loadEmission() { try { await loadEmissionRead(); } catch (e) { fail("emi", e); } }
+async function loadEmissionRead() {
+  var p = new E.Contract(A.pool, POOL_R, pv());
+  var r = await Promise.allSettled([p.stakingPercent(), p.miningPercent(), p.referralPercent(), p.getDailyBase(), p.getEmissionInfo(), p.getTodayStats(), p.distributorCount(), p.governance()]);
+  var split = okR(r[0]) && okR(r[1]) && okR(r[2])
+    ? stat("Split", "Staking " + r[0].value + "% · Mining " + r[1].value + "% · Referral " + r[2].value + "%",
+        r[0].value + r[1].value + r[2].value === 100n ? "" : "bad", r[0].value + r[1].value + r[2].value === 100n ? "" : "Shares do not add up to 100%.")
+    : stat("Split", "—", "bad", whyR([r[0], r[1], r[2]].filter(function (x) { return !okR(x); })[0]));
+  var html = split + rstat("Daily release", r[3], function (v) { return osg(v) + " OSG"; });
+  if (okR(r[4])) {
+    var e = r[4].value;
+    html += stat("Halving", String(e.halving)) +
+      stat("Next halving", e.nextHalvingIn > 0n ? inDate(e.nextHalvingIn) : "None left") +
+      stat("Emission ends", e.emissionEndsIn > 0n ? inDate(e.emissionEndsIn) : "Ended", e.emissionEndsIn > 0n ? "" : "bad", e.emissionEndsIn > 0n ? "" : "Emission end time has passed.") +
+      stat("Remaining budget", osg(e.remainingBudget, 0) + " OSG", e.remainingBudget > 0n ? "" : "bad", e.remainingBudget > 0n ? "" : "Emission budget is used up.") +
+      stat("Stopped", e.stopped ? "Yes" : "No", e.stopped ? "bad" : "good", e.stopped ? "Emission has stopped - nothing is released." : "") +
+      stat("Emergency mode", e.inEmergency ? "Yes" : "No", e.inEmergency ? "bad" : "good", e.inEmergency ? "RewardPool is in emergency mode." : "") +
+      (e.needsSync ? stat("Days behind", String(e.daysBehind), "bad", "Too many days behind - the pool needs a sync.") : "");
+  } else html += stat("Emission info", "—", "bad", whyR(r[4]));
+  if (okR(r[5])) {
+    var t = r[5].value;
+    html += stat("Staking today", osg(t.stakingUsedAmt) + " used · " + osg(t.stakingAvail) + " left") +
+      stat("Mining today", osg(t.miningUsedAmt) + " used · " + osg(t.miningAvail) + " left") +
+      stat("Referral today", osg(t.referralUsedAmt) + " used · " + osg(t.referralAvail) + " left");
+  } else html += stat("Today", "—", "bad", whyR(r[5]));
+  html += rstat("Distributors", r[6], function (v) { return v + " / 10"; }, function (v) { return v >= 10n ? "warn" : ""; }) +
+    rstat("Governance", r[7], function (v) { return nameOf(v); }, function (v) { return v.toLowerCase() === OWNER.toLowerCase() ? "good" : "warn"; });
+  fill("emi", html);
+}
+
+var SHARE_R = ["function miningShareBps() view returns (uint256)", "function maxShareBps() view returns (uint256)"];
+async function loadShares() { try { await loadSharesRead(); } catch (e) { fail("shares", e); } }
+async function loadSharesRead() {
+  var progs = [["Term", A.term], ["LP 12 months", A.lp], ["LP 6 & 18 months", A.tiers]];
+  var calls = [];
+  progs.forEach(function (x) { var c = new E.Contract(x[1], SHARE_R, pv()); calls.push(c.miningShareBps(), c.maxShareBps()); });
+  var p = new E.Contract(A.pool, POOL_R, pv());
+  calls.push(p.getDailyBase(), p.miningPercent());
+  var r = await Promise.allSettled(calls);
+  var base = okR(r[6]) ? r[6].value : null, mp = okR(r[7]) ? r[7].value : null;
+  var rows = "", total = 0n, allOk = true, why = [];
+  function day(share) { return base !== null && mp !== null ? osg((base * mp * share) / 100n / 10000n, 0) : "—"; }
+  function ofAll(share) { return mp !== null ? (Number(mp * share) / 10000).toFixed(1) + "%" : "—"; }
+  progs.forEach(function (x, i) {
+    var s = r[i * 2], m = r[i * 2 + 1];
+    if (!okR(s)) { allOk = false; why.push(x[0] + ": " + whyR(s)); rows += "<tr><td>" + esc(x[0]) + '</td><td class="num bad">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td></tr>'; return; }
+    total += s.value;
+    rows += "<tr><td>" + esc(x[0]) + '</td><td class="num">' + s.value + '</td><td class="num">' + bpsPct(s.value) + '</td><td class="num">' + ofAll(s.value) + '</td><td class="num">' + day(s.value) +
+      '</td><td class="num muted">' + (okR(m) ? bpsPct(m.value) : "—") + "</td></tr>";
+  });
+  rows += '<tr class="total"><td>Total</td><td class="num">' + (allOk ? total : "—") + '</td><td class="num">' + (allOk ? bpsPct(total) : "—") + '</td><td class="num">' + (allOk ? ofAll(total) : "—") + '</td><td class="num">' + (allOk ? day(total) : "—") + "</td><td></td></tr>";
+  var msg = "";
+  if (!allOk) msg = '<div class="redline">Total unknown - ' + esc(why.join(" · ")) + "</div>";
+  else if (total > 10000n) msg = '<div class="redline">Shares add up to ' + total.toLocaleString("en-US") + " — must be 10,000 or less. Lower one share now.</div>";
+  else if (total < 10000n) msg = '<div class="muted warn" style="margin-top:8px">Shares add up to ' + total.toLocaleString("en-US") + " — " + (10000n - total).toLocaleString("en-US") + " unused.</div>";
+  if (base === null || mp === null) msg += '<div class="redline">OSG/day unknown - ' + esc(whyR(base === null ? r[6] : r[7])) + "</div>";
+  fill("shares", '<div class="scroll"><table><thead><tr><th>Programme</th><th class="num">Share</th><th class="num">% of Mining</th><th class="num">% of all emission</th><th class="num">OSG/day max</th><th class="num">Ceiling</th></tr></thead><tbody>' + rows + "</tbody></table></div>" + msg +
+    '<div class="goldnote">Lower one share BEFORE raising another.</div>');
+}
+
+var TIERS_R = ["function paused() view returns (bool)", "function payoutHealth() view returns (bool canPayNow, string reason)", "function rateBps(uint256) view returns (uint256)", "function effectiveRateBps(uint8 tier) view returns (uint256)",
+  "function totalLp() view returns (uint256)", "function capacityLp() view returns (uint256)", "function capacityLeft() view returns (uint256)", "function minDeposit() view returns (uint256)", "function lpWeight() view returns (uint256)",
+  "function getDailyBudget() view returns (uint256)", "function miningShareBps() view returns (uint256)", "function maxShareBps() view returns (uint256)", "function depositCount() view returns (uint256)", "function pendingRatesEta() view returns (uint256)"];
+// The Tiers source is not in this repo, so the argument type of totalValue is
+// not known for sure: try uint8 first, then uint256.
+async function tierValue(i) {
+  try { return await new E.Contract(A.tiers, ["function totalValue(uint8) view returns (uint256)"], pv()).totalValue(i); }
+  catch (e) { return await new E.Contract(A.tiers, ["function totalValue(uint256) view returns (uint256)"], pv()).totalValue(i); }
+}
+async function loadTiers() { try { await loadTiersRead(); } catch (e) { fail("tiers", e); } }
+async function loadTiersRead() {
+  var t = new E.Contract(A.tiers, TIERS_R, pv());
+  var r = await Promise.allSettled([t.paused(), t.payoutHealth(), t.rateBps(0), t.rateBps(1), t.effectiveRateBps(0), t.effectiveRateBps(1), tierValue(0), tierValue(1),
+    t.totalLp(), t.capacityLp(), t.capacityLeft(), t.minDeposit(), t.lpWeight(), t.getDailyBudget(), t.miningShareBps(), t.maxShareBps(), t.depositCount(), t.pendingRatesEta()]);
+  function rate(v) { return bpsPct(v) + " / day · " + (Number(v) * 30 / 100).toFixed(2) + "% / 30 days"; }
+  var html =
+    rstat("Paused", r[0], function (v) { return v ? "Yes" : "No"; }, yesBad("Deposits and claims are stopped.")) +
+    (okR(r[1]) ? stat("Payouts", r[1].value[0] ? "Ready" : String(r[1].value[1]), r[1].value[0] ? "good" : "bad", r[1].value[0] ? "" : "Payouts cannot run right now.") : stat("Payouts", "—", "bad", whyR(r[1]))) +
+    rstat("180 d ceiling", r[2], rate) + rstat("540 d ceiling", r[3], rate) +
+    rstat("180 d paying now", r[4], rate, function (v) { return okR(r[2]) && v < r[2].value ? "warn" : "good"; }) +
+    rstat("540 d paying now", r[5], rate, function (v) { return okR(r[3]) && v < r[3].value ? "warn" : "good"; }) +
+    rstat("180 d counted value", r[6], function (v) { return osg(v, 0) + " OSG"; }) +
+    rstat("540 d counted value", r[7], function (v) { return osg(v, 0) + " OSG"; });
+  if (okR(r[8]) && okR(r[9])) {
+    var used = r[9].value > 0n ? Number((r[8].value * 10000n) / r[9].value) / 100 : 0;
+    html += stat("Capacity used (both locks)", osg(r[8].value, 2) + " / " + osg(r[9].value, 0) + " LP (" + used.toFixed(1) + "%)", used > 90 ? "warn" : "");
+  } else html += stat("Capacity used (both locks)", "—", "bad", whyR(okR(r[8]) ? r[9] : r[8]));
+  html += rstat("Capacity left", r[10], function (v) { return osg(v, 2) + " LP"; }, function (v) { return v === 0n ? ["bad", "No room left for new LP."] : ""; }) +
+    rstat("Min deposit", r[11], function (v) { return osg(v, 4) + " LP"; }) +
+    rstat("LP weight", r[12], function (v) { return "1 LP = " + osg(v, 2) + " OSG"; }) +
+    rstat("Daily budget", r[13], function (v) { return osg(v) + " OSG"; }) +
+    (okR(r[14]) ? stat("Mining share", bpsPct(r[14].value) + (okR(r[15]) ? " (max " + bpsPct(r[15].value) + ")" : "")) : stat("Mining share", "—", "bad", whyR(r[14]))) +
+    rstat("Deposits made", r[16], function (v) { return String(v); }) +
+    rstat("Rate change", r[17], function (v) { return v === 0n ? "None pending" : "Rate change pending until " + ist(v); }, function (v) { return v === 0n ? "" : "warn"; });
+  // LP counting: same check as the V81 card (one lpWeight for both locks).
+  try {
+    var w = await tiersWeightNow();
+    var lc = lpCounting(w.now, w.right);
+    html += stat("LP counting", "100 OSG + matching POL counts as " + lc.counts.toFixed(1) + " OSG", lc.ok ? "good" : "warn") +
+      stat("LP counting status", lc.ok ? "Correct" : "Fix needed", lc.ok ? "good" : "warn", lc.ok ? "" : "Off by " + (lc.diff > 0 ? "+" : "") + lc.diff.toFixed(2) + "%. It should count as 200 OSG.");
+  } catch (e) { html += stat("LP counting", "—", "bad", errText(e)); }
+  fill("tiers", html);
+}
+
+async function loadFlexi() { try { await loadFlexiRead(); } catch (e) { fail("flexi", e); } }
+async function loadFlexiRead() {
+  var f = new E.Contract(A.flexi, ["function getPoolInfo() view returns (uint256 staked, uint256 totalUsersEver, uint256 currentActiveStakers, uint256 accRPS, uint256 dailyStakingEmission, uint256 rewardDistributed, uint256 referralAccrued, uint256 pendingReferralTotal, uint256 referralReserveAmt, uint256 teamBonusReserveAmt, uint256 teamBonusAmt, bool isPaused, bool emissionActive)"], pv());
+  var r = await Promise.allSettled([f.getPoolInfo()]);
+  if (!okR(r[0])) { fill("flexi", stat("Pool info", "—", "bad", whyR(r[0]))); return; }
+  var i = r[0].value;
+  var rate = i.staked > 0n ? (Number(E.formatUnits(i.dailyStakingEmission, 18)) / Number(E.formatUnits(i.staked, 18))) * 100 : null;
+  fill("flexi",
+    stat("Staked", osg(i.staked, 0) + " OSG") +
+    stat("Active stakers", String(i.currentActiveStakers)) +
+    stat("Stakers ever", String(i.totalUsersEver)) +
+    stat("Daily staking emission", osg(i.dailyStakingEmission) + " OSG") +
+    stat("Rate now ≈", rate === null ? "—" : rate.toFixed(2) + "% / day", rate === null ? "bad" : "", rate === null ? "Nothing staked, so no rate." : "") +
+    stat("Paused", i.isPaused ? "Yes" : "No", i.isPaused ? "bad" : "good", i.isPaused ? "Flexi pool is paused." : "") +
+    '<div class="goldnote" style="grid-column:1/-1;margin-top:0">Fixed 1% of daily release shared by few wallets.</div>');
+}
+
+// ===== Owner controls: LP counting for all locks =====
+// One button for both LP contracts. Each one already within 1% is skipped;
+// the others are fixed one after the other with the usual ownerTx flow
+// (test, confirm, wallet, wait, reload). If one is cancelled or fails, the
+// next is not sent. setLpWeight allows at most 2x up or down per call, so a
+// bigger change is capped at 2x and the owner is asked to run it again.
+// Only NEW deposits are affected; existing positions keep their value.
+function loadLpAllControls() {
+  document.getElementById("lpAllCard").style.display = "block";
+  fill("lpAllCtl",
+    '<div class="bar"><button class="gold" id="lpAllBtn">Fix LP counting for all locks</button></div>' +
+    '<div class="muted" id="lpAllMsg">Reads LP 12 months and LP 6 &amp; 18 months, then fixes only the ones that are off.</div>');
+  document.getElementById("lpAllBtn").onclick = async function () {
+    var btn = this;
+    btn.disabled = true;
+    try {
+      var list = [
+        { key: "lp", label: "LP 12 months (V81)", addr: A.lp, read: lpWeightNow, reload: function () { loadLpWeight(); } },
+        { key: "tiers", label: "LP 6 & 18 months (Tiers)", addr: A.tiers, read: tiersWeightNow, reload: function () { loadTiers(); } },
+      ];
+      note("lpAllMsg", "Reading both LP contracts...");
+      var fixed = [], correct = [], partial = false;
+      var summary = function () {
+        return (fixed.length ? " Fixed: " + fixed.join(", ") + "." : "") + (correct.length ? " Already correct: " + correct.join(", ") + "." : "");
+      };
+      for (var i = 0; i < list.length; i++) {
+        var it = list[i], w;
+        try { w = await it.read(); } catch (e) { note("lpAllMsg", it.label + ": could not read, stopped. " + errText(e) + summary(), "bad"); return; }
+        if (lpCounting(w.now, w.right).ok) { correct.push(it.label); continue; }
+        var target = w.right, capped = false;
+        if (target > w.now * 2n) { target = w.now * 2n; capped = true; }
+        else if (target * 2n < w.now) { target = (w.now + 1n) / 2n; capped = true; }
+        var ok = await ownerTx({ msg: "lpAllMsg", name: "Fix LP counting: " + it.label, addr: it.addr, abi: "function setLpWeight(uint256 newWeight)", fn: "setLpWeight", args: [target],
+          what: it.label + "\n1 LP = " + osg(w.now, 2) + " OSG -> 1 LP = " + osg(target, 2) + " OSG.\n100 OSG added counts as: " + lpCounting(w.now, w.right).counts.toFixed(1) + " OSG -> " + lpCounting(target, w.right).counts.toFixed(1) + " OSG." +
+            (capped ? "\nThe contract allows at most 2x per step, so this is capped at 2x. Run again to finish." : "") +
+            "\nOnly new deposits are affected; existing ones stay as they are.",
+          reload: it.reload });
+        if (!ok) {
+          var why = document.getElementById("lpAllMsg").textContent;
+          note("lpAllMsg", why + " Stopped: " + it.label + " was not fixed" + (i + 1 < list.length ? ", so the next contract was not sent." : ".") + summary(), "bad");
+          return;
+        }
+        fixed.push(it.label + (capped ? " (partly - run again to finish)" : ""));
+        if (capped) partial = true;
+      }
+      note("lpAllMsg", (fixed.length ? "Done." : "Nothing to fix.") + summary(), partial ? "warn" : "good");
+    } finally { btn.disabled = false; }
+  };
+}
+
+// ===== Owner controls: LP 6 & 18 months (Tiers) =====
+// The Tiers source is not in this repo; signatures as given for v1.2.
+var TIERS_W = ["function rateBps(uint256) view returns (uint256)", "function pendingRatesEta() view returns (uint256)", "function pendingRateBps(uint256) view returns (uint256)",
+  "function miningShareBps() view returns (uint256)", "function maxShareBps() view returns (uint256)", "function capacityLp() view returns (uint256)", "function minDeposit() view returns (uint256)",
+  "function lpWeight() view returns (uint256)", "function paused() view returns (bool)", "function lpToken() view returns (address)"];
+function tiersC() { return new E.Contract(A.tiers, TIERS_W, pv()); }
+// Same maths as lpWeightNow() for V81: 1 LP should count as 2 x its OSG side.
+// Tiers lpToken() is tried first; if it is missing, the V81 pair is used
+// (both lock the same OSG/POL LP token).
+async function tiersWeightNow() {
+  var t = tiersC();
+  var lpAddr;
+  try { lpAddr = await t.lpToken(); } catch (e) { lpAddr = await new E.Contract(A.lp, ["function lpToken() view returns (address)"], pv()).lpToken(); }
+  var now = await t.lpWeight();
+  var p = new E.Contract(lpAddr, ["function getReserves() view returns (uint112, uint112, uint32)", "function token0() view returns (address)", "function totalSupply() view returns (uint256)"], pv());
+  var b = await Promise.all([p.getReserves(), p.token0(), p.totalSupply()]);
+  var osgRes = b[1].toLowerCase() === A.token.toLowerCase() ? b[0][0] : b[0][1];
+  if (b[2] === 0n || osgRes === 0n) throw new Error("LP pair is empty");
+  return { now: now, right: (2n * osgRes * 1000000000000000000n) / b[2] };
+}
+async function tiersPending() {
+  var box = document.getElementById("tiersPend");
+  var ap = document.getElementById("tiersApplyBtn");
+  if (!box) return;
+  try {
+    var t = tiersC();
+    var eta = await t.pendingRatesEta();
+    if (eta === 0n) { box.className = "muted"; box.textContent = "No rate change pending."; ap.style.display = "none"; return; }
+    var r = await Promise.all([t.pendingRateBps(0), t.pendingRateBps(1)]);
+    var ready = BigInt(Math.floor(Date.now() / 1000)) >= eta;
+    box.className = "muted " + (ready ? "good" : "warn");
+    box.textContent = "Pending: " + bpsPct(r[0]) + " / " + bpsPct(r[1]) + " — can apply from " + ist(eta) + (ready ? " (ready now)" : "");
+    ap.style.display = ready ? "" : "none";
+  } catch (e) { box.className = "muted bad"; box.textContent = "Could not read the pending rates: " + errText(e); ap.style.display = "none"; }
+}
+function loadTiersControls() {
+  fill("tiersCtl",
+    '<div class="bar"><input id="tiersR180In" placeholder="180 d % per day (0.05 to 1.00)"><input id="tiersR540In" placeholder="540 d % per day (0.05 to 1.00)"><button class="gold" id="tiersRateBtn">Propose rates</button></div>' +
+    '<div class="muted" id="tiersPend">Reading the pending rates...</div>' +
+    '<div class="bar"><button class="gold" id="tiersApplyBtn" style="display:none">Apply now</button><button class="ghost" id="tiersCancelBtn">Cancel</button></div>' +
+    field("tiersShareIn", "% of the Mining budget (all three together at most 100)", "tiersShareBtn", "Change share") +
+    '<div id="tiersMaxRow" style="display:none">' + field("tiersMaxIn", "New share cap in % (at most 70, not below the current share)", "tiersMaxBtn", "Raise the cap") + "</div>" +
+    field("tiersCapIn", "Raise limit to (total LP, can only go up)", "tiersCapBtn", "Raise limit") +
+    field("tiersMinIn", "Smallest deposit (LP)", "tiersMinBtn", "Change minimum") +
+    '<div class="bar"><button class="ghost" id="tiersWBtn">Fix: make 100 OSG count as 200 (6 &amp; 18 months)</button></div>' +
+    '<div class="bar"><button class="ghost" id="tiersPauseBtn">Pause new deposits and claims</button><button class="ghost" id="tiersResumeBtn">Resume</button></div>' +
+    '<div class="muted" id="tiersMsg">Every change is tested first, then you approve it in the wallet.</div>');
+  var re = function () { loadTiers(); tiersPending(); };
+  tiersPending();
+  document.getElementById("tiersRateBtn").onclick = async function () {
+    var a, b;
+    try { a = pctToBps(document.getElementById("tiersR180In").value, 5, 100); b = pctToBps(document.getElementById("tiersR540In").value, 5, 100); } catch (e) { note("tiersMsg", errText(e), "bad"); return; }
+    var old;
+    try { old = await Promise.all([tiersC().rateBps(0), tiersC().rateBps(1)]); } catch (e) { note("tiersMsg", "Could not read the rates, nothing sent: " + errText(e), "bad"); return; }
+    if (BigInt(a) === old[0] && BigInt(b) === old[1]) { note("tiersMsg", "Those are already the rates.", "warn"); return; }
+    ownerTx({ msg: "tiersMsg", name: "Propose new LP 6 & 18 months rates", addr: A.tiers, abi: "function proposeRates(uint256 rate180Bps, uint256 rate540Bps)", fn: "proposeRates", args: [a, b],
+      what: "180 days: " + bpsPct(old[0]) + " -> " + bpsPct(a) + " a day.\n540 days: " + bpsPct(old[1]) + " -> " + bpsPct(b) + " a day.\nMembers see the new rate after 48 hours. Before the first deposit it applies at once.", reload: re });
+  };
+  document.getElementById("tiersApplyBtn").onclick = async function () {
+    var eta, r;
+    try { var t = tiersC(); eta = await t.pendingRatesEta(); r = await Promise.all([t.rateBps(0), t.rateBps(1), t.pendingRateBps(0), t.pendingRateBps(1)]); } catch (e) { note("tiersMsg", "Could not read the pending rates, nothing sent: " + errText(e), "bad"); return; }
+    if (eta === 0n) { note("tiersMsg", "No rate change pending.", "warn"); return; }
+    if (BigInt(Math.floor(Date.now() / 1000)) < eta) { note("tiersMsg", "Not yet. It can be applied from " + ist(eta) + ".", "warn"); return; }
+    ownerTx({ msg: "tiersMsg", name: "Apply the new LP 6 & 18 months rates", addr: A.tiers, abi: "function applyRates()", fn: "applyRates", args: [],
+      what: "180 days: " + bpsPct(r[0]) + " -> " + bpsPct(r[2]) + " a day.\n540 days: " + bpsPct(r[1]) + " -> " + bpsPct(r[3]) + " a day.\nTakes effect at once.", reload: re });
+  };
+  document.getElementById("tiersCancelBtn").onclick = async function () {
+    var eta;
+    try { eta = await tiersC().pendingRatesEta(); } catch (e) { note("tiersMsg", "Could not read the pending rates, nothing sent: " + errText(e), "bad"); return; }
+    if (eta === 0n) { note("tiersMsg", "No rate change pending. Nothing to cancel.", "warn"); return; }
+    ownerTx({ msg: "tiersMsg", name: "Cancel the pending LP 6 & 18 months rates", addr: A.tiers, abi: "function cancelRates()", fn: "cancelRates", args: [],
+      what: "Drop the pending rate change. The current rates stay.", reload: re });
+  };
+  document.getElementById("tiersShareBtn").onclick = async function () {
+    var bps; try { bps = pctToBps(document.getElementById("tiersShareIn").value, 0, 10000); } catch (e) { note("tiersMsg", errText(e), "bad"); return; }
+    var r, sh;
+    try { r = await Promise.all([tiersC().miningShareBps(), tiersC().maxShareBps()]); sh = await sharesNow(); } catch (e) { note("tiersMsg", "Could not read the shares, nothing sent: " + errText(e), "bad"); return; }
+    if (BigInt(bps) > r[1]) {
+      document.getElementById("tiersMaxRow").style.display = "";
+      note("tiersMsg", "Above the cap of " + bpsPct(r[1]) + ". Raise the cap first (box above), then change the share. Nothing sent.", "bad");
+      return;
+    }
+    var g = shareGuard(sh, "tiers", bps);
+    if (g.err) { note("tiersMsg", g.err, "bad"); return; }
+    ownerTx({ msg: "tiersMsg", name: "Change LP 6 & 18 months share of mining budget", addr: A.tiers, abi: "function setMiningShareBps(uint256 newBps)", fn: "setMiningShareBps", args: [bps],
+      what: "LP 6 & 18 months share: " + bpsPct(r[0]) + " -> " + bpsPct(bps) + ".\n" + g.text, reload: function () { re(); loadShares(); } });
+  };
+  document.getElementById("tiersMaxBtn").onclick = async function () {
+    var bps; try { bps = pctToBps(document.getElementById("tiersMaxIn").value, 0, 7000); } catch (e) { note("tiersMsg", errText(e), "bad"); return; }
+    var r;
+    try { r = await Promise.all([tiersC().miningShareBps(), tiersC().maxShareBps()]); } catch (e) { note("tiersMsg", "Could not read the cap, nothing sent: " + errText(e), "bad"); return; }
+    if (BigInt(bps) < r[0]) { note("tiersMsg", "The cap cannot be below the current share of " + bpsPct(r[0]) + ". Nothing sent.", "bad"); return; }
+    if (BigInt(bps) === r[1]) { note("tiersMsg", "That is already the cap.", "warn"); return; }
+    ownerTx({ msg: "tiersMsg", name: "Change LP 6 & 18 months share cap", addr: A.tiers, abi: "function setMaxShareBps(uint256 newMax)", fn: "setMaxShareBps", args: [bps],
+      what: "Share cap: " + bpsPct(r[1]) + " -> " + bpsPct(bps) + ".\nThe share itself does not change.", reload: function () { re(); loadShares(); } });
+  };
+  document.getElementById("tiersCapBtn").onclick = async function () {
+    var v; try { v = osgIn("tiersCapIn"); } catch (e) { note("tiersMsg", errText(e), "bad"); return; }
+    var old;
+    try { old = await tiersC().capacityLp(); } catch (e) { note("tiersMsg", "Could not read the limit, nothing sent: " + errText(e), "bad"); return; }
+    if (v <= old) { note("tiersMsg", "The limit can only go up. Now " + osg(old, 0) + " LP. Nothing sent.", "bad"); return; }
+    ownerTx({ msg: "tiersMsg", name: "Raise LP 6 & 18 months limit", addr: A.tiers, abi: "function setCapacityLp(uint256 newCapacity)", fn: "setCapacityLp", args: [v],
+      what: "LP limit (both locks): " + osg(old, 0) + " -> " + osg(v, 0) + " LP.\nThis can never be lowered again.", reload: re });
+  };
+  document.getElementById("tiersMinBtn").onclick = async function () {
+    var v; try { v = osgIn("tiersMinIn"); } catch (e) { note("tiersMsg", errText(e), "bad"); return; }
+    var old;
+    try { old = await tiersC().minDeposit(); } catch (e) { note("tiersMsg", "Could not read the minimum, nothing sent: " + errText(e), "bad"); return; }
+    if (v === old) { note("tiersMsg", "That is already the minimum.", "warn"); return; }
+    ownerTx({ msg: "tiersMsg", name: "Change smallest LP 6 & 18 months deposit", addr: A.tiers, abi: "function setMinDeposit(uint256 newMin)", fn: "setMinDeposit", args: [v],
+      what: "Smallest deposit: " + osg(old, 4) + " -> " + osg(v, 4) + " LP.", reload: re });
+  };
+  document.getElementById("tiersWBtn").onclick = async function () {
+    var w;
+    try { w = await tiersWeightNow(); } catch (e) { note("tiersMsg", errText(e), "bad"); return; }
+    if (w.right === w.now) { note("tiersMsg", "Already correct: 100 OSG counts as 200.", "good"); return; }
+    // The contract allows 1/2x to 2x per call.
+    if (!(w.right <= w.now * 2n && w.right * 2n >= w.now)) { note("tiersMsg", "Too far off to fix in one step (more than 2x). Nothing sent.", "bad"); return; }
+    ownerTx({ msg: "tiersMsg", name: "Fix LP 6 & 18 months counting", addr: A.tiers, abi: "function setLpWeight(uint256 newWeight)", fn: "setLpWeight", args: [w.right],
+      what: "1 LP counts as: " + osg(w.now, 2) + " -> " + osg(w.right, 2) + " OSG.\n100 OSG added counts as: " + (Number((200n * 1000000000000000000n * w.now) / w.right) / 1e18).toFixed(1) + " OSG -> 200 OSG.\nOnly new deposits are affected; existing ones stay as they are.", reload: re });
+  };
+  function tiersPause(want) {
+    return async function () {
+      var p;
+      try { p = await tiersC().paused(); } catch (e) { note("tiersMsg", "Could not read the pause state, nothing sent: " + errText(e), "bad"); return; }
+      if (p === want) { note("tiersMsg", want ? "Already paused." : "Already running.", "warn"); return; }
+      ownerTx({ msg: "tiersMsg", name: want ? "Pause LP 6 & 18 months" : "Resume LP 6 & 18 months", addr: A.tiers, abi: "function " + (want ? "pause" : "unpause") + "()", fn: want ? "pause" : "unpause", args: [],
+        what: want ? "Stop new deposits and claims in LP 6 & 18 months until you resume." : "Resume deposits and claims in LP 6 & 18 months.\nThe contract refuses this if it is not wired, its share is 0 or the reward pool has stopped; the test step will show that reason.", reload: re });
+    };
+  }
+  document.getElementById("tiersPauseBtn").onclick = tiersPause(true);
+  document.getElementById("tiersResumeBtn").onclick = tiersPause(false);
+}
+
+// ===== Owner control: Term deposit deadline =====
+// datetime-local value "YYYY-MM-DDTHH:MM" read as IST (UTC+5:30).
+function istToUnix(v) {
+  var m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(String(v).trim());
+  if (!m) throw new Error("Pick a date and time");
+  return Math.floor(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]) / 1000) - 19800;
+}
+async function termDeadlineNow() {
+  var el = document.getElementById("termDlNow");
+  if (!el) return;
+  try {
+    var d = await new E.Contract(A.term, ["function depositDeadline() view returns (uint256)"], pv()).depositDeadline();
+    el.className = "muted";
+    el.textContent = "Close new Term stakes on: " + (d === 0n ? "None" : ist(d));
+  } catch (e) { el.className = "muted bad"; el.textContent = "Could not read the deadline: " + errText(e); }
+}
+function loadTermDeadlineControls() {
+  document.getElementById("termCtl").insertAdjacentHTML("beforeend",
+    '<div class="muted" id="termDlNow" style="margin-top:10px">Reading the deadline...</div>' +
+    '<div class="bar"><input id="termDlIn" type="datetime-local" aria-label="Close new Term stakes on (IST)"><button class="gold" id="termDlBtn">Set deadline (IST)</button><button class="ghost" id="termDlRmBtn">Remove deadline</button></div>');
+  var D = function () { return new E.Contract(A.term, ["function depositDeadline() view returns (uint256)"], pv()); };
+  var re = function () { loadTerm(); termDeadlineNow(); };
+  termDeadlineNow();
+  var rule = "After this time nobody can open a new Term stake. Existing positions, claims and withdrawals keep working.";
+  document.getElementById("termDlBtn").onclick = async function () {
+    var t; try { t = istToUnix(document.getElementById("termDlIn").value); } catch (e) { note("termMsg", errText(e), "bad"); return; }
+    if (t <= Math.floor(Date.now() / 1000)) { note("termMsg", "Pick a time in the future. Nothing sent.", "bad"); return; }
+    var old;
+    try { old = await D().depositDeadline(); } catch (e) { note("termMsg", "Could not read the deadline, nothing sent: " + errText(e), "bad"); return; }
+    if (old === BigInt(t)) { note("termMsg", "That is already the deadline.", "warn"); return; }
+    ownerTx({ msg: "termMsg", name: "Set Term deposit deadline", addr: A.term, abi: "function setDepositDeadline(uint256 newDeadline)", fn: "setDepositDeadline", args: [t],
+      what: "Close new Term stakes on: " + (old === 0n ? "None" : ist(old)) + " -> " + ist(t) + ".\n" + rule, reload: re });
+  };
+  document.getElementById("termDlRmBtn").onclick = async function () {
+    var old;
+    try { old = await D().depositDeadline(); } catch (e) { note("termMsg", "Could not read the deadline, nothing sent: " + errText(e), "bad"); return; }
+    if (old === 0n) { note("termMsg", "There is no deadline to remove.", "warn"); return; }
+    ownerTx({ msg: "termMsg", name: "Remove Term deposit deadline", addr: A.term, abi: "function setDepositDeadline(uint256 newDeadline)", fn: "setDepositDeadline", args: [0],
+      what: "Close new Term stakes on: " + ist(old) + " -> None.\nNew Term stakes are then limited only by the pause switch and capacity.", reload: re });
+  };
+}
+
+// ===== Bonuses & Tasks: tools for sub-admins (and the owner) =====
+// Every write goes through ownerTx() with admin: true, so it is signed by
+// the connected admin wallet; the contract checks its permission again.
+var BONUS_CAP = 500; // OSG per grant, a page limit only
+var TASK_R = ["function taskCount() view returns (uint256)", "function maxBatch() view returns (uint16)",
+  "function tasks(uint256) view returns (uint8 kind, uint256 threshold, uint256 reward, uint256 budget, uint256 spent, uint64 startsAt, uint64 endsAt, bool active)",
+  "function winnerCount(uint256 id) view returns (uint256)", "function markedFor(uint256 id, address[] users) view returns (bool[])", "function claimedBy(uint256 id, address[] users) view returns (bool[])"];
+var KINDS = [
+  ["Manual", "An admin marks each wallet done (attendance, a post, an event). No threshold."],
+  ["Directs", "Wallet needs at least N direct referrals who meet the minimum stake."],
+  ["Self stake", "Wallet's own stake must reach N OSG."],
+  ["Team stake", "Stake of the wallet's verified directs together must reach N OSG."],
+  ["Rank", "Wallet must meet rank N right now (1 Bronze, 2 Silver, 3 Gold, 4 Diamond, 5 Platinum)."],
+  ["Volume", "Wallet's referral volume must reach N OSG."]
+];
+var TASKS = [];
+function canTasksTab() { return ROLE.kind === "owner" || ROLE.grant || ROLE.mark || ROLE.task; }
+function canGrant() { return ROLE.kind === "owner" || ROLE.grant; }
+function canTask() { return ROLE.kind === "owner" || ROLE.task; }
+function canMark() { return ROLE.kind === "owner" || ROLE.mark; }
+async function tbC() { return new E.Contract(await taskBoardAddr(), TASK_R, pv()); }
+function kindName(k) { return (KINDS[Number(k)] || ["Kind " + k])[0]; }
+function osgKind(k) { k = Number(k); return k === 2 || k === 3 || k === 5; }
+function thrText(k, v) {
+  k = Number(k);
+  if (k === 0) return "—";
+  if (osgKind(k)) return osg(v, 2) + " OSG";
+  if (k === 4) return String(v) + " (" + (RANKS[Number(v)] || "?") + ")";
+  return String(v);
+}
+function thrIn(k, txt) {
+  k = Number(k);
+  var t = String(txt).trim().replace(/,/g, "");
+  if (k === 0) return 0n;
+  if (osgKind(k)) { if (!t || !(Number(t) > 0)) throw new Error("Enter a threshold in OSG above 0"); return E.parseUnits(t, 18); }
+  if (!/^\d+$/.test(t) || Number(t) < 1) throw new Error("Enter a whole number of at least 1 as the threshold");
+  if (k === 4 && Number(t) > 5) throw new Error("Rank goes from 1 (Bronze) to 5 (Platinum)");
+  return BigInt(t);
+}
+function thrInputText(k, v) { k = Number(k); return k === 0 ? "" : osgKind(k) ? E.formatUnits(v, 18) : String(v); }
+function unixToIstInput(t) { return Number(t) === 0 ? "" : new Date((Number(t) + 19800) * 1000).toISOString().slice(0, 16); }
+function istOpt(v) { return String(v).trim() === "" ? 0 : istToUnix(v); }
+
+// ---- a) Give a bonus ----
+// Referral v6 grantAirdrop: owner, the task board, or a wallet with
+// PERM_GRANT. The member collects it with Claim all in the app; it is paid
+// from the task share of the daily referral pot (part 3).
+var V6_BONUS_R = ["function paused() view returns (bool)", "function partPaused(uint256) view returns (bool)",
+  "function pot() view returns (uint16 rankShareBps, uint16 spotShareBps, uint16 taskShareBps, uint16 scaleTargetBps, uint32 reserveSeconds)"];
+async function loadBonusSrc() {
+  var el = document.getElementById("bonusSrc");
+  if (!el) return;
+  try {
+    var c = new E.Contract(A.referral, V6_BONUS_R, pv());
+    var r = await Promise.all([c.pot(), c.partPaused(3), c.paused()]);
+    el.className = "muted " + (r[1] || r[2] ? "warn" : "");
+    el.textContent = "Paid from: the daily referral pot, task share " + bpsPct(r[0][2]) + "." + (r[2] ? " Referral v6 is paused." : r[1] ? " The Task part is paused: members cannot collect until it is resumed." : "");
+  } catch (e) { el.className = "muted bad"; el.textContent = "Could not read the task share: " + errText(e); }
+}
+function loadBonusTool() {
+  fill("bonusCtl",
+    '<div class="muted" id="bonusSrc">Reading where bonuses are paid from...</div>' +
+    '<div class="bar"><input id="bonusAddr" placeholder="Member wallet 0x..."></div>' +
+    '<div class="bar"><input id="bonusAmt" placeholder="OSG amount (at most ' + BONUS_CAP + ')"><input id="bonusWhy" placeholder="Reason (shown in the confirm only)"></div>' +
+    '<div class="bar"><button class="gold" id="bonusBtn">Give bonus</button></div>' +
+    '<div class="muted" id="bonusMsg">The member collects it with Claim all in the app. Tested first, then you approve it in your wallet.</div>');
+  loadBonusSrc();
+  document.getElementById("bonusBtn").onclick = async function () {
+    if (!canGrant()) { note("bonusMsg", "This wallet may not give bonuses.", "bad"); return; }
+    var a = document.getElementById("bonusAddr").value.trim();
+    if (!E.isAddress(a)) { note("bonusMsg", "Not a valid wallet address.", "bad"); return; }
+    a = E.getAddress(a);
+    var v; try { v = osgIn("bonusAmt"); } catch (e) { note("bonusMsg", errText(e), "bad"); return; }
+    if (v > E.parseUnits(String(BONUS_CAP), 18)) { note("bonusMsg", "At most " + BONUS_CAP + " OSG per bonus. Nothing sent.", "bad"); return; }
+    var why = document.getElementById("bonusWhy").value.trim();
+    var r;
+    try { var c = new E.Contract(A.referral, V6_BONUS_R, pv()); r = await Promise.all([c.pot(), c.partPaused(3)]); } catch (e) { note("bonusMsg", "Could not read Referral v6, nothing sent: " + errText(e), "bad"); return; }
+    var warn = r[1] ? "\nThe Task part is paused now: the member can collect only after it is resumed." : "";
+    var amt = osg(v);
+    ownerTx({ admin: true, msg: "bonusMsg", name: "Give a bonus", addr: A.referral, abi: "function grantAirdrop(address user, uint256 amount)", fn: "grantAirdrop", args: [a, v],
+      what: "Give " + amt + " OSG to " + a + ".\nReason: " + (why || "(none)") + "\nPaid from: the daily referral pot (task share " + bpsPct(r[0][2]) + ")." + warn + "\nThe member collects it with Claim all in the app.",
+      done: function (rc) { note("bonusMsg", "Granted " + amt + " OSG to " + short(a) + " - they collect it with Claim all in the app. (block " + rc.blockNumber + ")", "good"); document.getElementById("bonusAmt").value = ""; },
+      reload: loadBonusSrc });
+  };
+}
+
+// ---- b) Task campaigns ----
+async function loadTasks() { try { await loadTasksRead(); } catch (e) { fill("taskList", '<div class="redline">Tasks could not be read: ' + esc(errText(e)) + "</div>"); } }
+async function loadTasksRead() {
+  var t = await tbC();
+  var n = Number(await t.taskCount());
+  var jobs = [];
+  for (var i = 0; i < n; i++) jobs.push(t.tasks(i), t.winnerCount(i));
+  var r = await Promise.allSettled(jobs);
+  TASKS = [];
+  var rows = "", now = Math.floor(Date.now() / 1000);
+  for (var k = 0; k < n; k++) {
+    var x = r[k * 2], w = r[k * 2 + 1];
+    if (!okR(x)) { TASKS.push(null); rows += "<tr><td>" + k + '</td><td colspan="10" class="bad">' + esc(whyR(x)) + "</td></tr>"; continue; }
+    var v = x.value;
+    var task = { id: k, kind: Number(v.kind), threshold: v.threshold, reward: v.reward, budget: v.budget, spent: v.spent, startsAt: Number(v.startsAt), endsAt: Number(v.endsAt), active: v.active };
+    TASKS.push(task);
+    var live = task.active && now >= task.startsAt && (task.endsAt === 0 || now <= task.endsAt);
+    var acts = canTask() ? '<button class="ghost" data-edit="' + k + '">Edit</button> <button class="ghost" data-toggle="' + k + '">' + (task.active ? "Turn off" : "Turn on") + "</button>" : '<span class="muted">-</span>';
+    rows += "<tr><td>" + k + "</td><td>" + esc(kindName(task.kind)) + '</td><td class="num">' + esc(thrText(task.kind, task.threshold)) + '</td><td class="num">' + osg(task.reward) + '</td><td class="num">' + osg(task.budget) + '</td><td class="num">' + osg(task.spent) +
+      "</td><td>" + ist(task.startsAt) + "</td><td>" + (task.endsAt === 0 ? "No end" : ist(task.endsAt)) + '</td><td class="' + (live ? "good" : task.active ? "warn" : "muted") + '">' + (task.active ? (live ? "On (live)" : "On") : "Off") +
+      '</td><td class="num">' + (okR(w) ? String(w.value) : "—") + '</td><td style="white-space:nowrap">' + acts + "</td></tr>";
+  }
+  fill("taskList", '<table><thead><tr><th>#</th><th>Kind</th><th class="num">Threshold</th><th class="num">Reward</th><th class="num">Budget</th><th class="num">Spent</th><th>Starts</th><th>Ends</th><th>State</th><th class="num">Winners</th><th></th></tr></thead><tbody>' +
+    (rows || '<tr><td colspan="11" class="muted">No tasks yet.</td></tr>') + "</tbody></table>");
+  document.querySelectorAll("#taskList [data-edit]").forEach(function (b) { b.onclick = function () { openTaskEdit(Number(b.dataset.edit)); }; });
+  document.querySelectorAll("#taskList [data-toggle]").forEach(function (b) { b.onclick = function () { toggleTask(Number(b.dataset.toggle)); }; });
+  var sel = document.getElementById("markTask");
+  if (sel) {
+    var keep = sel.value;
+    sel.innerHTML = TASKS.filter(function (x) { return x && x.kind === 0; }).map(function (x) { return '<option value="' + x.id + '">#' + x.id + " Manual · reward " + osg(x.reward) + " OSG" + (x.active ? "" : " (off)") + "</option>"; }).join("") || '<option value="">No manual tasks</option>';
+    if (keep) sel.value = keep;
+  }
+}
+function toggleTask(id) {
+  var t = TASKS[id];
+  if (!canTask()) { note("taskMsg", "This wallet may not edit tasks.", "bad"); return; }
+  if (!t) { note("taskMsg", "Task #" + id + " could not be read. Refresh and try again.", "bad"); return; }
+  tbC().then(function (c) {
+    ownerTx({ admin: true, msg: "taskMsg", name: (t.active ? "Turn off" : "Turn on") + " task #" + id, addr: c.target, abi: "function setTaskActive(uint256 id, bool active)", fn: "setTaskActive", args: [id, !t.active],
+      what: "Task #" + id + " (" + kindName(t.kind) + "): " + (t.active ? "On -> Off. Members cannot claim it until it is turned on again." : "Off -> On. Members can claim it inside its time window."), reload: loadTasks });
+  }).catch(function (e) { note("taskMsg", "Could not read the task board, nothing sent: " + errText(e), "bad"); });
+}
+function openTaskEdit(id) {
+  var t = TASKS[id];
+  if (!t) return;
+  var started = Math.floor(Date.now() / 1000) >= t.startsAt;
+  var lock = started ? " disabled" : "";
+  fill("taskEdit",
+    '<div class="goldnote" style="margin-top:12px">Editing task #' + id + " (" + esc(kindName(t.kind)) + "). Threshold, reward and start are fixed once the task has started" + (started ? " — this one has, so only budget and end can change." : ".") + "</div>" +
+    '<div class="bar"><input id="edThr" aria-label="Threshold" placeholder="Threshold" value="' + esc(thrInputText(t.kind, t.threshold)) + '"' + (t.kind === 0 ? " disabled" : lock) + '><input id="edRew" aria-label="Reward OSG" placeholder="Reward OSG" value="' + esc(E.formatUnits(t.reward, 18)) + '"' + lock + "></div>" +
+    '<div class="bar"><input id="edBud" aria-label="Budget OSG" placeholder="Budget OSG" value="' + esc(E.formatUnits(t.budget, 18)) + '"></div>' +
+    '<div class="bar"><input id="edStart" type="datetime-local" aria-label="Start (IST)" value="' + unixToIstInput(t.startsAt) + '"' + lock + '><input id="edEnd" type="datetime-local" aria-label="End (IST), empty = no end" value="' + unixToIstInput(t.endsAt) + '"></div>' +
+    '<div class="bar"><button class="gold" id="edSave">Save task #' + id + '</button><button class="ghost" id="edClose">Close</button></div>');
+  document.getElementById("edClose").onclick = function () { fill("taskEdit", ""); };
+  document.getElementById("edSave").onclick = async function () {
+    if (!canTask()) { note("taskMsg", "This wallet may not edit tasks.", "bad"); return; }
+    var thr, rew, bud, st, en;
+    try {
+      thr = started ? t.threshold : thrIn(t.kind, document.getElementById("edThr").value);
+      rew = started ? t.reward : osgIn("edRew");
+      bud = osgIn("edBud");
+      st = started ? t.startsAt : istToUnix(document.getElementById("edStart").value);
+      en = istOpt(document.getElementById("edEnd").value);
+    } catch (e) { note("taskMsg", errText(e), "bad"); return; }
+    if (bud < t.spent) { note("taskMsg", "Budget cannot go below what is already spent (" + osg(t.spent) + " OSG). Nothing sent.", "bad"); return; }
+    if (bud < rew) { note("taskMsg", "Budget must cover at least one reward. Nothing sent.", "bad"); return; }
+    if (en !== 0 && en <= st) { note("taskMsg", "The end must be after the start. Nothing sent.", "bad"); return; }
+    var c; try { c = await tbC(); } catch (e) { note("taskMsg", "Could not read the task board, nothing sent: " + errText(e), "bad"); return; }
+    var ch = [];
+    if (thr !== t.threshold) ch.push("Threshold: " + thrText(t.kind, t.threshold) + " -> " + thrText(t.kind, thr));
+    if (rew !== t.reward) ch.push("Reward: " + osg(t.reward) + " -> " + osg(rew) + " OSG");
+    if (bud !== t.budget) ch.push("Budget: " + osg(t.budget) + " -> " + osg(bud) + " OSG");
+    if (st !== t.startsAt) ch.push("Start: " + ist(t.startsAt) + " -> " + ist(st));
+    if (en !== t.endsAt) ch.push("End: " + (t.endsAt === 0 ? "No end" : ist(t.endsAt)) + " -> " + (en === 0 ? "No end" : ist(en)));
+    if (!ch.length) { note("taskMsg", "Nothing changed.", "warn"); return; }
+    ownerTx({ admin: true, msg: "taskMsg", name: "Edit task #" + t.id, addr: c.target, abi: "function updateTask(uint256 id, uint256 threshold, uint256 reward, uint256 budget, uint64 startsAt, uint64 endsAt)", fn: "updateTask", args: [t.id, thr, rew, bud, st, en],
+      what: ch.join("\n"), reload: function () { fill("taskEdit", ""); loadTasks(); } });
+  };
+}
+function loadTaskTools() {
+  var html = "";
+  if (canTask()) {
+    html += '<h2 style="margin-top:16px">New task</h2>' +
+      '<div class="bar"><select id="ntKind" aria-label="Task kind">' + KINDS.map(function (k, i) { return '<option value="' + i + '">' + k[0] + "</option>"; }).join("") + "</select></div>" +
+      '<div class="muted" id="ntKindHelp"></div>' +
+      '<div class="bar"><input id="ntThr" aria-label="Threshold" placeholder="Threshold"><input id="ntRew" aria-label="Reward OSG" placeholder="Reward OSG per wallet"><input id="ntBud" aria-label="Budget OSG" placeholder="Budget OSG (at least one reward)"></div>' +
+      '<div class="bar"><label class="muted" style="flex:1 1 160px">Start (IST)<input id="ntStart" type="datetime-local"></label><label class="muted" style="flex:1 1 160px">End (IST, empty = no end)<input id="ntEnd" type="datetime-local"></label></div>' +
+      '<div class="bar"><button class="gold" id="ntBtn">Create task</button></div>';
+  }
+  if (canMark()) {
+    html += '<h2 style="margin-top:16px">Mark manual tasks</h2>' +
+      '<div class="bar"><select id="markTask" aria-label="Manual task"><option value="">Reading...</option></select></div>' +
+      '<textarea id="markList" rows="5" aria-label="Wallets, one per line" placeholder="Wallets, one per line" style="width:100%;padding:10px;background:#0E0E14;color:#F4F4F5;border:1px solid rgba(255,255,255,.12);border-radius:10px;font-size:13px;font-family:ui-monospace,monospace"></textarea>' +
+      '<div class="bar"><button class="gold" id="markBtn">Mark done</button><button class="ghost" id="unmarkBtn">Undo</button></div>';
+  }
+  fill("taskTools", html);
+  if (canTask()) {
+    var kh = function () { var k = Number(document.getElementById("ntKind").value); document.getElementById("ntKindHelp").textContent = KINDS[k][1]; var th = document.getElementById("ntThr"); th.disabled = k === 0; th.placeholder = k === 0 ? "No threshold for Manual" : osgKind(k) ? "Threshold in OSG" : k === 4 ? "Rank 1 to 5" : "Number of directs"; if (k === 0) th.value = ""; };
+    document.getElementById("ntKind").onchange = kh; kh();
+    document.getElementById("ntBtn").onclick = async function () {
+      if (!canTask()) { note("taskMsg", "This wallet may not create tasks.", "bad"); return; }
+      var k = Number(document.getElementById("ntKind").value), thr, rew, bud, st, en;
+      try {
+        thr = thrIn(k, document.getElementById("ntThr").value);
+        rew = osgIn("ntRew"); bud = osgIn("ntBud");
+        st = istToUnix(document.getElementById("ntStart").value);
+        en = istOpt(document.getElementById("ntEnd").value);
+      } catch (e) { note("taskMsg", errText(e), "bad"); return; }
+      if (bud < rew) { note("taskMsg", "Budget must be at least one reward. Nothing sent.", "bad"); return; }
+      if (en !== 0 && en <= st) { note("taskMsg", "The end must be after the start. Nothing sent.", "bad"); return; }
+      var c; try { c = await tbC(); } catch (e) { note("taskMsg", "Could not read the task board, nothing sent: " + errText(e), "bad"); return; }
+      var wallets = rew > 0n ? bud / rew : 0n;
+      ownerTx({ admin: true, msg: "taskMsg", name: "Create a " + KINDS[k][0] + " task", addr: c.target, abi: "function createTask(uint8 kind, uint256 threshold, uint256 reward, uint256 budget, uint64 startsAt, uint64 endsAt)", fn: "createTask", args: [k, thr, rew, bud, st, en],
+        what: KINDS[k][0] + ": " + KINDS[k][1] + (k === 0 ? "" : "\nThreshold: " + thrText(k, thr)) + "\nReward: " + osg(rew) + " OSG per wallet\nBudget: " + osg(bud) + " OSG (about " + wallets + " wallets)\nStarts: " + ist(st) + "\nEnds: " + (en === 0 ? "No end" : ist(en)) +
+          "\nThreshold, reward and start are fixed once the task has started.", reload: loadTasks });
+    };
+  }
+  if (canMark()) {
+    document.getElementById("markBtn").onclick = function () { markRun(true); };
+    document.getElementById("unmarkBtn").onclick = function () { markRun(false); };
+  }
+}
+async function markRun(mark) {
+  if (!canMark()) { note("taskMsg", "This wallet may not mark tasks.", "bad"); return; }
+  var id = document.getElementById("markTask").value;
+  if (id === "") { note("taskMsg", "Pick a manual task first.", "bad"); return; }
+  id = Number(id);
+  var t = TASKS[id];
+  if (!t || t.kind !== 0) { note("taskMsg", "Only Manual tasks can be marked.", "bad"); return; }
+  var raw = document.getElementById("markList").value.split(/[\s,;]+/).filter(Boolean);
+  var bad = raw.filter(function (x) { return !E.isAddress(x); });
+  if (bad.length) { note("taskMsg", "Not a wallet address: " + bad[0] + (bad.length > 1 ? " (+" + (bad.length - 1) + " more)" : "") + ". Nothing sent.", "bad"); return; }
+  var seen = {}, list = [];
+  raw.forEach(function (x) { var a = E.getAddress(x); if (!seen[a.toLowerCase()]) { seen[a.toLowerCase()] = 1; list.push(a); } });
+  if (!list.length) { note("taskMsg", "Paste at least one wallet.", "bad"); return; }
+  var c, mx, mk, cl;
+  try {
+    c = await tbC();
+    mx = Number(await c.maxBatch());
+    if (list.length > mx) { note("taskMsg", list.length + " wallets — at most " + mx + " per send. Nothing sent.", "bad"); return; }
+    var r = await Promise.all([c.markedFor(id, list), c.claimedBy(id, list)]);
+    mk = r[0]; cl = r[1];
+  } catch (e) { note("taskMsg", "Could not read the task board, nothing sent: " + errText(e), "bad"); return; }
+  var send = list.filter(function (a, i) { return mark ? !mk[i] : mk[i] && !cl[i]; });
+  var skipped = list.length - send.length;
+  if (!send.length) { note("taskMsg", mark ? "All " + list.length + " wallets are already marked. Nothing sent." : "None of these wallets can be undone (not marked, or already claimed). Nothing sent.", "warn"); return; }
+  var why = mark ? skipped + " already marked, skipped." : skipped + " not marked or already claimed, skipped.";
+  ownerTx({ admin: true, msg: "taskMsg", name: (mark ? "Mark done" : "Undo marks") + " on task #" + id, addr: c.target, abi: "function " + (mark ? "markTaskDone" : "unmarkTaskDone") + "(uint256 id, address[] users)", fn: mark ? "markTaskDone" : "unmarkTaskDone", args: [id, send],
+    what: (mark ? "Mark " + send.length + " wallets done on task #" + id + ". They can then claim " + osg(t.reward) + " OSG each." : "Undo the mark on " + send.length + " wallets for task #" + id + ".") + "\n" + why, reload: loadTasks });
+}
+function loadTasksTab() {
+  if (!canTasksTab()) return;
+  document.getElementById("tab-tasks").style.display = "";
+  document.getElementById("bonusCard").style.display = canGrant() ? "" : "none";
+  if (canGrant()) loadBonusTool();
+  loadTaskTools();
+  loadTasks();
+}
+
+// ===== Layout: tabs, role badge, refresh =====
+var TAB_KEY = "osgAdminTab";
+function showTab(name, focus) {
+  var tabs = document.querySelectorAll('.tabs [role="tab"]');
+  var found = false;
+  tabs.forEach(function (b) { if (b.dataset.tab === name && b.style.display !== "none") found = true; });
+  if (!found) name = "overview";
+  tabs.forEach(function (b) {
+    var on = b.dataset.tab === name;
+    b.setAttribute("aria-selected", on ? "true" : "false");
+    b.tabIndex = on ? 0 : -1;
+    if (on && focus) b.focus();
+  });
+  document.querySelectorAll(".panel").forEach(function (p) { p.hidden = p.id !== "panel-" + name; });
+  try { localStorage.setItem(TAB_KEY, name); } catch (e) {}
+}
+function initTabs() {
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('.tabs [role="tab"]'));
+  tabs.forEach(function (b) {
+    b.onclick = function () { showTab(b.dataset.tab); };
+    b.onkeydown = function (ev) {
+      var vis = tabs.filter(function (x) { return x.style.display !== "none"; });
+      var i = vis.indexOf(b), j = -1;
+      if (ev.key === "ArrowRight") j = (i + 1) % vis.length;
+      else if (ev.key === "ArrowLeft") j = (i - 1 + vis.length) % vis.length;
+      else if (ev.key === "Home") j = 0;
+      else if (ev.key === "End") j = vis.length - 1;
+      if (j < 0) return;
+      ev.preventDefault();
+      showTab(vis[j].dataset.tab, true);
+    };
+  });
+  var last = "overview";
+  try { last = localStorage.getItem(TAB_KEY) || "overview"; } catch (e) {}
+  showTab(last);
+}
+function setRole(role, addr) {
+  ROLE = { kind: role.kind, grant: !!role.grant, mark: !!role.mark, task: !!role.task, addr: addr };
+  var b = document.getElementById("roleBadge");
+  if (role.kind === "owner") { b.textContent = "Owner"; b.className = "badge owner"; }
+  else if (role.kind === "sub") {
+    b.textContent = ["Sub-admin"].concat(role.grant ? ["Bonus"] : [], role.task ? ["Tasks"] : [], role.mark ? ["Mark"] : []).join(" · ");
+    b.className = "badge sub";
+  } else { b.textContent = "Viewer"; b.className = "badge viewer"; }
+  b.style.display = "";
+  document.getElementById("whoAddr").textContent = short(addr);
+  document.getElementById("refreshBtn").style.display = "";
+  if (role.kind === "owner") document.getElementById("tab-access").style.display = "";
+  var can = document.getElementById("canLine");
+  if (role.kind === "sub") {
+    var list = [role.grant ? "give bonuses to members" : "", role.task ? "create and edit task campaigns" : "", role.mark ? "mark manual tasks done" : ""].filter(Boolean);
+    can.textContent = "You can: " + list.join("; ") + ". Everything else here is view-only.";
+    can.style.display = "";
+  } else can.style.display = "none";
+}
+async function loadAll() {
+  var btn = document.getElementById("refreshBtn");
+  btn.disabled = true;
+  var jobs = [loadProgramme, loadToken, loadTreasury, loadLpWeight, loadTerm, loadDao, loadEmission, loadShares, loadTiers, loadFlexi, V6.refresh];
+  if (canTasksTab()) jobs.push(loadTasks, loadBonusSrc);
+  await Promise.allSettled(jobs.map(function (f) { return f(); }));
+  document.getElementById("lastUpd").textContent = "Last updated " + new Date().toTimeString().slice(0, 8);
+  btn.disabled = false;
+}
+
+document.getElementById("connectBtn").onclick = async function () {
+  var msg = document.getElementById("gateMsg");
+  if (!window.ethereum) { msg.textContent = "No wallet found. Open this page in your wallet browser."; return; }
+  try {
+    var accts = await window.ethereum.request({ method: "eth_requestAccounts" });
+    var chain = await window.ethereum.request({ method: "eth_chainId" });
+    if (parseInt(chain, 16) !== 137) { 
+      try { await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x89" }] }); }
+      catch (e) { msg.textContent = "Switch the wallet to Polygon and try again."; return; }
+      chain = await window.ethereum.request({ method: "eth_chainId" });
+      if (parseInt(chain, 16) !== 137) { msg.textContent = "Switch the wallet to Polygon and try again."; return; }
+    }
+    var role = accts[0] ? await roleOf(accts[0]) : { kind: "" };
+    if (!role.kind) { msg.textContent = "This wallet does not have admin access."; return; }
+    IS_OWNER = role.kind === "owner";
+    document.getElementById("gate").style.display = "none";
+    document.getElementById("app").style.display = "block";
+    setRole(role, accts[0]);
+    V6.init();
+    loadTasksTab();
+    initTabs();
+    loadAll();
+    if (IS_OWNER) { loadTreasuryControls(); loadLpAllControls(); loadLpControls(); loadLpMoreControls(); loadTermControls(); loadTiersControls(); loadTermDeadlineControls(); loadSubAdmins(); document.getElementById("subCard").style.display = "block"; }
+    loadEarners(false);
+  } catch (e) { msg.textContent = "Connect failed: " + ((e && e.message) || e); }
+};
+// ===== Referral v6: health, settings, switches, wallet detail, moves, task board link =====
+// Ported from the retired admin-v6 page. Reads use the same failover RPC as
+// the rest of this page; every write is tested with staticCall first, then
+// confirmed, then sent with extra gas (the DApp does the same).
+var V6 = (function () {
+  var Z = "0x0000000000000000000000000000000000000000";
+  var MULTICALL3 = "0xcA11bde05977b3631167028862bE2a173976CA11";
+  var PART_NAMES = ["Levels", "Rank", "Spot", "Task"];
+  var ART = null;
+  function $(id) { return document.getElementById(id); }
+  function short6(a) { return a ? a.slice(0, 6) + "..." + a.slice(-4) : "-"; }
+  function pct(scale) { return (Number(scale * 10000n / 10n ** 18n) / 100).toFixed(2) + "%"; }
+  function bpsTxt(b) { return (Number(b) / 100).toFixed(2) + "%"; }
+  function when(ts) { ts = Number(ts); return ts ? ist(ts) : "-"; }
+  function err6(e) {
+    if (e && e.revert && e.revert.name) return e.revert.name + (e.revert.args && e.revert.args.length ? "(" + Array.from(e.revert.args).join(", ") + ")" : "");
+    return errText(e);
+  }
+  // v is HTML here (already escaped by the caller), unlike stat() above.
+  function st(k, v, cls) { return '<div class="stat"><div class="k">' + esc(k) + '</div><div class="v ' + (cls || "") + '">' + v + "</div></div>"; }
+  function isAddr(a) { return E.isAddress(String(a || "").trim()); }
+  function addr(a) { return E.getAddress(String(a).trim()); }
+  function same(a, b) { return String(a || "").toLowerCase() === String(b || "").toLowerCase(); }
+  function big(x) { return BigInt(x || 0); }
+  function lc(a) { return String(a).toLowerCase(); }
+  function stepRow(id, title, status, cls, btn) {
+    return '<div class="step"><div class="t">' + title + '</div><div class="s ' + (cls || "") + '" id="' + id + '_s">' + status + "</div>" +
+      (btn ? '<button class="ghost" id="' + id + '_b">' + btn + "</button>" : "") + '</div><div class="muted" id="' + id + '_m"></div>';
+  }
+  async function art() {
+    if (!ART) ART = await (await fetch("/v6/osg-v6-artifacts.json", { cache: "no-store" })).json();
+    return ART;
+  }
+  function coreAbi() { return ART.contracts.OSGReferralV6.abi; }
+  function R() { return new E.Contract(A.referral, coreAbi(), pv()); }
+  async function wsigner() {
+    if (!signer) signer = await new E.BrowserProvider(window.ethereum).getSigner();
+    return signer;
+  }
+
+  // Many reads of the core in one go -> decoded values (null on failure).
+  async function multi(calls) {
+    if (!calls.length) return [];
+    var iface = new E.Interface(coreAbi()), out = new Array(calls.length);
+    var mc = new E.Contract(MULTICALL3, ["function aggregate3(tuple(address target, bool allowFailure, bytes callData)[] calls) payable returns (tuple(bool success, bytes returnData)[])"], pv());
+    for (var i = 0; i < calls.length; i += 150) {
+      var part = calls.slice(i, i + 150);
+      var res = await mc.aggregate3.staticCall(part.map(function (c) { return { target: A.referral, allowFailure: true, callData: iface.encodeFunctionData(c.fn, c.args || []) }; }));
+      res.forEach(function (r, j) {
+        if (!r.success) { out[i + j] = null; return; }
+        try { var d = iface.decodeFunctionResult(part[j].fn, r.returnData); out[i + j] = d.length === 1 ? d[0] : d; } catch (e) { out[i + j] = null; }
+      });
+    }
+    return out;
+  }
+
+  // Test, confirm, send with extra gas, wait. o.owner = owner wallet only.
+  async function sendTx(o) {
+    try {
+      note(o.msg, "Testing...");
+      var s = o.owner ? await getSigner() : await wsigner();
+      var c = new E.Contract(o.to, o.abi || coreAbi(), s);
+      var f = c.getFunction(o.fn);
+      try { await f.staticCall(...o.args); }
+      catch (e) { note(o.msg, "Test failed, nothing sent: " + err6(e), "bad"); return false; }
+      var text = o.title + "\n\n" + (o.what ? o.what + "\n\n" : "") +
+        "Test passed.\nIn the wallet check: To = " + o.to + ", amount 0 POL, and untick \"Added protection\".\n\nSend now?";
+      if (!window.confirm(text)) { note(o.msg, "Cancelled. Nothing sent."); return false; }
+      var gas = await f.estimateGas(...o.args);
+      note(o.msg, "Waiting for the wallet...");
+      var tx = await f(...o.args, { gasLimit: gas + 900000n });
+      note(o.msg, "Sent " + tx.hash + " - waiting for confirmation...");
+      var r = await tx.wait();
+      if (r.status !== 1) { note(o.msg, "Failed on chain: " + tx.hash, "bad"); return false; }
+      note(o.msg, "Done in block " + r.blockNumber + ": " + tx.hash, "good");
+      if (o.done) await o.done(r);
+      return r;
+    } catch (e) { note(o.msg, "Not sent: " + err6(e), "bad"); return false; }
+  }
+
+  // Internal mappings with no getter: mapping(address => uint256) at `slot`.
+  async function slotOf(user, slot) {
+    var key = E.keccak256(E.AbiCoder.defaultAbiCoder().encode(["address", "uint256"], [user, slot]));
+    return BigInt(await pv().getStorage(A.referral, key));
+  }
+
+  // ---------------- health
+  async function loadHealth() {
+    try {
+      await art();
+      var c = R();
+      var v = await Promise.all([c.paused(), c.accrualFrozen(), c.seedLocked(), c.seedDeadline(), c.owner(), c.guardian(), c.spotModule(), c.taskBoard(),
+        c.usersLength(), c.stakeSourceCount(), c.totalOwed(), c.totalBonusOwed(), c.totalAirdropAssigned(), c.totalAirdropPaid(), c.totalSpotPaid(),
+        c.curDay(), c.levelScale(), c.rankScale(), c.prevRankScale(), c.deferredNext(), c.deferredOpen(),
+        Promise.all([0, 1, 2, 3].map(function (i) { return c.spentToday(i); })), Promise.all([0, 1, 2, 3].map(function (i) { return c.partPaused(i); })),
+        c.pot(), c.spot()]);
+      $("hState").innerHTML =
+        st("Contract", v[0] ? "Paused" : "Running", v[0] ? "warn" : "good") +
+        st("Accrual", v[1] ? "Frozen" : "Counting", v[1] ? "warn" : "good") +
+        st("Seeding", v[2] ? "Locked" : "Open until " + when(v[3]), v[2] ? "good" : "warn") +
+        st("Owner", esc(nameOf(v[4]))) +
+        st("Guardian", '<span class="mono">' + esc(nameOf(v[5])) + "</span>") +
+        st("Spot module", '<span class="mono">' + esc(nameOf(v[6])) + "</span>", same(v[6], Z) ? "bad" : "") +
+        st("Task board", '<span class="mono">' + esc(same(v[7], Z) ? "Not set" : short6(v[7])) + "</span>", same(v[7], Z) ? "bad" : "") +
+        st("Wallets listed", String(v[8])) +
+        st("Stake sources", String(v[9]), Number(v[9]) ? "" : "bad") +
+        st("Parts paused", v[22].map(function (p, i) { return p ? PART_NAMES[i] : null; }).filter(Boolean).join(", ") || "None", v[22].some(Boolean) ? "warn" : "good") +
+        st("Spot switch", v[24][2] ? "On" : "Off", v[24][2] ? "good" : "warn");
+      $("hTotals").innerHTML =
+        st("Level commission owed", osg(v[10]) + " OSG") +
+        st("Rank bonus owed", osg(v[11]) + " OSG") +
+        st("Task owed / paid", osg(v[12]) + " / " + osg(v[13])) +
+        st("Spot paid", osg(v[14]) + " OSG");
+      var potHtml = st("Pool day", String(v[15])) + st("Level scale", pct(v[16])) + st("Rank scale (last week)", pct(v[17]) + " (" + pct(v[18]) + ")");
+      v[21].forEach(function (s, i) { potHtml += st("Spent today: " + PART_NAMES[i], osg(s) + " OSG"); });
+      potHtml += st("Shares L/R/S/T", (100 - (Number(v[23][0]) + Number(v[23][1]) + Number(v[23][2])) / 100).toFixed(2) + "% / " + bpsTxt(v[23][0]) + " / " + bpsTxt(v[23][1]) + " / " + bpsTxt(v[23][2]));
+      try {
+        var t = await new E.Contract(A.pool, ["function getTodayStats() view returns (uint256,uint256,uint256,uint256,uint256,uint256,uint256)"], pv()).getTodayStats();
+        potHtml += st("Pool referral used / room", osg(t[2]) + " / " + osg(t[5]));
+      } catch (e) { potHtml += st("Pool", "Could not read", "bad"); }
+      $("hPot").innerHTML = potHtml;
+      $("hDeferred").innerHTML = st("Open", String(v[20]), Number(v[20]) ? "warn" : "good") + st("Ever stored", String(v[19]));
+    } catch (e) { $("hState").innerHTML = '<div class="bad">' + esc(err6(e)) + "</div>"; }
+  }
+  async function findWalks() {
+    try {
+      await art();
+      var me = await (await wsigner()).getAddress();
+      var c = R(), n = Number(await c.deferredNext()), open = [];
+      var from = Math.max(0, n - 300);
+      note("walkMsg", n ? "Checking ids " + from + " to " + (n - 1) + "..." : "None stored yet.");
+      for (var i = from; i < n; i++) {
+        try { await c.resumeWalk.staticCall(i, { from: me }); open.push(i); } catch (e) { if (/Frozen/.test(err6(e))) { note("walkMsg", "Accrual is frozen; walks cannot be resumed now.", "warn"); return; } }
+      }
+      note("walkMsg", open.length ? open.length + " open" : "None open.", open.length ? "warn" : "good");
+      $("walkList").innerHTML = open.map(function (id) { return stepRow("wk" + id, "Walk #" + id, "Open", "warn", "Finish"); }).join("");
+      open.forEach(function (id) {
+        $("wk" + id + "_b").onclick = async function () {
+          var ok = await sendTx({ msg: "wk" + id + "_m", to: A.referral, fn: "resumeWalk", args: [id], title: "Finish deferred walk #" + id, what: "Open to anyone. Pays the rest of a stored commission walk." });
+          if (ok) { $("wk" + id + "_s").textContent = "Finished"; $("wk" + id + "_s").className = "s good"; loadHealth(); }
+        };
+      });
+    } catch (e) { note("walkMsg", err6(e), "bad"); }
+  }
+
+  // ---------------- settings (one setAll transaction) and switches
+  var CUR = null, LV = [], TR = [];
+  function toBps(txt, what) {
+    var s = String(txt).trim(), x = Number(s);
+    if (s === "" || !isFinite(x)) throw new Error(what + ": enter a number");
+    var b = Math.round(x * 100);
+    if (Math.abs(b - x * 100) > 1e-6) throw new Error(what + ": at most 2 decimals");
+    return b;
+  }
+  function toInt(txt, what) { var s = String(txt).trim(); if (!/^\d+$/.test(s)) throw new Error(what + ": whole number"); return Number(s); }
+  function toOsg(txt, what) { var s = String(txt).trim().replace(/,/g, ""); if (!/^\d+(\.\d{1,18})?$/.test(s)) throw new Error(what + ": enter OSG"); return E.parseUnits(s, 18); }
+  function fmtOsg(v) { return E.formatUnits(v, 18).replace(/\.0$/, ""); }
+  function fld(id, label, val) { return '<div><div class="muted">' + esc(label) + '</div><input id="' + id + '" value="' + esc(val) + '"></div>'; }
+
+  async function loadSettings() {
+    try {
+      await art();
+      var c = R();
+      var b = await Promise.all([c.levelCount(), c.maxRank(), c.pot(), c.spot(), c.minDirectStake(), c.minReferrerStake(), c.totalLevelBps()]);
+      var lv = await multi(Array.from({ length: Number(b[0]) }, function (_, i) { return { fn: "levels", args: [i] }; }));
+      var tr = await multi(Array.from({ length: Number(b[1]) }, function (_, i) { return { fn: "tiers", args: [i + 1] }; }));
+      if (lv.some(function (x) { return x === null; }) || tr.some(function (x) { return x === null; })) throw new Error("Some settings could not be read - press Reload from chain");
+      CUR = { lv: lv.map(function (x) { return [Number(x[0]), Number(x[1]), Number(x[2])]; }), tr: tr.map(function (x) { return [x[0], x[1], x[2], x[3]]; }),
+        pot: b[2].map(function (x) { return Number(x); }), spot: [Number(b[3][0]), Number(b[3][1]), b[3][2], b[3][3], b[3][4]], minDirect: b[4], minRef: b[5] };
+      LV = CUR.lv.map(function (r) { return [(r[0] / 100).toFixed(2), String(r[1]), String(r[2])]; });
+      TR = CUR.tr.map(function (r) { return [String(r[0]), fmtOsg(r[1]), fmtOsg(r[2]), fmtOsg(r[3])]; });
+      renderLv(); renderTr();
+      var p = CUR.pot;
+      $("potForm").innerHTML = fld("pRank", "Rank share %", (p[0] / 100).toFixed(2)) + fld("pSpot", "Spot share %", (p[1] / 100).toFixed(2)) +
+        fld("pTask", "Task share %", (p[2] / 100).toFixed(2)) + fld("pTarget", "Scale target % (50-100)", (p[3] / 100).toFixed(2)) +
+        fld("pReserve", "Reserve window hours (0-24)", String(p[4] / 3600));
+      var s = CUR.spot;
+      $("spotForm").innerHTML = fld("sRate", "Spot rate % (max 5)", (s[0] / 100).toFixed(2)) + fld("sStop", "Stops at rank", String(s[1])) +
+        fld("sMin", "Sponsor own stake, OSG", fmtOsg(s[3])) + fld("sMax", "Max per stake, OSG", fmtOsg(s[4])) +
+        '<div><div class="muted">Spot switch</div><label class="chk" style="min-height:40px"><input type="checkbox" id="sOn"' + (s[2] ? " checked" : "") + "> On</label></div>";
+      $("thrForm").innerHTML = fld("thDirect", "A direct counts from, OSG", fmtOsg(CUR.minDirect)) + fld("thRef", "Upline earns from, OSG", fmtOsg(CUR.minRef));
+    } catch (e) { note("setMsg", err6(e), "bad"); }
+  }
+  function readLvInputs() { LV = LV.map(function (_, i) { return [$("lv_b" + i).value, $("lv_d" + i).value, $("lv_r" + i).value]; }); }
+  function readTrInputs() { TR = TR.map(function (_, i) { return [$("tr_d" + i).value, $("tr_o" + i).value, $("tr_t" + i).value, $("tr_m" + i).value]; }); }
+  function lvSumText() { var s2 = 0; LV.forEach(function (r) { s2 += Number(r[0]) || 0; }); return LV.length + " levels, total " + s2.toFixed(2) + "% (max 75%)"; }
+  function renderLv() {
+    $("lvTable").innerHTML = "<tr><th>Level</th><th>Commission %</th><th>Directs needed</th><th>Min rank</th></tr>" +
+      LV.map(function (r, i) { return "<tr><td>L" + (i + 1) + '</td><td><input id="lv_b' + i + '" value="' + esc(r[0]) + '"></td><td><input id="lv_d' + i + '" value="' + esc(r[1]) + '"></td><td><input id="lv_r' + i + '" value="' + esc(r[2]) + '"></td></tr>'; }).join("");
+    $("lvSum").textContent = lvSumText();
+    $("lvTable").oninput = function () { readLvInputs(); $("lvSum").textContent = lvSumText(); };
+  }
+  function renderTr() {
+    $("trTable").innerHTML = "<tr><th>Rank</th><th>Directs</th><th>Own stake</th><th>Team stake</th><th>Monthly OSG</th></tr>" +
+      TR.map(function (r, i) { return "<tr><td>R" + (i + 1) + '</td><td><input id="tr_d' + i + '" value="' + esc(r[0]) + '"></td><td><input id="tr_o' + i + '" value="' + esc(r[1]) + '"></td><td><input id="tr_t' + i + '" value="' + esc(r[2]) + '"></td><td><input id="tr_m' + i + '" value="' + esc(r[3]) + '"></td></tr>'; }).join("");
+  }
+  function collectSettings() {
+    readLvInputs(); readTrInputs();
+    var lv = LV.map(function (r, i) { return { bps: toBps(r[0], "L" + (i + 1)), directs: toInt(r[1], "L" + (i + 1) + " directs"), minRank: toInt(r[2], "L" + (i + 1) + " rank") }; });
+    var tr = TR.map(function (r, i) { return { directsNeeded: BigInt(toInt(r[0], "R" + (i + 1) + " directs")), selfStakeNeeded: toOsg(r[1], "R" + (i + 1) + " own"), teamStakeNeeded: toOsg(r[2], "R" + (i + 1) + " team"), monthlyPayout: toOsg(r[3], "R" + (i + 1) + " monthly") }; });
+    var hours = Number($("pReserve").value);
+    if (!(hours >= 0 && hours <= 24)) throw new Error("Reserve window: 0 to 24 hours");
+    var pot = { rankShareBps: toBps($("pRank").value, "Rank share"), spotShareBps: toBps($("pSpot").value, "Spot share"), taskShareBps: toBps($("pTask").value, "Task share"), scaleTargetBps: toBps($("pTarget").value, "Scale target"), reserveSeconds: Math.round(hours * 3600) };
+    var spot = { rateBps: toBps($("sRate").value, "Spot rate"), stopRank: toInt($("sStop").value, "Stop rank"), enabled: $("sOn").checked, minSelfStake: toOsg($("sMin").value, "Sponsor stake"), maxPerStake: toOsg($("sMax").value, "Max per stake") };
+    return { lv: lv, tr: tr, pot: pot, spot: spot, minDirect: toOsg($("thDirect").value, "Direct threshold"), minRef: toOsg($("thRef").value, "Upline threshold") };
+  }
+  function diffSettings(n) {
+    var out = [], o = CUR;
+    var L = Math.max(o.lv.length, n.lv.length);
+    for (var i = 0; i < L; i++) {
+      var a = o.lv[i], b = n.lv[i];
+      var at = a ? bpsTxt(a[0]) + ", " + a[1] + " directs, R" + a[2] : "(none)", bt = b ? bpsTxt(b.bps) + ", " + b.directs + " directs, R" + b.minRank : "(removed)";
+      if (at !== bt) out.push(["L" + (i + 1), at, bt]);
+    }
+    var T = Math.max(o.tr.length, n.tr.length);
+    for (var j = 0; j < T; j++) {
+      var x = o.tr[j], y = n.tr[j];
+      var xt = x ? x[0] + " directs, own " + fmtOsg(x[1]) + ", team " + fmtOsg(x[2]) + ", " + fmtOsg(x[3]) + "/month" : "(none)";
+      var yt = y ? y.directsNeeded + " directs, own " + fmtOsg(y.selfStakeNeeded) + ", team " + fmtOsg(y.teamStakeNeeded) + ", " + fmtOsg(y.monthlyPayout) + "/month" : "(removed)";
+      if (xt !== yt) out.push(["R" + (j + 1), xt, yt]);
+    }
+    var pairs = [
+      ["Rank share", bpsTxt(o.pot[0]), bpsTxt(n.pot.rankShareBps)], ["Spot share", bpsTxt(o.pot[1]), bpsTxt(n.pot.spotShareBps)],
+      ["Task share", bpsTxt(o.pot[2]), bpsTxt(n.pot.taskShareBps)], ["Scale target", bpsTxt(o.pot[3]), bpsTxt(n.pot.scaleTargetBps)],
+      ["Reserve window", o.pot[4] / 3600 + " h", n.pot.reserveSeconds / 3600 + " h"],
+      ["Spot rate", bpsTxt(o.spot[0]), bpsTxt(n.spot.rateBps)], ["Spot stops at", "R" + o.spot[1], "R" + n.spot.stopRank],
+      ["Spot switch", o.spot[2] ? "On" : "Off", n.spot.enabled ? "On" : "Off"], ["Spot sponsor stake", fmtOsg(o.spot[3]), fmtOsg(n.spot.minSelfStake)],
+      ["Spot max per stake", fmtOsg(o.spot[4]), fmtOsg(n.spot.maxPerStake)],
+      ["Direct counts from", fmtOsg(o.minDirect), fmtOsg(n.minDirect)], ["Upline earns from", fmtOsg(o.minRef), fmtOsg(n.minRef)]
+    ];
+    pairs.forEach(function (p) { if (p[1] !== p[2]) out.push(p); });
+    return out;
+  }
+  async function setSend() {
+    $("setDiff").innerHTML = "";
+    if (!CUR) { note("setMsg", "Settings not loaded.", "bad"); return; }
+    var n;
+    try { n = collectSettings(); } catch (e) { note("setMsg", err6(e), "bad"); return; }
+    var d = diffSettings(n);
+    if (!d.length) { note("setMsg", "Nothing changed.", "warn"); return; }
+    $("setDiff").innerHTML = '<div class="scroll"><table><tr><th>Setting</th><th>Now</th><th>New</th></tr>' +
+      d.map(function (r) { return "<tr><td>" + esc(r[0]) + "</td><td>" + esc(r[1]) + '</td><td class="warn">' + esc(r[2]) + "</td></tr>"; }).join("") + "</table></div>";
+    await sendTx({ owner: true, msg: "setMsg", to: A.referral, fn: "setAll", args: [n.lv, n.tr, n.pot, n.spot, n.minDirect, n.minRef],
+      title: "Change Referral v6 settings (" + d.length + " changes)",
+      what: d.slice(0, 12).map(function (r) { return r[0] + ": " + r[1] + " -> " + r[2]; }).join("\n") + (d.length > 12 ? "\n... and " + (d.length - 12) + " more (see the table)" : "") + "\n\nWas this announced 48 hours ago?",
+      done: function () { loadSettings(); loadProgramme(); } });
+  }
+  async function renderSwitches() {
+    try {
+      await art();
+      var c = R();
+      var v = await Promise.all([c.paused(), c.spot(), Promise.all([0, 1, 2, 3].map(function (i) { return c.partPaused(i); }))]);
+      var rows = [["sw_all", "Whole contract (payouts and register)", v[0] ? "Paused" : "Running", v[0] ? "warn" : "good", v[0] ? "Unpause" : "Pause",
+        v[0] ? { fn: "unpause", args: [] } : { fn: "pause", args: [] }],
+        ["sw_spot", "Spot bonus switch", v[1][2] ? "On" : "Off", v[1][2] ? "good" : "warn", v[1][2] ? "Turn off" : "Turn on", { fn: "setSpotEnabled", args: [!v[1][2]] }]];
+      v[2].forEach(function (p, i) {
+        rows.push(["sw_p" + i, "Part: " + PART_NAMES[i], p ? "Paused" : "Running", p ? "warn" : "good", p ? "Unpause" : "Pause", { fn: p ? "unpausePart" : "pausePart", args: [i] }]);
+      });
+      $("switches").innerHTML = rows.map(function (r) { return stepRow(r[0], esc(r[1]), r[2], r[3], IS_OWNER ? r[4] : null); }).join("");
+      if (!IS_OWNER) return;
+      rows.forEach(function (r) {
+        $(r[0] + "_b").onclick = async function () {
+          var ok = await sendTx({ owner: true, msg: r[0] + "_m", to: A.referral, fn: r[5].fn, args: r[5].args, title: "Referral v6 - " + r[1] + ": " + r[4] });
+          if (ok) { renderSwitches(); loadSettings(); loadHealth(); }
+        };
+      });
+    } catch (e) { note("swMsg", err6(e), "bad"); }
+  }
+
+  // ---------------- wallet detail (under Wallet lookup) and sync
+  async function detail(a, okMsg) {
+    try {
+      await art();
+      note("lkMsg", "Reading Referral v6 detail...");
+      var f = ["nativeReferrer", "referrerOf", "registeredDirects", "directReferrals", "cachedStake", "qualifyingStakeOf", "stakeOf", "teamStake",
+        "owed", "volume", "rankOf", "rankProvedAt", "bonusOwed", "airdropOwed"];
+      var v = await multi(f.map(function (fn) { return { fn: fn, args: [a] }; }));
+      var x = {}; f.forEach(function (fn, i) { x[fn] = v[i]; });
+      var stale = x.cachedStake !== null && x.qualifyingStakeOf !== null && big(x.cachedStake) !== big(x.qualifyingStakeOf);
+      var validTill = x.rankProvedAt && big(x.rankProvedAt) > 0n ? Number(x.rankProvedAt) + 8 * 86400 : 0;
+      $("lkOut").innerHTML =
+        st("Referrer", '<span class="mono">' + esc(short6(x.referrerOf)) + "</span>" + (x.nativeReferrer && !same(x.nativeReferrer, Z) ? "" : x.referrerOf && !same(x.referrerOf, Z) ? " (old staking)" : "")) +
+        st("Registered / counted directs", esc(String(x.registeredDirects)) + " / " + esc(String(x.directReferrals))) +
+        st("Term/LP stake (live)", osg(big(x.qualifyingStakeOf)) + " OSG") +
+        st("Stake v6 uses", osg(big(x.cachedStake)) + " OSG", stale ? "warn" : "") +
+        st("All stake incl. Active", osg(big(x.stakeOf)) + " OSG") +
+        st("Team stake", osg(big(x.teamStake)) + " OSG") +
+        st("Rank valid until", validTill ? when(validTill) : "-", validTill && validTill < Date.now() / 1000 ? "bad" : "") +
+        st("Rank bonus owed", osg(big(x.bonusOwed)) + " OSG") +
+        st("Task owed", osg(big(x.airdropOwed)) + " OSG");
+      note("lkMsg", stale ? "The stake v6 uses is out of date: press \"Sync this wallet\"." : okMsg || "", stale ? "warn" : okMsg ? "good" : "");
+    } catch (e) { note("lkMsg", err6(e), "bad"); }
+  }
+  async function sync() {
+    var a = $("lookAddr").value.trim();
+    if (!isAddr(a)) { note("lkMsg", "Enter a wallet address.", "bad"); return; }
+    await art();
+    var ok = await sendTx({ msg: "lkMsg", to: A.referral, fn: "syncDirect", args: [addr(a)], title: "Sync " + short6(a), what: "Updates the stake Referral v6 uses and the direct count. Open to anyone." });
+    if (ok) detail(addr(a), "Synced in block " + ok.blockNumber + ".");
+  }
+
+  // ---------------- move wallets to another referrer (owner)
+  function readMoveList() {
+    var lines = $("mvList").value.split(/[\s,]+/).map(function (s) { return s.trim(); }).filter(Boolean);
+    var bad = lines.filter(function (s) { return !isAddr(s); });
+    if (bad.length) throw new Error("Not an address: " + bad[0]);
+    var seen = {}, list = [];
+    lines.forEach(function (s) { var a = addr(s); if (!seen[lc(a)]) { seen[lc(a)] = 1; list.push(a); } });
+    if (!list.length) throw new Error("Enter at least one wallet");
+    if (list.length > 300) throw new Error("At most 300 wallets per transaction");
+    var to = $("mvTo").value.trim();
+    if (!isAddr(to)) throw new Error("Enter the new referrer");
+    to = addr(to);
+    if (seen[lc(to)]) throw new Error("The new referrer is also in the list");
+    return { list: list, to: to };
+  }
+  async function previewMove() {
+    var m = readMoveList();
+    await art();
+    var r = await multi(m.list.map(function (a) { return { fn: "referrerOf", args: [a] }; }));
+    $("mvOut").innerHTML = "<table><tr><th>Wallet</th><th>Now under</th><th>Moves to</th></tr>" + m.list.map(function (a, i) {
+      var cur = r[i];
+      return '<tr><td class="mono">' + esc(a) + '</td><td class="mono">' + (cur ? esc(short6(cur)) : "?") + '</td><td class="mono ' + (same(cur, m.to) ? "muted" : "warn") + '">' + (same(cur, m.to) ? "(already)" : esc(short6(m.to))) + "</td></tr>";
+    }).join("") + "</table>";
+    return { m: m, r: r };
+  }
+  async function mvSend() {
+    var p;
+    try { p = await previewMove(); } catch (e) { note("mvMsg", err6(e), "bad"); return; }
+    var moving = p.m.list.filter(function (a, i) { return !same(p.r[i], p.m.to); }).length;
+    if (!moving) { note("mvMsg", "Every wallet is already under that referrer. Nothing sent.", "warn"); return; }
+    await sendTx({ owner: true, msg: "mvMsg", to: A.referral, fn: "moveReferrer", args: [p.m.list, p.m.to],
+      title: "Move " + moving + " wallet(s) under " + p.m.to,
+      what: "Only the bonds move. Balances, ranks and owed amounts stay with each wallet. Each move is a public event.",
+      done: function () { return previewMove(); } });
+  }
+
+  // ---------------- task board <-> Referral v6 link (owner)
+  var TB_R = ["function referral() view returns (address)", "function owner() view returns (address)"];
+  async function tbOf() {
+    var v6 = await new E.Contract(A.referral, ["function taskBoard() view returns (address)"], pv()).taskBoard();
+    if (!same(v6, Z)) return v6;
+    return await new E.Contract(A.referralV5, ["function taskBoard() view returns (address)"], pv()).taskBoard();
+  }
+  async function loadTbLink() {
+    var box = $("tbLink");
+    if (!box) return;
+    try {
+      var tb = await tbOf();
+      if (same(tb, Z)) { box.innerHTML = st("Task board", "Not found", "bad"); return; }
+      var r = await Promise.all([new E.Contract(tb, TB_R, pv()).referral(), new E.Contract(A.referral, ["function taskBoard() view returns (address)"], pv()).taskBoard()]);
+      var a = same(r[0], A.referral), b = same(r[1], tb);
+      box.innerHTML =
+        st("Task board", '<span class="mono">' + esc(short6(tb)) + "</span>") +
+        st("Task board pays through", esc(nameOf(r[0])), a ? "good" : "bad") +
+        st("Referral v6 accepts the board", same(r[1], Z) ? "Not set" : b ? "Yes" : esc(short6(r[1])), b ? "good" : "bad") +
+        st("Status", a && b ? "Connected" : "Fix needed", a && b ? "good" : "bad");
+      $("tbFix1").style.display = a ? "none" : "";
+      $("tbFix2").style.display = b ? "none" : "";
+      note("tbMsg", a && b ? "Task rewards are paid by Referral v6. Members collect them with Claim all." : "Task rewards cannot be claimed until both steps are done. Step 1, then step 2.", a && b ? "good" : "warn");
+    } catch (e) { box.innerHTML = st("Task board", esc(err6(e)), "bad"); }
+  }
+  async function tbFix(step) {
+    var tb;
+    try { tb = await tbOf(); } catch (e) { note("tbMsg", "Could not read the task board, nothing sent: " + err6(e), "bad"); return; }
+    if (step === 1) {
+      await sendTx({ owner: true, msg: "tbMsg", to: tb, abi: ["function setReferral(address _referral)"], fn: "setReferral", args: [A.referral],
+        title: "Step 1 of 2: task board pays through Referral v6",
+        what: "TaskBoard " + tb + "\nsetReferral(" + A.referral + ")\nTask checks (stake, rank, volume, directs) and rewards then use Referral v6 instead of the retired v5.",
+        done: function () { _taskBoard = null; loadTbLink(); } });
+    } else {
+      await sendTx({ owner: true, msg: "tbMsg", to: A.referral, fn: "setTaskBoard", args: [tb],
+        title: "Step 2 of 2: Referral v6 accepts the task board",
+        what: "Referral v6 setTaskBoard(" + tb + ")\nThe task board may then add task rewards to a member's balance in v6.",
+        done: function () { _taskBoard = null; loadTbLink(); loadHealth(); } });
+    }
+  }
+
+  // ---------------- wiring
+  function init() {
+    $("findWalks").onclick = findWalks;
+    $("lvAdd").onclick = function () { readLvInputs(); if (LV.length >= 50) return; var l = LV[LV.length - 1] || ["1.00", "1", "0"]; LV.push([l[0], l[1], l[2]]); renderLv(); };
+    $("lvDel").onclick = function () { readLvInputs(); if (LV.length > 1) LV.pop(); renderLv(); };
+    $("trAdd").onclick = function () { readTrInputs(); if (TR.length >= 10) return; var l = TR[TR.length - 1] || ["1", "100", "1000", "10"]; TR.push(l.slice()); renderTr(); };
+    $("trDel").onclick = function () { readTrInputs(); if (TR.length > 1) TR.pop(); renderTr(); };
+    $("setReload").onclick = function () { $("setDiff").innerHTML = ""; note("setMsg", ""); loadSettings(); };
+    $("setSend").onclick = setSend;
+    $("lkSync").onclick = sync;
+    $("mvPreview").onclick = function () { previewMove().then(function () { note("mvMsg", ""); }, function (e) { note("mvMsg", err6(e), "bad"); }); };
+    $("mvSend").onclick = mvSend;
+    $("tbFix1").onclick = function () { tbFix(1); };
+    $("tbFix2").onclick = function () { tbFix(2); };
+    if (IS_OWNER) {
+      $("v6SetCard").style.display = "";
+      $("mvCard").style.display = "";
+      $("tbCard").style.display = "";
+    }
+  }
+  async function refresh() {
+    var jobs = [loadHealth(), renderSwitches()];
+    if (IS_OWNER) jobs.push(loadSettings(), loadTbLink());
+    await Promise.allSettled(jobs);
+  }
+  return { init: init, refresh: refresh, detail: detail, slotOf: slotOf, tbOf: tbOf, loadTbLink: loadTbLink };
+})();
+
+document.getElementById("refreshBtn").onclick = loadAll;
+document.getElementById("lookBtn").onclick = lookup;
+document.getElementById("earnBtn").onclick = function () { loadEarners(false); };
+document.getElementById("earnAllBtn").onclick = function () { loadEarners(true); };
+document.getElementById("earnSort").onchange = renderEarners;
+document.getElementById("earnOwed").onchange = renderEarners;
+document.getElementById("earnCsv").onclick = earnCsv;
+document.getElementById("earnTeamBtn").onclick = earnTeam;
+</script>
+</body>
+</html>
