@@ -869,6 +869,13 @@ body{font-family:'Hanken Grotesk',sans-serif;background:${C.bg};color:${C.txt}}
 .disp{font-family:'Bricolage Grotesque',sans-serif}
 .mono{font-family:'JetBrains Mono',monospace}
 .topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:rgba(8,8,11,.78);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-bottom:1px solid ${C.line}}
+.official-bar{display:flex;align-items:flex-start;gap:8px;margin:10px 14px 0;padding:9px 10px 9px 12px;border-radius:12px;background:rgba(233,185,73,.08);border:1px solid rgba(233,185,73,.35);font-size:12px;line-height:1.5;color:${C.txt2}}
+.official-bar .ob-txt{flex:1;min-width:0}
+.official-bar b{color:${C.gold1};font-weight:700}
+.official-bar .ob-addr{font-family:'JetBrains Mono',monospace;color:#F4F4F5;text-decoration:underline;text-underline-offset:2px;margin-right:6px}
+.official-bar .ob-btn{font:inherit;font-size:11px;font-weight:700;padding:1px 8px;border-radius:7px;border:1px solid rgba(233,185,73,.5);background:transparent;color:${C.gold1};cursor:pointer}
+.official-bar .ob-sub{display:block;margin-top:2px}
+.official-bar .ob-x{flex:0 0 auto;font:inherit;font-size:13px;line-height:1;padding:4px 6px;border:0;background:transparent;color:${C.txt2};cursor:pointer}
 .brand{display:flex;flex-direction:column;align-items:center;gap:5px}
 .logo-img{width:42px;height:42px;border-radius:12px;object-fit:cover;border:1px solid rgba(233,185,73,.25);box-shadow:0 6px 22px -6px rgba(233,185,73,.45)}
 .brand .name{font-family:'Bricolage Grotesque';font-weight:800;font-size:15px;letter-spacing:-.3px}
@@ -12106,6 +12113,15 @@ export default function App() {
   const [lang, setLang] = useState("en");
   const [langOpen, setLangOpen] = useState(false);
   const [chatFullscreen, setChatFullscreen] = useState(false);
+  // Official-token notice: hidden for 7 days after the user closes it.
+  const [officialHidden, setOfficialHidden] = useState(() => {
+    try {
+      const v = Number(localStorage.getItem("osg_official_bar_hidden") || 0);
+      return v > 0 && Date.now() - v < 7 * 24 * 3600 * 1000;
+    } catch (_) {
+      return false;
+    }
+  });
   const [tab, setTab] = useState("dashboard");
   const [wallet, setWallet] = useState(null);
   const [network, setNetwork] = useState(false);
@@ -12797,6 +12813,52 @@ export default function App() {
               )}
             </div>
           </header>
+        )}
+        {/* OFFICIAL TOKEN NOTICE */}
+        {!chatFullscreen && !officialHidden && (
+          <div className="official-bar" role="note">
+            <span className="ob-txt">
+              🛡️ <b>Official OSG is only on Polygon:</b>{" "}
+              <a
+                href={"https://polygonscan.com/token/" + ADDRESSES.token}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="ob-addr"
+              >
+                {ADDRESSES.token.slice(0, 6) + "…" + ADDRESSES.token.slice(-4)}
+              </a>
+              <button
+                className="ob-btn"
+                onClick={(e) => {
+                  const b = e.currentTarget;
+                  try {
+                    navigator.clipboard.writeText(ADDRESSES.token);
+                    b.textContent = "Copied";
+                  } catch (_) {}
+                  setTimeout(function () {
+                    b.textContent = "Copy";
+                  }, 1300);
+                }}
+              >
+                Copy
+              </button>
+              <span className="ob-sub">
+                "OSG" tokens on other chains are not ours.
+              </span>
+            </span>
+            <button
+              className="ob-x"
+              aria-label="Hide notice"
+              onClick={() => {
+                setOfficialHidden(true);
+                try {
+                  localStorage.setItem("osg_official_bar_hidden", String(Date.now()));
+                } catch (_) {}
+              }}
+            >
+              ✕
+            </button>
+          </div>
         )}
         {/* SCREEN */}
         <main className="screen" onClick={() => setLangOpen(false)}>
