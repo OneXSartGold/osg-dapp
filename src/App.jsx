@@ -12843,7 +12843,7 @@ export default function App() {
                 Copy
               </button>
               <span className="ob-sub">
-                "OSG" tokens on other chains are not ours.
+                "OSG" coins on other chains are not ours.
               </span>
             </span>
             <button
