@@ -869,11 +869,11 @@ body{font-family:'Hanken Grotesk',sans-serif;background:${C.bg};color:${C.txt}}
 .disp{font-family:'Bricolage Grotesque',sans-serif}
 .mono{font-family:'JetBrains Mono',monospace}
 .topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:rgba(8,8,11,.78);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-bottom:1px solid ${C.line}}
-.official-bar{display:flex;align-items:flex-start;gap:8px;margin:10px 14px 0;padding:9px 10px 9px 12px;border-radius:12px;background:rgba(233,185,73,.08);border:1px solid rgba(233,185,73,.35);font-size:12px;line-height:1.5;color:${C.txt2}}
+.official-bar{display:flex;align-items:flex-start;gap:8px;margin:10px 14px 0;padding:9px 10px 9px 12px;border-radius:12px;background:rgba(242,103,92,.07);border:1px solid rgba(242,103,92,.30);font-size:12px;line-height:1.5;color:${C.txt2}}
 .official-bar .ob-txt{flex:1;min-width:0}
-.official-bar b{color:${C.gold1};font-weight:700}
+.official-bar b{color:#F4A099;font-weight:700}
 .official-bar .ob-addr{font-family:'JetBrains Mono',monospace;color:#F4F4F5;text-decoration:underline;text-underline-offset:2px;margin-right:6px}
-.official-bar .ob-btn{font:inherit;font-size:11px;font-weight:700;padding:1px 8px;border-radius:7px;border:1px solid rgba(233,185,73,.5);background:transparent;color:${C.gold1};cursor:pointer}
+.official-bar .ob-btn{font:inherit;font-size:11px;font-weight:700;padding:1px 8px;border-radius:7px;border:1px solid rgba(242,103,92,.45);background:transparent;color:#F4A099;cursor:pointer}
 .official-bar .ob-sub{display:block;margin-top:2px}
 .official-bar .ob-x{flex:0 0 auto;font:inherit;font-size:13px;line-height:1;padding:4px 6px;border:0;background:transparent;color:${C.txt2};cursor:pointer}
 .brand{display:flex;flex-direction:column;align-items:center;gap:5px}
@@ -12815,7 +12815,7 @@ export default function App() {
           </header>
         )}
         {/* OFFICIAL TOKEN NOTICE */}
-        {!chatFullscreen && !officialHidden && (
+        {!chatFullscreen && !officialHidden && tab === "dashboard" && (
           <div className="official-bar" role="note">
             <span className="ob-txt">
               🛡️ <b>Official OSG is only on Polygon:</b>{" "}
