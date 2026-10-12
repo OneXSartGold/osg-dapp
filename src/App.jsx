@@ -12113,15 +12113,8 @@ export default function App() {
   const [lang, setLang] = useState("en");
   const [langOpen, setLangOpen] = useState(false);
   const [chatFullscreen, setChatFullscreen] = useState(false);
-  // Official-token notice: hidden for 7 days after the user closes it.
-  const [officialHidden, setOfficialHidden] = useState(() => {
-    try {
-      const v = Number(localStorage.getItem("osg_official_bar_hidden") || 0);
-      return v > 0 && Date.now() - v < 7 * 24 * 3600 * 1000;
-    } catch (_) {
-      return false;
-    }
-  });
+  // Official-token notice: shown on every visit; closing hides it until the next visit.
+  const [officialHidden, setOfficialHidden] = useState(false);
   const [tab, setTab] = useState("dashboard");
   const [wallet, setWallet] = useState(null);
   const [network, setNetwork] = useState(false);
@@ -12849,12 +12842,7 @@ export default function App() {
             <button
               className="ob-x"
               aria-label="Hide notice"
-              onClick={() => {
-                setOfficialHidden(true);
-                try {
-                  localStorage.setItem("osg_official_bar_hidden", String(Date.now()));
-                } catch (_) {}
-              }}
+              onClick={() => setOfficialHidden(true)}
             >
               ✕
             </button>
