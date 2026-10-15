@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import qrcode from "qrcode-generator";
+import SafetyCheck from "./SafetyCheck.jsx";
 import {
   BrowserProvider,
   JsonRpcProvider,
@@ -12931,6 +12932,7 @@ export default function App() {
               onScreenChange={setChatFullscreen}
             />
           )}
+          {tab === "osgscan" && <SafetyCheck wallet={wallet} />}
           {tab === "osgscan" && (
             <OSGScan
               wallet={wallet}
