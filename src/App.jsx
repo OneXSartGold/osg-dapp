@@ -12932,7 +12932,7 @@ export default function App() {
               onScreenChange={setChatFullscreen}
             />
           )}
-          {tab === "osgscan" && <SafetyCheck wallet={wallet} />}
+          {tab === "osgscan" && <SafetyCheck wallet={wallet} ensureReady={ensureReady} showToast={showToast} />}
           {tab === "osgscan" && (
             <OSGScan
               wallet={wallet}

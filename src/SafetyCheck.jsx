@@ -1,12 +1,15 @@
 import { useState, useEffect } from "react";
+import { Contract } from "ethers";
 
 /* ══════════════════════════════════════════════════════════
    Wallet Safety Check (member tool #1) — read-only view.
    Lists the token permissions (ERC-20 approvals) a wallet has
    given on Polygon, with a risk label for each one.
    Data: /api/osg-wallet-flow?mode=approvals&address=0x...
-   (lib/wallet-approvals.js). Nothing here sends a transaction;
-   the Remove (revoke) button comes in the next step.
+   (lib/wallet-approvals.js).
+   Remove = approve(spender, 0) on the token contract, sent from the
+   member's own connected wallet after a staticCall simulation.
+   Shown only when the connected wallet is the checked address.
    ══════════════════════════════════════════════════════════ */
 
 const GOLD = "#F7D27A";
@@ -66,7 +69,16 @@ function fmtAmount(a) {
   return n.toLocaleString("en-US", { maximumFractionDigits: 6 });
 }
 
-export default function SafetyCheck({ wallet }) {
+const APPROVE_ABI = ["function approve(address spender, uint256 amount) returns (bool)"];
+
+function errText(e) {
+  const m = String((e && (e.shortMessage || e.reason || e.message)) || "");
+  if (/user rejected|denied|ACTION_REJECTED/i.test(m) || (e && e.code === 4001)) return "Cancelled in the wallet.";
+  return m ? m.slice(0, 140) : "Failed.";
+}
+
+export default function SafetyCheck({ wallet, ensureReady, showToast }) {
+  const [busyKey, setBusyKey] = useState("");
   const [addr, setAddr] = useState(wallet || "");
   const [state, setState] = useState({ loading: false, error: "", data: null });
 
@@ -84,7 +96,7 @@ export default function SafetyCheck({ wallet }) {
       return;
     }
     setState({ loading: true, error: "", data: null });
-    fetch("/api/osg-wallet-flow?mode=approvals&address=" + a)
+    fetch("/api/osg-wallet-flow?mode=approvals&address=" + a + "&t=" + Date.now())
       .then(function (r) {
         return r.json();
       })
@@ -98,6 +110,36 @@ export default function SafetyCheck({ wallet }) {
   }
 
   const d = state.data;
+  const canRemove = !!(wallet && d && d.address && d.address.toLowerCase() === wallet.toLowerCase() && ensureReady);
+
+  async function remove(x) {
+    const key = x.token + x.spender;
+    const toast = showToast || function () {};
+    const signer = await ensureReady();
+    if (!signer) return;
+    setBusyKey(key);
+    try {
+      const c = new Contract(x.token, APPROVE_ABI, signer);
+      await c.approve.staticCall(x.spender, 0n);
+      const gas = await c.approve.estimateGas(x.spender, 0n);
+      toast("Confirm in your wallet: remove " + (x.tokenSymbol || "coin") + " permission…");
+      const tx = await c.approve(x.spender, 0n, { gasLimit: (gas * 12n) / 10n + 20000n });
+      toast("Removing… waiting for Polygon");
+      await tx.wait();
+      toast("✓ Permission removed");
+      setState(function (s) {
+        if (!s.data) return s;
+        const left = s.data.approvals.filter(function (y) { return y.token + y.spender !== key; });
+        return Object.assign({}, s, {
+          data: Object.assign({}, s.data, { approvals: left, revokedCount: (s.data.revokedCount || 0) + 1 }),
+        });
+      });
+    } catch (e) {
+      toast("⚠️ " + errText(e));
+    } finally {
+      setBusyKey("");
+    }
+  }
   const list = (d && d.approvals) || [];
   const highCount = list.filter(function (x) { return x.risk === "high"; }).length;
 
@@ -238,6 +280,26 @@ export default function SafetyCheck({ wallet }) {
                     })}
                   </ul>
                 )}
+                {canRemove && (
+                  <button
+                    onClick={function () { remove(x); }}
+                    disabled={!!busyKey}
+                    style={{
+                      marginTop: 8,
+                      background: "transparent",
+                      color: x.risk === "none" ? TXT2 : RED,
+                      border: "1px solid " + (x.risk === "none" ? EDGE : RED),
+                      borderRadius: 10,
+                      padding: "6px 12px",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: busyKey ? "wait" : "pointer",
+                      opacity: busyKey && busyKey !== x.token + x.spender ? 0.5 : 1,
+                    }}
+                  >
+                    {busyKey === x.token + x.spender ? "Removing…" : "Remove permission"}
+                  </button>
+                )}
                 <div style={{ fontSize: 11, color: TXT3, marginTop: 6 }}>
                   Given {fmtDate(x.lastApprovalTime)}
                   {x.lastApprovalTx && (
@@ -263,9 +325,16 @@ export default function SafetyCheck({ wallet }) {
               This wallet has a very long history; only the first 10,000 permission events were checked.
             </div>
           )}
-          {list.length > 0 && (
+          {list.length > 0 && !canRemove && (
             <div style={{ fontSize: 12, color: GOLD, marginTop: 6 }}>
-              A "Remove" button for each permission is coming soon.
+              To remove a permission, connect this wallet and check it again.
+            </div>
+          )}
+          {list.length > 0 && canRemove && (
+            <div style={{ fontSize: 12, color: TXT2, marginTop: 6, lineHeight: 1.5 }}>
+              Removing a permission sends 0 POL; only a small network fee is paid. Your wallet will show the coin's
+              own contract as "To". If you remove a permission you still need (for example an OSG app you use), the
+              app will simply ask for it again next time.
             </div>
           )}
         </div>
@@ -281,7 +350,7 @@ export default function SafetyCheck({ wallet }) {
           paddingTop: 10,
         }}
       >
-        This check is read-only and never asks for your seed phrase or keys. It can help stop future misuse, but it
+        Checking is read-only. Removing is signed by you in your own wallet. This tool never asks for your seed phrase or keys. It can help stop future misuse, but it
         cannot bring back coins that were already taken. Anyone offering to "recover" lost crypto is a scammer.
       </div>
     </div>
