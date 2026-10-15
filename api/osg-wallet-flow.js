@@ -8,6 +8,8 @@
 //  stays on the server.
 //
 //  GET /api/osg-wallet-flow?addr=0x...
+//  GET /api/osg-wallet-flow?mode=approvals&address=0x...
+//      → Wallet Safety Check (token approvals), see lib/wallet-approvals.js
 //  Response:
 //  {
 //    ok, addr, updatedAt, truncated,
@@ -19,6 +21,8 @@
 //    rows:      [ { hash, time, dir, osg, other, label, kind } ]  // newest first, max 200
 //  }
 // ══════════════════════════════════════════════════════════
+
+import { approvalsHandler } from "../lib/wallet-approvals.js";
 
 const BASE  = "https://api.etherscan.io/v2/api";
 const TOKEN = "0xba05176748347944cc26900c821abfebebc57415";
@@ -89,6 +93,9 @@ function addTo(list, address, osg) {
 }
 
 export default async function handler(req, res) {
+  if (req.query && req.query.mode === "approvals") {
+    return approvalsHandler(req, res);
+  }
   const key = process.env.POLYGONSCAN_KEY || "";
   const addr = String((req.query && req.query.addr) || "").toLowerCase();
   if (!/^0x[0-9a-f]{40}$/.test(addr)) {
