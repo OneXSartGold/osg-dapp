@@ -7,7 +7,7 @@
     "api/osgscan-rewards.js": {
       "maxDuration": 60
     },
-    "api/wallet-approvals.js": {
+    "api/osg-wallet-flow.js": {
       "maxDuration": 30
     }
   }
