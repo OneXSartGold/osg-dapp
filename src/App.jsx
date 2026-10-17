@@ -4400,12 +4400,15 @@ const SPOT_MAX_BATCH = 20;
 async function loadSpotStateV6(p, wallet, directs) {
   const core = new Contract(ADDRESSES.referralV6, REFERRAL_V42_ABI, p);
   const spot = new Contract(ADDRESSES.spotV6, SPOT_V6_ABI, p);
-  const [cfg, self, n, stop, got, startAt] = await Promise.all([
+  const [cfg, self, n, stop, got, startAt, partOff, allOff] = await Promise.all([
     core.spot(), core.stakeOf(wallet), spot.sourcesCount(), spot.stopAt(wallet), spot.paidTo(wallet), spot.spotStartAt(),
+    // PART_SPOT = 2. A read failure here must not hide the card.
+    core.partPaused(2).catch(function () { return false; }),
+    core.paused().catch(function () { return false; }),
   ]);
   const BIG = 10n ** 30n;
   const out = {
-    v6: true, started: true, startAt: startAt, paused: !cfg.enabled, rateBps: Number(cfg.rateBps), minSelf: cfg.minSelfStake,
+    v6: true, started: true, startAt: startAt, paused: !cfg.enabled || partOff || allOff, partial: false, rateBps: Number(cfg.rateBps), minSelf: cfg.minSelfStake,
     selfStake: self, eligible: self >= cfg.minSelfStake, reachedAt: stop, received: got,
     pool: BIG, todayLeft: BIG, items: [], total: 0n, rankRecorded: stop > 0n, blockedByRank: false,
   };
@@ -4428,17 +4431,22 @@ async function loadSpotStateV6(p, wallet, directs) {
   people.forEach(function (d) {
     live.forEach(function (s) {
       jobs.push((async function () {
-        const cnt = Number(await s.c.spotPositionCount(d));
-        for (let k = cnt - 1; k >= 0; k--) {
-          const pos = await s.c.spotPosition(d, k);
-          if (pos.startTime < startAt) break;
-          if (!pos.open) continue;
-          const q = await spot.quote(wallet, s.id, d, k);
-          if (Number(q.reason) === 0 && q.amount > 0n) {
-            out.items.push({ sourceId: s.id, staker: d, index: k, amount: q.amount });
-          } else if (Number(q.reason) === 6) {
-            out.blockedByRank = true;
+        // One slow or failing read must not hide the whole spot card.
+        try {
+          const cnt = Number(await s.c.spotPositionCount(d));
+          for (let k = cnt - 1; k >= 0; k--) {
+            const pos = await s.c.spotPosition(d, k);
+            if (pos.startTime < startAt) break;
+            if (!pos.open) continue;
+            const q = await spot.quote(wallet, s.id, d, k);
+            if (Number(q.reason) === 0 && q.amount > 0n) {
+              out.items.push({ sourceId: s.id, staker: d, index: k, amount: q.amount });
+            } else if (Number(q.reason) === 6) {
+              out.blockedByRank = true;
+            }
           }
+        } catch (e) {
+          out.partial = true;
         }
       })());
     });
@@ -5091,12 +5099,15 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
         );
       })()}
 
-{spot && !spot.error && spot.started && !spot.paused && (
+{wallet && directRows && (!spot || spot.error || spot.started) && (
         <div className="card" style={{ marginTop: 14 }}>
           <div className="sec">Spot bonus</div>
-          {spot.error ? (
+          {!spot ? (
+            <div style={{ fontSize: 12.5, color: C.txt3 }}>Reading your spot bonus…</div>
+          ) : spot.error ? (
             <div style={{ fontSize: 12.5, color: C.txt3 }}>
-              Could not read the spot bonus right now. Reload the page to try again.
+              Could not read the spot bonus right now.
+              <button className="btn-ghost" style={{ marginTop: 8 }} onClick={function () { setSpotTick(function (t) { return t + 1; }); }}>Try again</button>
             </div>
           ) : (
             <div>
@@ -5140,6 +5151,7 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
                   : spot.pool < spot.total
                   ? "The bonus pool is being topped up. Your bonus stays safe until then."
                   : ""}
+                {spot.partial ? " Some stakes could not be read just now; reload to check again." : ""}
               </div>
             </div>
           )}

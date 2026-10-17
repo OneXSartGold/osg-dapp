@@ -800,6 +800,7 @@ export const REFERRAL_V6_ABI = [
   "function stakeSourceCount() view returns (uint256)",
   "function paused() view returns (bool)",
   "function accrualFrozen() view returns (bool)",
+  "function partPaused(uint8 part) view returns (bool)",
   "function register(address referrer)",
   "function claimMyReferral()",
   "function claimBonusOwed()",
