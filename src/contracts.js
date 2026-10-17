@@ -71,7 +71,7 @@ export const ADDRESSES = {
   // Born paused. The app switches to it by itself once it is unpaused
   // (see activateReferralV6 below); until then everything stays on v5.
   referralV6:     "0xb452A678539F18Ca6492a72DB9a69D9b7a340b74",
-  spotV6:         "0x41F955dCF8E45e14406B7fBD846Ff2D56cE2bCe1",
+  spotV6:         "0x41F955dCF8E45e14406B7fbD846Ff2D56cE2bCe1",
   referralLensV6: "0xDb57Af6Fd1184a5b55ec99d0b601b5F5290c799E",   // OSGReferralLensV6 (deployed 11 Oct 2026)
 
   // -- Retired. Empty, unwired, kept only so old links resolve. --
