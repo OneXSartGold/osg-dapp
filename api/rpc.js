@@ -9,6 +9,13 @@
 //  own wallet. Requests from other websites are refused, and a batch
 //  may hold at most MAX_BATCH calls.
 //
+//  Cost guards (the Origin check alone can be faked by a bot):
+//  - eth_getLogs must name numeric fromBlock/toBlock (or one blockHash)
+//    and span at most MAX_LOG_BLOCKS blocks;
+//  - each IP may send at most MAX_CALLS_PER_MIN calls a minute to this
+//    instance. Over the limit the route answers 429 and the app's
+//    failover uses the public nodes instead.
+//
 //  If the key is missing or dRPC fails, the route answers with an HTTP
 //  error and the app's failover moves on to the public nodes.
 // ══════════════════════════════════════════════════════════
@@ -16,6 +23,9 @@
 const UPSTREAM = "https://lb.drpc.live/polygon/";
 const MAX_BATCH = 20;
 const TIMEOUT_MS = 3500; // must stay below the client timeout (4000 ms in src/App.jsx)
+const MAX_LOG_BLOCKS = 10000; // admin payout scan reads 10,000-block chunks
+const MAX_CALLS_PER_MIN = 1200;
+const WINDOW_MS = 60 * 1000;
 
 const ALLOWED = new Set([
   "eth_chainId",
@@ -36,6 +46,41 @@ const ALLOWED = new Set([
   "eth_feeHistory",
   "eth_estimateGas",
 ]);
+
+const HEX_NUM = /^0x[0-9a-fA-F]{1,16}$/;
+
+/** eth_getLogs only with a small, explicit block range. */
+function logsOk(c) {
+  const f = Array.isArray(c.params) ? c.params[0] : null;
+  if (!f || typeof f !== "object") return false;
+  if (f.blockHash !== undefined) {
+    return typeof f.blockHash === "string" && f.fromBlock === undefined && f.toBlock === undefined;
+  }
+  if (!HEX_NUM.test(String(f.fromBlock)) || !HEX_NUM.test(String(f.toBlock))) return false;
+  const from = parseInt(f.fromBlock, 16);
+  const to = parseInt(f.toBlock, 16);
+  return to >= from && to - from + 1 <= MAX_LOG_BLOCKS;
+}
+
+// Calls per IP in the current minute, per warm instance (best effort).
+const seen = new Map();
+function clientIp(req) {
+  const xf = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim();
+  return xf || String(req.headers["x-real-ip"] || "") || "unknown";
+}
+function overLimit(ip, n) {
+  const now = Date.now();
+  let e = seen.get(ip);
+  if (!e || now - e.start >= WINDOW_MS) {
+    if (seen.size > 5000) {
+      for (const [k, v] of seen) if (now - v.start >= WINDOW_MS) seen.delete(k);
+    }
+    e = { start: now, calls: 0 };
+    seen.set(ip, e);
+  }
+  e.calls += n;
+  return e.calls > MAX_CALLS_PER_MIN;
+}
 
 // Same site only: the Origin (or Referer) host must match this host.
 function sameSite(req) {
@@ -81,6 +126,13 @@ export default async function handler(req, res) {
     if (!c || typeof c.method !== "string" || !ALLOWED.has(c.method)) {
       return res.status(400).json({ error: "method not allowed" });
     }
+    if (c.method === "eth_getLogs" && !logsOk(c)) {
+      return res.status(400).json({ error: "log range too wide or not numeric" });
+    }
+  }
+  if (overLimit(clientIp(req), calls.length)) {
+    res.setHeader("Retry-After", "60");
+    return res.status(429).json({ error: "too many requests" });
   }
 
   const ctrl = new AbortController();
