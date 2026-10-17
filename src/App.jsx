@@ -5078,28 +5078,76 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
       </div>
 
       {REF_V6 && wallet && card && (function () {
-        var owedNow = Number(f18(card.owed)) + (bonus ? Number(f18(bonus)) : 0) + (spot && spot.v6 && spot.total ? Number(f18(spot.total)) : 0);
-        var rankReady = Number(card.rank) > 0 && Number(card.rankHoldRemaining) === 0;
+        var commNow = Number(f18(card.owed));
+        var spotNow = spot && spot.v6 && spot.total ? Number(f18(spot.total)) : 0;
+        var rankNow = bonus ? Number(f18(bonus)) : 0;
+        var owedNow = commNow + rankNow + spotNow;
+        var hasRank = Number(card.rank) > 0;
+        var rankWait = Number(card.rankHoldRemaining);
+        var rankReady = hasRank && rankWait === 0;
+        var anyBusy = allBusy || claiming || spotBusy || collecting;
+        var canSpot = spot && spot.v6 && !spot.error && !spot.paused && spot.items && spot.items.length > 0 && spot.selfStake >= spot.minSelf;
+        var spotNote = !spot
+          ? "Checking your directs' new stakes…"
+          : spot.error
+          ? "Could not read the spot bonus right now."
+          : spot.paused
+          ? "Spot bonus is paused for now. Nothing is lost."
+          : spot.selfStake < spot.minSelf
+          ? "Keep at least " + fmt(f18(spot.minSelf), 0) + " OSG of your own stake to collect."
+          : spot.items.length === 0 && (spot.rankRecorded || spot.blockedByRank)
+          ? "You reached Rank 2, so new stakes no longer pay a spot bonus."
+          : spot.items.length === 0
+          ? "Nothing to collect yet."
+          : spot.items.length + (spot.items.length === 1 ? " new stake" : " new stakes") + " ready";
+        var waitTxt = function (s2) { var h = Math.floor(s2 / 3600), m = Math.floor((s2 % 3600) / 60); return h ? h + "h " + m + "m" : m + "m"; };
+        var row = function (key, title, help, amount, sub, btnText, btnOn, onClick) {
+          return (
+            <div key={key} style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 0", borderTop: "1px solid rgba(255,255,255,.07)" }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: C.txt }}>{title}</div>
+                <div style={{ fontSize: 11, color: C.txt3, marginTop: 2, lineHeight: 1.5 }}>{help}</div>
+                <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 14, marginTop: 4, color: toneNum(amount.toFixed(2), "good") }}>{fmt(amount, 2) + " OSG"}</div>
+                {sub ? <div style={{ fontSize: 10.5, color: C.txt3, marginTop: 2 }}>{sub}</div> : null}
+              </div>
+              <button type="button" className="btn-ghost" style={{ width: "auto", minWidth: 96, minHeight: 44, padding: "10px 14px", fontSize: 13 }} disabled={!btnOn || anyBusy} onClick={onClick}>
+                {btnText}
+              </button>
+            </div>
+          );
+        };
         return (
           <div className="card" style={{ marginTop: 14 }}>
-            <div className="sec">Claim all</div>
-            <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 15, color: toneNum(owedNow.toFixed(2), "good") }}>
-              {fmt(owedNow, 2) + " OSG ready"}
+            <div className="sec">My rewards</div>
+            <div style={{ fontSize: 10.5, color: C.txt3 }}>Ready to collect</div>
+            <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 20, color: toneNum(owedNow.toFixed(2), "good") }}>
+              {fmt(owedNow, 2) + " OSG"}
             </div>
-            <div style={{ fontSize: 11.5, color: C.txt3, marginTop: 6, lineHeight: 1.6 }}>
-              Commission, rank bonus and spot bonus in one go{rankReady ? ", and your rank stays active for 8 more days" : ""}. Steps with nothing to collect are skipped, so you only pay for what moves.
-            </div>
-            <button className="btn-gold" style={{ marginTop: 12 }} disabled={allBusy} onClick={claimEverything}>
-              {allBusy ? (allStep || "Working…") : "Claim all"}
+            <button className="btn-gold" style={{ marginTop: 12 }} disabled={anyBusy} onClick={claimEverything}>
+              {allBusy ? (allStep || "Working…") : "Collect all rewards"}
             </button>
+            <div style={{ fontSize: 11, color: C.txt3, marginTop: 6, marginBottom: 6, lineHeight: 1.6 }}>
+              One tap collects everything below{rankReady ? " and keeps your rank active for 8 more days" : ""}. Empty ones are skipped, so you only pay gas for what moves.
+            </div>
+            {row("comm", "Team commission", "From your team's mining rewards.", commNow,
+              "Collected so far: " + fmt(f18(card.paid), 2) + " OSG",
+              claiming ? "Working…" : "Collect", commNow > 0, claimCommission)}
+            {row("spot", "Spot bonus", "3% of each new LP stake by your direct members.", spotNow,
+              spotNote + (spot && !spot.error ? " · Collected so far: " + fmt(f18(spot.received || 0n), 2) + " OSG" : ""),
+              spotBusy ? "Working…" : spot && spot.error ? "Retry" : "Collect",
+              canSpot || (spot && spot.error),
+              spot && spot.error ? function () { setSpotTick(function (n) { return n + 1; }); } : claimSpot)}
+            {hasRank && row("rank", "Rank bonus", "Your monthly rank reward, built up day by day.", rankNow,
+              rankWait > 0 ? "Opens in " + waitTxt(rankWait) : "Collected so far: " + fmt(f18(card.bonusPaidTotal), 2) + " OSG",
+              collecting ? "Working…" : "Collect", rankWait === 0 && rankNow > 0, collectBonus)}
             <div style={{ fontSize: 11.5, color: C.gold1, marginTop: 8, lineHeight: 1.6 }}>
-              Press it once a week. Up to 500 OSG mints per hour across everyone.
+              Collected rewards go to your Secured rewards. Press Claim on the Home tab to move them to your wallet (up to 500 OSG an hour for everyone). Collect at least once a week.
             </div>
           </div>
         );
       })()}
 
-{wallet && directRows && (!spot || spot.error || spot.started) && (
+{!REF_V6 && wallet && directRows && (!spot || spot.error || spot.started) && (
         <div className="card" style={{ marginTop: 14 }}>
           <div className="sec">Spot bonus</div>
           {!spot ? (
@@ -5263,7 +5311,10 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
                     </div>
                   </div>
                 </div>
-                              <button
+                {REF_V6 ? (
+                  <div style={{ fontSize: 11.5, color: C.gold1, marginTop: 10 }}>Collect your rank bonus in My rewards at the top of this page.</div>
+                ) : (
+                <button
                   className="btn-gold"
                   style={{ marginTop: 12 }}
                   disabled={collecting || Number(card.rankHoldRemaining) > 0}
@@ -5278,6 +5329,7 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
                       })(Number(card.rankHoldRemaining))
                     : "Collect rank bonus"}
                 </button>
+                )}
               </div>
             )}
             {t && (
@@ -5481,7 +5533,7 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
           })()}
         </div>
       )}
-            {card && (
+            {card && !REF_V6 && (
         <div className="card" style={{ marginTop: 14 }}>
           <div className="sec">Commission</div>
           <div className="mini-grid">
