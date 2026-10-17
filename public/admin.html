@@ -138,7 +138,7 @@
       <div class="card">
         <h2>Old Flexi staking (1%)</h2>
         <p class="help">The old flexible staking pool that still gets the staking share.</p>
-        <div class="grid" id="flexi"></div>
+        <div class="grid" id="flexi"></div><div id="flexiCtl" style="margin-top:10px"></div>
       </div>
     </section>
 
@@ -180,6 +180,12 @@
         <p class="help">Pause or resume the whole contract, one part (Levels, Rank, Spot, Task), or the spot bonus. Owner only.</p>
         <div id="switches"></div>
         <div class="muted" id="swMsg"></div>
+      </div>
+      <div class="card">
+        <h2>Spot sources</h2>
+        <p class="help">Which stake contracts can pay the spot bonus. A source that is Off pays no spot; its stakes are not marked paid, so nothing is lost if it is turned on again. Owner only.</p>
+        <div id="spotSrc"><div class="muted">Reading...</div></div>
+        <div class="muted" id="spotSrcMsg"></div>
       </div>
       <div class="card" id="v6SetCard" style="display:none">
         <h2>All settings (one transaction)</h2>
@@ -1286,6 +1292,61 @@ async function loadFlexiRead() {
     '<div class="goldnote" style="grid-column:1/-1;margin-top:0">Fixed 1% of daily release shared by few wallets.</div>');
 }
 
+// ===== Owner controls: Old Flexi pause =====
+// pause() stops new stakes (and Flexi's own claims / unstake requests);
+// emergencyWithdraw keeps working. Referral v6 only reads users() from
+// this contract, which works while paused.
+function loadFlexiControls() {
+  fill("flexiCtl",
+    '<div class="bar"><button class="gold" id="flexiPauseBtn">Pause or resume Flexi staking</button></div>' +
+    '<div class="muted" id="flexiMsg">Every change is tested first, then you approve it in the wallet.</div>');
+  document.getElementById("flexiPauseBtn").onclick = async function () {
+    var info;
+    try {
+      info = await new E.Contract(A.flexi, ["function paused() view returns (bool)"], pv()).paused();
+    } catch (e) { note("flexiMsg", "Could not read the pause state, nothing sent: " + errText(e), "bad"); return; }
+    var fn = info ? "unpause" : "pause";
+    ownerTx({ msg: "flexiMsg", name: info ? "Resume Old Flexi staking" : "Pause Old Flexi staking", addr: A.flexi, abi: "function " + fn + "()", fn: fn, args: [],
+      what: info
+        ? "Old Flexi: Paused -> Running.\nNew Flexi stakes, claims and unstake requests work again."
+        : "Old Flexi: Running -> Paused.\nNobody can open or add a Flexi stake. Flexi claims and unstake requests also stop; emergency withdraw still works.\nReferral v6 keeps reading Flexi stakes and sponsors.",
+      reload: function () { loadFlexi(); } });
+  };
+}
+
+// ===== Spot v6 sources (read for all, on/off for the owner) =====
+var SPOT_SRC_ABI = ["function sourcesCount() view returns (uint256)",
+  "function sources(uint256) view returns (address src, address underlying, uint16 baseBps, bool active)"];
+async function loadSpotSources() {
+  try {
+    var c = new E.Contract(A.spot, SPOT_SRC_ABI, pv());
+    var n = Number(await c.sourcesCount());
+    if (!n) { fill("spotSrc", '<div class="muted">No sources.</div>'); return; }
+    var rows = await Promise.all(Array.from({ length: n }, function (_, i) { return c.sources(i); }));
+    fill("spotSrc", '<div class="scroll"><table><tr><th>#</th><th>Stake contract</th><th>Base %</th><th>Status</th>' + (IS_OWNER ? "<th></th>" : "") + "</tr>" +
+      rows.map(function (r, i) {
+        var u = String(r[1]).toLowerCase();
+        var name = NAMES[u] || (r[1].slice(0, 6) + "..." + r[1].slice(-4));
+        return "<tr><td>" + i + "</td><td>" + esc(name) + '<div class="muted mono">' + esc(r[1]) + "</div></td><td>" + (Number(r[2]) / 100).toFixed(2) + '%</td><td class="' + (r[3] ? "good" : "warn") + '">' + (r[3] ? "On" : "Off") + "</td>" +
+          (IS_OWNER ? '<td><button class="ghost" id="spotSrc' + i + '">' + (r[3] ? "Turn off" : "Turn on") + "</button></td>" : "") + "</tr>";
+      }).join("") + "</table></div>");
+    if (!IS_OWNER) return;
+    rows.forEach(function (r, i) {
+      document.getElementById("spotSrc" + i).onclick = async function () {
+        var now;
+        try { now = await c.sources(i); } catch (e) { note("spotSrcMsg", "Could not read the source, nothing sent: " + errText(e), "bad"); return; }
+        var u = String(now[1]).toLowerCase(), name = NAMES[u] || now[1];
+        var on = !now[3];
+        ownerTx({ msg: "spotSrcMsg", name: "Spot source #" + i + " (" + name + "): " + (on ? "turn on" : "turn off"), addr: A.spot,
+          abi: "function setSource(uint256 id, uint16 baseBps, bool active)", fn: "setSource", args: [i, now[2], on],
+          what: "Spot source #" + i + " - " + name + "\nStatus: " + (now[3] ? "On" : "Off") + " -> " + (on ? "On" : "Off") + "\nBase % stays " + (Number(now[2]) / 100).toFixed(2) + "%." +
+            (on ? "" : "\nStakes in this contract pay no spot while it is off; nothing is marked paid."),
+          reload: function () { loadSpotSources(); } });
+      };
+    });
+  } catch (e) { fill("spotSrc", stat("Spot sources", "—", "bad", errText(e))); }
+}
+
 // ===== Owner controls: LP counting for all locks =====
 // One button for both LP contracts. Each one already within 1% is skipped;
 // the others are fixed one after the other with the usual ownerTx flow
@@ -1815,7 +1876,7 @@ function setRole(role, addr) {
 async function loadAll() {
   var btn = document.getElementById("refreshBtn");
   btn.disabled = true;
-  var jobs = [loadProgramme, loadToken, loadTreasury, loadLpWeight, loadTerm, loadDao, loadEmission, loadShares, loadTiers, loadFlexi, V6.refresh, loadPayoutsNow];
+  var jobs = [loadProgramme, loadToken, loadTreasury, loadLpWeight, loadTerm, loadDao, loadEmission, loadShares, loadTiers, loadFlexi, V6.refresh, loadPayoutsNow, loadSpotSources];
   if (canTasksTab()) jobs.push(loadTasks, loadBonusSrc);
   await Promise.allSettled(jobs.map(function (f) { return f(); }));
   document.getElementById("lastUpd").textContent = "Last updated " + new Date().toTimeString().slice(0, 8);
@@ -1844,7 +1905,7 @@ document.getElementById("connectBtn").onclick = async function () {
     loadTasksTab();
     initTabs();
     loadAll();
-    if (IS_OWNER) { loadTreasuryControls(); loadLpAllControls(); loadLpControls(); loadLpMoreControls(); loadTermControls(); loadTiersControls(); loadTermDeadlineControls(); loadSubAdmins(); document.getElementById("subCard").style.display = "block"; }
+    if (IS_OWNER) { loadFlexiControls(); loadSpotSources(); loadTreasuryControls(); loadLpAllControls(); loadLpControls(); loadLpMoreControls(); loadTermControls(); loadTiersControls(); loadTermDeadlineControls(); loadSubAdmins(); document.getElementById("subCard").style.display = "block"; }
     loadEarners(false);
   } catch (e) { msg.textContent = "Connect failed: " + ((e && e.message) || e); }
 };
