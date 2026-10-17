@@ -162,6 +162,13 @@
         <div class="grid" id="hPot"></div>
       </div>
       <div class="card">
+        <h2>Referral payouts</h2>
+        <p class="help">How much referral (levels + rank + spot + task) has been paid. Today and all-time read live; the last-7-days total is summed from on-chain payout events and may take a minute.</p>
+        <div class="grid" id="payNow"><div class="muted">Reading...</div></div>
+        <div class="bar"><button class="ghost" id="pay7Btn">Count last 7 days</button><span class="muted" id="payMsg"></span></div>
+        <div class="grid" id="pay7"></div>
+      </div>
+      <div class="card">
         <h2>Deferred walks</h2>
         <p class="help">A claim that ran short of gas stores the rest of its commission walk. Anyone may finish it. Settings cannot change while one is open.</p>
         <div class="grid" id="hDeferred"></div>
@@ -214,6 +221,13 @@
         <div class="grid" id="lkOut"></div>
         <div class="muted" id="lkMsg"></div>
         <div id="lookTeam"></div>
+      </div>
+
+      <div class="card">
+        <h2>Goa event pass — count</h2>
+        <p class="help">How many wallets currently qualify for the event pass (any one step is enough). This checks every listed member's Term + LP stake and directs, so it may take a minute. Read-only, nothing is sent.</p>
+        <div class="bar"><button class="ghost" id="passCountBtn">Count qualified passes</button><span class="muted" id="passCountMsg"></span></div>
+        <div class="grid" id="passCountOut" style="margin-top:8px"></div>
       </div>
 
       <div class="card">
@@ -1801,7 +1815,7 @@ function setRole(role, addr) {
 async function loadAll() {
   var btn = document.getElementById("refreshBtn");
   btn.disabled = true;
-  var jobs = [loadProgramme, loadToken, loadTreasury, loadLpWeight, loadTerm, loadDao, loadEmission, loadShares, loadTiers, loadFlexi, V6.refresh];
+  var jobs = [loadProgramme, loadToken, loadTreasury, loadLpWeight, loadTerm, loadDao, loadEmission, loadShares, loadTiers, loadFlexi, V6.refresh, loadPayoutsNow];
   if (canTasksTab()) jobs.push(loadTasks, loadBonusSrc);
   await Promise.allSettled(jobs.map(function (f) { return f(); }));
   document.getElementById("lastUpd").textContent = "Last updated " + new Date().toTimeString().slice(0, 8);
@@ -2240,6 +2254,143 @@ var V6 = (function () {
   return { init: init, refresh: refresh, detail: detail, slotOf: slotOf, tbOf: tbOf, loadTbLink: loadTbLink };
 })();
 
+// ===== Stats: referral payouts (today / last 7 days / all-time) and event-pass count =====
+// All read-only. "Today" and "all-time" come straight from the contracts; the
+// 7-day total is summed from Referral v6 payout events (Paid + SpotPaidOut).
+var PAID_TOPIC = E.id("Paid(address,uint256,uint256,uint256,uint256)");
+var SPOT_TOPIC = E.id("SpotPaidOut(address,uint256)");
+
+async function loadPayoutsNow() {
+  var box = document.getElementById("payNow");
+  if (!box) return;
+  try {
+    var pool = new E.Contract(A.pool, ["function getTodayStats() view returns (uint256,uint256,uint256,uint256,uint256,uint256,uint256)", "function totalReferralAll() view returns (uint256)"], pv());
+    var ref = new E.Contract(A.referral, ["function spentToday(uint256) view returns (uint256)"], pv());
+    var r = await Promise.all([pool.getTodayStats(), pool.totalReferralAll(), ref.spentToday(0), ref.spentToday(1), ref.spentToday(2), ref.spentToday(3)]);
+    box.innerHTML =
+      stat("Referral paid today", osg(r[0][2]) + " OSG") +
+      stat("- Levels / Rank", osg(r[2]) + " / " + osg(r[3]) + " OSG") +
+      stat("- Spot / Task", osg(r[4]) + " / " + osg(r[5]) + " OSG") +
+      stat("Referral paid all-time", osg(r[1]) + " OSG");
+  } catch (e) { box.innerHTML = stat("Referral payouts", "Could not read", "bad", errText(e)); }
+}
+
+async function payout7d() {
+  var btn = document.getElementById("pay7Btn"); btn.disabled = true;
+  var out = document.getElementById("pay7"), msg = document.getElementById("payMsg");
+  try {
+    var p = pv();
+    var latest = await p.getBlockNumber();
+    var head = await p.getBlock(latest);
+    var target = Number(head.timestamp) - 7 * 86400;
+    var probeN = Math.max(1, latest - 200000);
+    var probe = await p.getBlock(probeN);
+    var dt = (Number(head.timestamp) - Number(probe.timestamp)) / (latest - probeN);
+    if (!(dt > 0)) dt = 2.1;
+    var startBlock = Math.max(0, Math.floor(latest - (7 * 86400) / dt));
+    try {
+      var sb = await p.getBlock(startBlock), guard = 0;
+      while (sb && Number(sb.timestamp) > target && guard < 25) {
+        startBlock = Math.max(0, startBlock - Math.ceil((Number(sb.timestamp) - target) / dt));
+        sb = await p.getBlock(startBlock); guard++;
+      }
+    } catch (e) {}
+    var paidSum = 0n, spotSum = 0n, nPaid = 0, nSpot = 0;
+    var from = startBlock, step = 10000;
+    while (from <= latest) {
+      var to = Math.min(from + step - 1, latest), logs;
+      try {
+        logs = await p.getLogs({ address: A.referral, topics: [[PAID_TOPIC, SPOT_TOPIC]], fromBlock: from, toBlock: to });
+      } catch (e) {
+        if (step > 1000) { step = Math.floor(step / 2); continue; }
+        throw e;
+      }
+      for (var i = 0; i < logs.length; i++) {
+        var lg = logs[i];
+        if (lg.topics[0] === PAID_TOPIC) {
+          paidSum += BigInt("0x" + lg.data.slice(2).slice(3 * 64, 4 * 64)); nPaid++;
+        } else if (lg.topics[0] === SPOT_TOPIC) {
+          spotSum += BigInt(lg.data); nSpot++;
+        }
+      }
+      from = to + 1;
+      msg.textContent = "Scanning... " + Math.min(100, Math.round(((to - startBlock) / (latest - startBlock)) * 100)) + "%";
+    }
+    out.innerHTML =
+      stat("Referral paid (last 7 days)", osg(paidSum + spotSum) + " OSG") +
+      stat("- Levels + Rank + Task", osg(paidSum) + " OSG (" + nPaid + " claims)") +
+      stat("- Spot", osg(spotSum) + " OSG (" + nSpot + " claims)") +
+      stat("Blocks scanned", startBlock + " to " + latest);
+    msg.textContent = "Done.";
+  } catch (e) { document.getElementById("payMsg").textContent = "Error: " + errText(e); }
+  btn.disabled = false;
+}
+
+var _passSeen = {};
+async function passQualify(who, open) {
+  var term = C("term"), lp = C("lp"), ONE = 10n ** 18n;
+  async function posOf(w) {
+    var k = String(w).toLowerCase();
+    if (_passSeen[k]) return _passSeen[k];
+    var out = [], tp = await term.getPositions(w);
+    for (var j = 0; j < tp.length; j++) if (!tp[j].closed) out.push({ t: Number(tp[j].startTime), a: tp[j].amount });
+    var n = Number(await lp.positionCount(w));
+    for (var m = 0; m < n; m++) { var p = await lp.positions(w, m); if (!p.closed) out.push({ t: Number(p.startTime), a: p.osgValue }); }
+    _passSeen[k] = out; return out;
+  }
+  function sumIn(list, s, e) { var t = 0n; for (var i = 0; i < list.length; i++) if (list[i].t >= s && list[i].t < e) t += list[i].a; return t; }
+  function win(b) { return [Math.floor(Date.parse(b.start) / 1000), Math.floor(Date.parse(b.end) / 1000)]; }
+  var directs = null;
+  async function dirs() { if (!directs) directs = await C("lens").directsView(who); return directs; }
+  for (var i = 0; i < open.length; i++) {
+    var b = open[i], w = win(b), kind = b.type || "team";
+    if (kind === "self") {
+      if (sumIn(await posOf(who), w[0], w[1]) >= E.parseUnits(String(b.minSelf), 18)) return { ok: true, kind: "self" };
+    } else if (kind === "directs") {
+      var need = BigInt(b.minDirects || 3), refs = open.filter(function (x) { return (b.of || []).indexOf(x.id) >= 0 && x.type === "self"; });
+      var ds = await dirs(), c = 0n;
+      for (var d = 0; d < ds.length && c < need; d++) {
+        var list = await posOf(ds[d].wallet);
+        for (var r = 0; r < refs.length; r++) { var wr = win(refs[r]); if (sumIn(list, wr[0], wr[1]) >= E.parseUnits(String(refs[r].minSelf), 18)) { c += 1n; break; } }
+      }
+      if (c >= need) return { ok: true, kind: "team" };
+    } else {
+      var dl = await dirs(), tt = 0n;
+      for (var q = 0; q < dl.length; q++) tt += sumIn(await posOf(dl[q].wallet), w[0], w[1]);
+      if (tt >= E.parseUnits(String(b.minNew), 18)) return { ok: true, kind: "team" };
+    }
+  }
+  return { ok: false };
+}
+
+async function countPasses() {
+  var btn = document.getElementById("passCountBtn"); btn.disabled = true;
+  var out = document.getElementById("passCountOut"), msg = document.getElementById("passCountMsg");
+  _passSeen = {};
+  try {
+    var cfg = await (await fetch("/event-pass.json?t=" + Date.now())).json();
+    var open = (cfg.batches || []).filter(function (x) { return x.open && !x.only; });
+    if (!open.length) { out.innerHTML = stat("Event pass", "No open batch"); btn.disabled = false; return; }
+    var ref = C("referral"), n = Number(await ref.usersLength());
+    var qualified = 0, bySelf = 0, byTeam = 0, checked = 0, CH = 4;
+    for (var i = 0; i < n; i += CH) {
+      var idxs = [];
+      for (var j = i; j < Math.min(i + CH, n); j++) idxs.push(j);
+      var ws = await Promise.all(idxs.map(function (k) { return ref.allUsers(k).catch(function () { return null; }); }));
+      var ress = await Promise.all(ws.map(function (w) { return w ? passQualify(w, open).catch(function () { return { ok: false }; }) : Promise.resolve({ ok: false }); }));
+      for (var z = 0; z < ress.length; z++) {
+        if (!ws[z]) continue;
+        checked++;
+        if (ress[z].ok) { qualified++; if (ress[z].kind === "self") bySelf++; else byTeam++; }
+      }
+      msg.textContent = "Checked " + checked + " of " + n + " - qualified " + qualified;
+      out.innerHTML = stat("Qualified wallets", String(qualified)) + stat("- by self top-up", String(bySelf)) + stat("- by team", String(byTeam)) + stat("Checked", checked + " of " + n);
+    }
+    msg.textContent = "Done. Checked " + checked + " of " + n + " wallets.";
+  } catch (e) { document.getElementById("passCountMsg").textContent = "Error: " + errText(e); }
+  btn.disabled = false;
+}
+
 document.getElementById("refreshBtn").onclick = loadAll;
 document.getElementById("lookBtn").onclick = lookup;
 document.getElementById("earnBtn").onclick = function () { loadEarners(false); };
@@ -2248,6 +2399,8 @@ document.getElementById("earnSort").onchange = renderEarners;
 document.getElementById("earnOwed").onchange = renderEarners;
 document.getElementById("earnCsv").onclick = earnCsv;
 document.getElementById("earnTeamBtn").onclick = earnTeam;
+document.getElementById("pay7Btn").onclick = payout7d;
+document.getElementById("passCountBtn").onclick = countPasses;
 </script>
 </body>
 </html>
