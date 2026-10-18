@@ -165,8 +165,15 @@
         <h2>Referral payouts</h2>
         <p class="help">How much referral (levels + rank + spot + task) has been paid. Today and all-time read live; the last-7-days total is summed from on-chain payout events and may take a minute.</p>
         <div class="grid" id="payNow"><div class="muted">Reading...</div></div>
-        <div class="bar"><button class="ghost" id="pay7Btn">Count last 7 days</button><span class="muted" id="payMsg"></span></div>
+        <div class="bar" style="flex-wrap:wrap;gap:8px">
+          <label class="muted" for="payFrom">From</label><input type="date" id="payFrom" aria-label="From date (IST)">
+          <label class="muted" for="payTo">To</label><input type="date" id="payTo" aria-label="To date (IST)">
+          <button class="gold" id="pay7Btn">Show</button>
+          <button class="ghost" id="payQ1">Today</button><button class="ghost" id="payQ7">Last 7 days</button><button class="ghost" id="payQ30">Last 30 days</button>
+        </div>
+        <div class="muted" id="payMsg">Pick dates (IST) and press Show. Summed from on-chain payout events, day by day. Pool room and scales are live only; the contract keeps no daily history of them.</div>
         <div class="grid" id="pay7"></div>
+        <div id="payDays"></div>
       </div>
       <div class="card">
         <h2>Deferred walks</h2>
@@ -2336,54 +2343,98 @@ async function loadPayoutsNow() {
   } catch (e) { box.innerHTML = stat("Referral payouts", "Could not read", "bad", errText(e)); }
 }
 
-async function payout7d() {
-  var btn = document.getElementById("pay7Btn"); btn.disabled = true;
-  var out = document.getElementById("pay7"), msg = document.getElementById("payMsg");
+// ---- Referral payouts for a date range (IST days), from Paid + SpotPaidOut events.
+// Paid(user, levels, rank, task, total) data words 0..3; SpotPaidOut(to, amount).
+// Each log's time is interpolated inside its 10,000-block chunk (Polygon blocks
+// are ~2 s apart, so a day boundary is off by seconds at most).
+var IST_OFF = 19800;
+function istDay(ts) { return new Date((ts + IST_OFF) * 1000).toISOString().slice(0, 10); }
+function istTodayStr() { return istDay(Math.floor(Date.now() / 1000)); }
+function istAddDays(d, n) { return istDay(Math.floor(Date.parse(d + "T00:00:00+05:30") / 1000) + n * 86400); }
+function setPayRange(days) {
+  var t = istTodayStr();
+  document.getElementById("payTo").value = t;
+  document.getElementById("payFrom").value = istAddDays(t, -(days - 1));
+}
+async function blockAtOrAfter(p, ts, latest, headTs) {
+  if (ts >= headTs) return latest;
+  var lo = 1, hi = latest;
+  var est = Math.max(1, Math.floor(latest - (headTs - ts) / 2.1));
+  try {
+    var a = Math.max(1, est - 60000), b = Math.min(latest, est + 60000);
+    var ta = Number((await p.getBlock(a)).timestamp), tb = Number((await p.getBlock(b)).timestamp);
+    if (ta < ts && tb >= ts) { lo = a; hi = b; }
+  } catch (e) {}
+  while (lo < hi) {
+    var mid = Math.floor((lo + hi) / 2);
+    var t = Number((await p.getBlock(mid)).timestamp);
+    if (t < ts) lo = mid + 1; else hi = mid;
+  }
+  return lo;
+}
+async function payoutRange() {
+  var btn = document.getElementById("pay7Btn");
+  var out = document.getElementById("pay7"), days = document.getElementById("payDays"), msg = document.getElementById("payMsg");
+  var f = document.getElementById("payFrom").value, t = document.getElementById("payTo").value;
+  if (!f || !t) { note("payMsg", "Pick both dates.", "bad"); return; }
+  if (f > t) { note("payMsg", "From must be on or before To.", "bad"); return; }
+  var startTs = Math.floor(Date.parse(f + "T00:00:00+05:30") / 1000);
+  var endTs = Math.floor(Date.parse(t + "T23:59:59+05:30") / 1000);
+  if ((endTs - startTs) / 86400 > 92) { note("payMsg", "Pick at most 92 days.", "bad"); return; }
+  btn.disabled = true; out.innerHTML = ""; days.innerHTML = "";
   try {
     var p = pv();
     var latest = await p.getBlockNumber();
-    var head = await p.getBlock(latest);
-    var target = Number(head.timestamp) - 7 * 86400;
-    var probeN = Math.max(1, latest - 200000);
-    var probe = await p.getBlock(probeN);
-    var dt = (Number(head.timestamp) - Number(probe.timestamp)) / (latest - probeN);
-    if (!(dt > 0)) dt = 2.1;
-    var startBlock = Math.max(0, Math.floor(latest - (7 * 86400) / dt));
-    try {
-      var sb = await p.getBlock(startBlock), guard = 0;
-      while (sb && Number(sb.timestamp) > target && guard < 25) {
-        startBlock = Math.max(0, startBlock - Math.ceil((Number(sb.timestamp) - target) / dt));
-        sb = await p.getBlock(startBlock); guard++;
-      }
-    } catch (e) {}
-    var paidSum = 0n, spotSum = 0n, nPaid = 0, nSpot = 0;
-    var from = startBlock, step = 10000;
-    while (from <= latest) {
-      var to = Math.min(from + step - 1, latest), logs;
+    var headTs = Number((await p.getBlock(latest)).timestamp);
+    if (startTs > headTs) throw new Error("That range is in the future.");
+    msg.textContent = "Finding blocks...";
+    var startBlock = await blockAtOrAfter(p, startTs, latest, headTs);
+    var endBlock = endTs >= headTs ? latest : (await blockAtOrAfter(p, endTs + 1, latest, headTs)) - 1;
+    var bucket = {};
+    for (var d = f; d <= t; d = istAddDays(d, 1)) bucket[d] = { lv: 0n, rk: 0n, tk: 0n, sp: 0n, n: 0, ns: 0 };
+    var from = startBlock, step = 10000, tsCache = {};
+    async function tsOf(n) { if (tsCache[n] === undefined) tsCache[n] = Number((await p.getBlock(n)).timestamp); return tsCache[n]; }
+    while (from <= endBlock) {
+      var to = Math.min(from + step - 1, endBlock), logs;
       try {
         logs = await p.getLogs({ address: A.referral, topics: [[PAID_TOPIC, SPOT_TOPIC]], fromBlock: from, toBlock: to });
       } catch (e) {
         if (step > 1000) { step = Math.floor(step / 2); continue; }
         throw e;
       }
-      for (var i = 0; i < logs.length; i++) {
-        var lg = logs[i];
-        if (lg.topics[0] === PAID_TOPIC) {
-          paidSum += BigInt("0x" + lg.data.slice(2).slice(3 * 64, 4 * 64)); nPaid++;
-        } else if (lg.topics[0] === SPOT_TOPIC) {
-          spotSum += BigInt(lg.data); nSpot++;
+      if (logs.length) {
+        var tf = await tsOf(from), tt = await tsOf(to), span = Math.max(1, to - from);
+        for (var i = 0; i < logs.length; i++) {
+          var lg = logs[i], when = Math.floor(tf + ((lg.blockNumber - from) * (tt - tf)) / span);
+          var k = istDay(when), row = bucket[k];
+          if (!row) continue;
+          if (lg.topics[0] === PAID_TOPIC) {
+            var w = lg.data.slice(2);
+            row.lv += BigInt("0x" + w.slice(0, 64)); row.rk += BigInt("0x" + w.slice(64, 128)); row.tk += BigInt("0x" + w.slice(128, 192)); row.n++;
+          } else if (lg.topics[0] === SPOT_TOPIC) {
+            row.sp += BigInt(lg.data); row.ns++;
+          }
         }
       }
       from = to + 1;
-      msg.textContent = "Scanning... " + Math.min(100, Math.round(((to - startBlock) / (latest - startBlock)) * 100)) + "%";
+      msg.textContent = "Scanning... " + Math.min(100, Math.round(((to - startBlock + 1) / Math.max(1, endBlock - startBlock + 1)) * 100)) + "%";
     }
+    var T = { lv: 0n, rk: 0n, tk: 0n, sp: 0n, n: 0, ns: 0 }, keys = Object.keys(bucket).sort().reverse();
+    keys.forEach(function (k) { var r = bucket[k]; T.lv += r.lv; T.rk += r.rk; T.tk += r.tk; T.sp += r.sp; T.n += r.n; T.ns += r.ns; });
     out.innerHTML =
-      stat("Referral paid (last 7 days)", osg(paidSum + spotSum) + " OSG") +
-      stat("- Levels + Rank + Task", osg(paidSum) + " OSG (" + nPaid + " claims)") +
-      stat("- Spot", osg(spotSum) + " OSG (" + nSpot + " claims)") +
-      stat("Blocks scanned", startBlock + " to " + latest);
-    msg.textContent = "Done.";
-  } catch (e) { document.getElementById("payMsg").textContent = "Error: " + errText(e); }
+      stat("Referral paid (" + f + " to " + t + ")", osg(T.lv + T.rk + T.tk + T.sp) + " OSG") +
+      stat("- Levels / Rank", osg(T.lv) + " / " + osg(T.rk) + " OSG") +
+      stat("- Spot / Task", osg(T.sp) + " / " + osg(T.tk) + " OSG") +
+      stat("Claims", T.n + " payouts + " + T.ns + " spot") +
+      stat("Blocks scanned", startBlock + " to " + endBlock);
+    days.innerHTML = '<div class="scroll"><table><tr><th>Date (IST)</th><th>Levels</th><th>Rank</th><th>Spot</th><th>Task</th><th>Total</th><th>Claims</th></tr>' +
+      keys.map(function (k) {
+        var r = bucket[k];
+        return "<tr><td>" + esc(k) + "</td><td>" + osg(r.lv) + "</td><td>" + osg(r.rk) + "</td><td>" + osg(r.sp) + "</td><td>" + osg(r.tk) + "</td><td><b>" + osg(r.lv + r.rk + r.tk + r.sp) + "</b></td><td>" + (r.n + r.ns) + "</td></tr>";
+      }).join("") +
+      "<tr><td><b>Total</b></td><td><b>" + osg(T.lv) + "</b></td><td><b>" + osg(T.rk) + "</b></td><td><b>" + osg(T.sp) + "</b></td><td><b>" + osg(T.tk) + "</b></td><td><b>" + osg(T.lv + T.rk + T.tk + T.sp) + "</b></td><td><b>" + (T.n + T.ns) + "</b></td></tr></table></div>";
+    msg.textContent = "Done. Days are IST (00:00 to 23:59).";
+  } catch (e) { note("payMsg", "Error: " + errText(e), "bad"); }
   btn.disabled = false;
 }
 
@@ -2460,7 +2511,11 @@ document.getElementById("earnSort").onchange = renderEarners;
 document.getElementById("earnOwed").onchange = renderEarners;
 document.getElementById("earnCsv").onclick = earnCsv;
 document.getElementById("earnTeamBtn").onclick = earnTeam;
-document.getElementById("pay7Btn").onclick = payout7d;
+document.getElementById("pay7Btn").onclick = payoutRange;
+setPayRange(7);
+document.getElementById("payQ1").onclick = function () { setPayRange(1); payoutRange(); };
+document.getElementById("payQ7").onclick = function () { setPayRange(7); payoutRange(); };
+document.getElementById("payQ30").onclick = function () { setPayRange(30); payoutRange(); };
 document.getElementById("passCountBtn").onclick = countPasses;
 </script>
 </body>
