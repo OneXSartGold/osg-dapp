@@ -188,7 +188,7 @@
         <h2>Deferred walks</h2>
         <p class="help">A claim that ran short of gas stores the rest of its commission walk. Anyone may finish it. Settings cannot change while one is open.</p>
         <div class="grid" id="hDeferred"></div>
-        <div class="bar"><button class="ghost" id="findWalks">Find open walks</button><span class="muted" id="walkMsg"></span></div>
+        <div class="bar"><button class="ghost" id="findWalks">Find open walks</button><button class="gold" id="finishAllWalks">Finish all</button><span class="muted" id="walkMsg"></span></div>
         <div id="walkList"></div>
       </div>
       <div class="card">
@@ -1992,10 +1992,11 @@ var V6 = (function () {
       catch (e) { note(o.msg, "Test failed, nothing sent: " + err6(e), "bad"); return false; }
       var text = o.title + "\n\n" + (o.what ? o.what + "\n\n" : "") +
         "Test passed.\nIn the wallet check: To = " + o.to + ", amount 0 POL, and untick \"Added protection\".\n\nSend now?";
-      if (!window.confirm(text)) { note(o.msg, "Cancelled. Nothing sent."); return false; }
-      var gas = await f.estimateGas(...o.args);
+      if (!o.noConfirm && !window.confirm(text)) { note(o.msg, "Cancelled. Nothing sent."); return false; }
+      var gas = (await f.estimateGas(...o.args)) + 900000n;
+      if (o.minGas && gas < o.minGas) gas = o.minGas;
       note(o.msg, "Waiting for the wallet...");
-      var tx = await f(...o.args, { gasLimit: gas + 900000n });
+      var tx = await f(...o.args, { gasLimit: gas });
       note(o.msg, "Sent " + tx.hash + " - waiting for confirmation...");
       var r = await tx.wait();
       if (r.status !== 1) { note(o.msg, "Failed on chain: " + tx.hash, "bad"); return false; }
@@ -2049,25 +2050,71 @@ var V6 = (function () {
       $("hDeferred").innerHTML = st("Open", String(v[20]), Number(v[20]) ? "warn" : "good") + st("Ever stored", String(v[19]));
     } catch (e) { $("hState").innerHTML = '<div class="bad">' + esc(err6(e)) + "</div>"; }
   }
+  // A resumed walk gets enough gas to reach the end of the line in one go
+  // (50 levels). Polygon charges only the gas actually used; if it still
+  // runs short the contract stores the rest under a new id and Finish all
+  // picks that up too.
+  var WALK_GAS = 8000000n;
+  var WALK_TOPIC = E.id("WalkDeferred(uint256,address,uint8,uint256)");
+  async function openWalks() {
+    var me = await (await wsigner()).getAddress();
+    var c = R(), n = Number(await c.deferredNext()), open = [];
+    var from = Math.max(0, n - 300);
+    note("walkMsg", n ? "Checking ids " + from + " to " + (n - 1) + "..." : "None stored yet.");
+    for (var i = from; i < n; i++) {
+      try { await c.resumeWalk.staticCall(i, { from: me }); open.push(i); }
+      catch (e) { if (/Frozen/.test(err6(e))) throw new Error("Accrual is frozen; walks cannot be resumed now."); }
+    }
+    return open;
+  }
+  function walkRows(ids) {
+    $("walkList").innerHTML = ids.map(function (id) { return stepRow("wk" + id, "Walk #" + id, "Open", "warn", "Finish"); }).join("");
+    ids.forEach(function (id) { $("wk" + id + "_b").onclick = function () { finishWalk(id, false); }; });
+  }
+  // Returns the id of a new deferred walk if this one still ran short, -1 if
+  // it finished, or null if nothing was sent.
+  async function finishWalk(id, quiet) {
+    var r = await sendTx({ msg: "wk" + id + "_m", to: A.referral, fn: "resumeWalk", args: [id], minGas: WALK_GAS, noConfirm: quiet,
+      title: "Finish deferred walk #" + id, what: "Open to anyone. Pays the rest of a stored commission walk.\nGas limit up to 8,000,000 so it finishes in one go; only the gas used is charged." });
+    if (!r) return null;
+    var next = -1;
+    (r.logs || []).forEach(function (lg) { if (lg.topics && lg.topics[0] === WALK_TOPIC) next = Number(BigInt(lg.topics[1])); });
+    var sEl = $("wk" + id + "_s");
+    if (sEl) { sEl.textContent = next >= 0 ? "Continues as #" + next : "Finished"; sEl.className = "s " + (next >= 0 ? "warn" : "good"); }
+    loadHealth();
+    return next;
+  }
   async function findWalks() {
     try {
       await art();
-      var me = await (await wsigner()).getAddress();
-      var c = R(), n = Number(await c.deferredNext()), open = [];
-      var from = Math.max(0, n - 300);
-      note("walkMsg", n ? "Checking ids " + from + " to " + (n - 1) + "..." : "None stored yet.");
-      for (var i = from; i < n; i++) {
-        try { await c.resumeWalk.staticCall(i, { from: me }); open.push(i); } catch (e) { if (/Frozen/.test(err6(e))) { note("walkMsg", "Accrual is frozen; walks cannot be resumed now.", "warn"); return; } }
-      }
+      var open = await openWalks();
       note("walkMsg", open.length ? open.length + " open" : "None open.", open.length ? "warn" : "good");
-      $("walkList").innerHTML = open.map(function (id) { return stepRow("wk" + id, "Walk #" + id, "Open", "warn", "Finish"); }).join("");
-      open.forEach(function (id) {
-        $("wk" + id + "_b").onclick = async function () {
-          var ok = await sendTx({ msg: "wk" + id + "_m", to: A.referral, fn: "resumeWalk", args: [id], title: "Finish deferred walk #" + id, what: "Open to anyone. Pays the rest of a stored commission walk." });
-          if (ok) { $("wk" + id + "_s").textContent = "Finished"; $("wk" + id + "_s").className = "s good"; loadHealth(); }
-        };
-      });
+      walkRows(open);
     } catch (e) { note("walkMsg", err6(e), "bad"); }
+  }
+  async function finishAllWalks() {
+    var btn = $("finishAllWalks"); btn.disabled = true;
+    try {
+      await art();
+      var queue = await openWalks();
+      if (!queue.length) { note("walkMsg", "None open.", "good"); $("walkList").innerHTML = ""; return; }
+      walkRows(queue);
+      if (!window.confirm("Finish all " + queue.length + " open walks?\n\nEach one is tested first, then opens the wallet once. Check To = " + A.referral + ", 0 POL, and untick \"Added protection\" each time.\nGas limit up to 8,000,000 per walk; only the gas used is charged.")) {
+        note("walkMsg", "Cancelled. Nothing sent."); return;
+      }
+      var done = 0, rounds = 0;
+      while (queue.length && rounds < 80) {
+        var id = queue.shift(); rounds++;
+        note("walkMsg", "Finishing #" + id + " (" + (done + 1) + ")... " + queue.length + " more in line.");
+        var next = await finishWalk(id, true);
+        if (next === null) { note("walkMsg", "Stopped at #" + id + " (cancelled or failed). " + done + " finished.", "warn"); return; }
+        done++;
+        if (next >= 0) { queue.push(next); $("walkList").insertAdjacentHTML("beforeend", stepRow("wk" + next, "Walk #" + next, "Open", "warn", "Finish")); $("wk" + next + "_b").onclick = (function (k) { return function () { finishWalk(k, false); }; })(next); }
+      }
+      var left = await openWalks();
+      note("walkMsg", left.length ? done + " sent; " + left.length + " still open. Press Finish all again." : "All done: " + done + " walk(s) finished, none open.", left.length ? "warn" : "good");
+    } catch (e) { note("walkMsg", err6(e), "bad"); }
+    finally { btn.disabled = false; }
   }
 
   // ---------------- settings (one setAll transaction) and switches
@@ -2306,6 +2353,7 @@ var V6 = (function () {
   // ---------------- wiring
   function init() {
     $("findWalks").onclick = findWalks;
+    $("finishAllWalks").onclick = finishAllWalks;
     $("lvAdd").onclick = function () { readLvInputs(); if (LV.length >= 50) return; var l = LV[LV.length - 1] || ["1.00", "1", "0"]; LV.push([l[0], l[1], l[2]]); renderLv(); };
     $("lvDel").onclick = function () { readLvInputs(); if (LV.length > 1) LV.pop(); renderLv(); };
     $("trAdd").onclick = function () { readTrInputs(); if (TR.length >= 10) return; var l = TR[TR.length - 1] || ["1", "100", "1000", "10"]; TR.push(l.slice()); renderTr(); };
