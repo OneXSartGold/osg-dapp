@@ -174,6 +174,15 @@
         <div class="muted" id="payMsg">Pick dates (IST) and press Show. Summed from on-chain payout events, day by day. Pool room and scales are live only; the contract keeps no daily history of them.</div>
         <div class="grid" id="pay7"></div>
         <div id="payDays"></div>
+        <div id="payWalletsBox" style="display:none;margin-top:14px">
+          <h3 style="margin:0 0 6px">By wallet</h3>
+          <div class="bar" style="flex-wrap:wrap;gap:8px">
+            <input id="payWalletFind" placeholder="Search wallet (part of the address)" style="flex:1;min-width:200px" aria-label="Search wallet">
+            <label class="muted"><input type="checkbox" id="payOnlySpot"> Only spot</label>
+          </div>
+          <div class="muted" id="payWalletMsg"></div>
+          <div id="payWallets"></div>
+        </div>
       </div>
       <div class="card">
         <h2>Deferred walks</h2>
@@ -2372,6 +2381,29 @@ async function blockAtOrAfter(p, ts, latest, headTs) {
   }
   return lo;
 }
+var PAY_WALLETS = [];
+function renderPayWallets() {
+  var q = document.getElementById("payWalletFind").value.trim().toLowerCase();
+  var onlySpot = document.getElementById("payOnlySpot").checked;
+  var list = PAY_WALLETS.filter(function (r) {
+    return (!q || r.a.indexOf(q) >= 0) && (!onlySpot || r.sp > 0n);
+  });
+  var show = list.slice(0, 300);
+  document.getElementById("payWalletMsg").textContent = list.length + " wallets" + (list.length > show.length ? " (showing the top 300; search to narrow)" : "") + ".";
+  document.getElementById("payWallets").innerHTML = '<div class="scroll"><table><tr><th>#</th><th>Wallet</th><th>Levels</th><th>Rank</th><th>Spot</th><th>Task</th><th>Total</th><th>Claims</th></tr>' +
+    show.map(function (r, i) {
+      var nm = NAMES[r.a] ? ' <span class="muted">(' + esc(NAMES[r.a]) + ")</span>" : "";
+      return "<tr><td>" + (i + 1) + '</td><td class="mono"><a href="https://polygonscan.com/address/' + r.a + '" target="_blank" rel="noopener">' + esc(r.a.slice(0, 6) + "..." + r.a.slice(-4)) + "</a>" + nm +
+        ' <button class="ghost" style="padding:2px 8px;font-size:11px" data-copy="' + r.a + '">Copy</button></td><td>' + osg(r.lv) + "</td><td>" + osg(r.rk) + "</td><td>" + osg(r.sp) + "</td><td>" + osg(r.tk) + "</td><td><b>" + osg(r.tot) + "</b></td><td>" + (r.n + r.ns) + "</td></tr>";
+    }).join("") + "</table></div>";
+  Array.prototype.forEach.call(document.querySelectorAll("#payWallets [data-copy]"), function (b) {
+    b.onclick = function () {
+      var a = b.getAttribute("data-copy");
+      try { navigator.clipboard.writeText(a); b.textContent = "Copied"; } catch (e) { window.prompt("Copy the address", a); }
+    };
+  });
+}
+
 async function payoutRange() {
   var btn = document.getElementById("pay7Btn");
   var out = document.getElementById("pay7"), days = document.getElementById("payDays"), msg = document.getElementById("payMsg");
@@ -2382,6 +2414,7 @@ async function payoutRange() {
   var endTs = Math.floor(Date.parse(t + "T23:59:59+05:30") / 1000);
   if ((endTs - startTs) / 86400 > 92) { note("payMsg", "Pick at most 92 days.", "bad"); return; }
   btn.disabled = true; out.innerHTML = ""; days.innerHTML = "";
+  PAY_WALLETS = []; document.getElementById("payWalletsBox").style.display = "none";
   try {
     var p = pv();
     var latest = await p.getBlockNumber();
@@ -2392,6 +2425,11 @@ async function payoutRange() {
     var endBlock = endTs >= headTs ? latest : (await blockAtOrAfter(p, endTs + 1, latest, headTs)) - 1;
     var bucket = {};
     for (var d = f; d <= t; d = istAddDays(d, 1)) bucket[d] = { lv: 0n, rk: 0n, tk: 0n, sp: 0n, n: 0, ns: 0 };
+    var byW = {};
+    function wrow(addrTopic) {
+      var a = "0x" + String(addrTopic).slice(-40);
+      return byW[a] || (byW[a] = { a: a, lv: 0n, rk: 0n, tk: 0n, sp: 0n, n: 0, ns: 0 });
+    }
     var from = startBlock, step = 10000, tsCache = {};
     async function tsOf(n) { if (tsCache[n] === undefined) tsCache[n] = Number((await p.getBlock(n)).timestamp); return tsCache[n]; }
     while (from <= endBlock) {
@@ -2410,9 +2448,13 @@ async function payoutRange() {
           if (!row) continue;
           if (lg.topics[0] === PAID_TOPIC) {
             var w = lg.data.slice(2);
-            row.lv += BigInt("0x" + w.slice(0, 64)); row.rk += BigInt("0x" + w.slice(64, 128)); row.tk += BigInt("0x" + w.slice(128, 192)); row.n++;
+            var lv = BigInt("0x" + w.slice(0, 64)), rk = BigInt("0x" + w.slice(64, 128)), tk = BigInt("0x" + w.slice(128, 192));
+            row.lv += lv; row.rk += rk; row.tk += tk; row.n++;
+            var wr = wrow(lg.topics[1]); wr.lv += lv; wr.rk += rk; wr.tk += tk; wr.n++;
           } else if (lg.topics[0] === SPOT_TOPIC) {
-            row.sp += BigInt(lg.data); row.ns++;
+            var sp = BigInt(lg.data);
+            row.sp += sp; row.ns++;
+            var ws = wrow(lg.topics[1]); ws.sp += sp; ws.ns++;
           }
         }
       }
@@ -2433,6 +2475,11 @@ async function payoutRange() {
         return "<tr><td>" + esc(k) + "</td><td>" + osg(r.lv) + "</td><td>" + osg(r.rk) + "</td><td>" + osg(r.sp) + "</td><td>" + osg(r.tk) + "</td><td><b>" + osg(r.lv + r.rk + r.tk + r.sp) + "</b></td><td>" + (r.n + r.ns) + "</td></tr>";
       }).join("") +
       "<tr><td><b>Total</b></td><td><b>" + osg(T.lv) + "</b></td><td><b>" + osg(T.rk) + "</b></td><td><b>" + osg(T.sp) + "</b></td><td><b>" + osg(T.tk) + "</b></td><td><b>" + osg(T.lv + T.rk + T.tk + T.sp) + "</b></td><td><b>" + (T.n + T.ns) + "</b></td></tr></table></div>";
+    PAY_WALLETS = Object.keys(byW).map(function (k) { return byW[k]; });
+    PAY_WALLETS.forEach(function (r) { r.tot = r.lv + r.rk + r.tk + r.sp; });
+    PAY_WALLETS.sort(function (x, y) { return x.tot > y.tot ? -1 : x.tot < y.tot ? 1 : 0; });
+    document.getElementById("payWalletsBox").style.display = "block";
+    renderPayWallets();
     msg.textContent = "Done. Days are IST (00:00 to 23:59).";
   } catch (e) { note("payMsg", "Error: " + errText(e), "bad"); }
   btn.disabled = false;
@@ -2512,6 +2559,8 @@ document.getElementById("earnOwed").onchange = renderEarners;
 document.getElementById("earnCsv").onclick = earnCsv;
 document.getElementById("earnTeamBtn").onclick = earnTeam;
 document.getElementById("pay7Btn").onclick = payoutRange;
+document.getElementById("payWalletFind").oninput = renderPayWallets;
+document.getElementById("payOnlySpot").onchange = renderPayWallets;
 setPayRange(7);
 document.getElementById("payQ1").onclick = function () { setPayRange(1); payoutRange(); };
 document.getElementById("payQ7").onclick = function () { setPayRange(7); payoutRange(); };
