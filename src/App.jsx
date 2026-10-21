@@ -3044,13 +3044,13 @@ function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvid
                         overflow: "hidden",
                       }}
                     >
-                      {[["Lock", "Up to / day", "Up to / month"]]
+                      {[["Lock", "Up to / day", "Up to / 30 days"]]
                         .concat(
                           calcRows.map(function (r) {
                             var perDay = (cCounted * r[1]) / 10000;
                             return [
                               r[0],
-                              r[1] > 0 ? cfmt(perDay) + " OSG" : "—",
+                              r[1] > 0 ? cfmt(perDay, perDay < 10 ? 3 : 2) + " OSG" : "—",
                               r[1] > 0 ? cfmt(perDay * 30) + " OSG" : "—",
                             ];
                           }),
@@ -8429,8 +8429,8 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
                 style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8, marginTop: 12 }}
               >
                 {[
-                  ["Up to / day", cb != null ? cfmt(perDay) + " OSG" : "—"],
-                  ["Up to / month", cb != null ? cfmt(perDay * 30) + " OSG" : "—"],
+                  ["Up to / day", cb != null ? cfmt(perDay, perDay < 10 ? 3 : 2) + " OSG" : "—"],
+                  ["Up to / 30 days", cb != null ? cfmt(perDay * 30) + " OSG" : "—"],
                   ["Lock", lockDays + " d"],
                 ].map((b) => (
                   <div
@@ -8517,7 +8517,7 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: C.txt2, padding: "5px 0" }}>
                   <span>Up to / day</span>
                   <b style={{ color: toneNum(addPerDay != null ? addPerDay : "—", "good"), fontFamily: "'JetBrains Mono',monospace" }}>
-                    {addPerDay != null ? addPerDay.toFixed(2) + " OSG" : "—"}
+                    {addPerDay != null ? addPerDay.toFixed(addPerDay < 10 ? 3 : 2) + " OSG" : "—"}
                   </b>
                 </div>
               </>
