@@ -2429,7 +2429,7 @@ function LpCalcBody({ polPerOsg, polUsd, unit, setUnit, amt, setAmt, scrollId, r
               cfmt(osgUsd, 3) +
               ") · 1 POL ≈ $" +
               cfmt(polUsdLive, 4) +
-              " · Up to = ceiling; it falls when more stake shares the daily budget. Add ~1% extra POL for price movement. DYOR."}
+              " · % is on Counted as. Up to = ceiling; it falls when more stake shares the daily budget. Add ~1% extra POL for price movement. DYOR."}
           </div>
         </div>
       )}
@@ -3052,6 +3052,8 @@ function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvid
                               r[0],
                               r[1] > 0 ? cfmt(perDay, perDay < 10 ? 3 : 2) + " OSG" : "—",
                               r[1] > 0 ? cfmt(perDay * 30) + " OSG" : "—",
+                              r[1] > 0 ? (r[1] / 100).toFixed(2) + "%" : "",
+                              r[1] > 0 ? Number(((r[1] * 30) / 100).toFixed(2)) + "%" : "",
                             ];
                           }),
                         )
@@ -3078,13 +3080,19 @@ function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvid
                                 className={head ? "" : "mono"}
                                 style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", color: head ? undefined : toneNum(row[1], "good") }}
                               >
-                                {row[1]}
+                                {!head && row[3] ? (
+                                  <span style={{ display: "block", color: C.gold1, fontWeight: 700 }}>{row[3]}</span>
+                                ) : null}
+                                {head ? row[1] : <span style={{ display: "block", fontSize: 11 }}>{row[1]}</span>}
                               </span>
                               <span
                                 className={head ? "" : "mono"}
                                 style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", color: head ? undefined : toneNum(row[2], "good") }}
                               >
-                                {row[2]}
+                                {!head && row[4] ? (
+                                  <span style={{ display: "block", color: C.gold1, fontWeight: 700 }}>{row[4]}</span>
+                                ) : null}
+                                {head ? row[2] : <span style={{ display: "block", fontSize: 11 }}>{row[2]}</span>}
                               </span>
                             </div>
                           );
@@ -8429,9 +8437,9 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
                 style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8, marginTop: 12 }}
               >
                 {[
-                  ["Up to / day", cb != null ? cfmt(perDay, perDay < 10 ? 3 : 2) + " OSG" : "—"],
-                  ["Up to / 30 days", cb != null ? cfmt(perDay * 30) + " OSG" : "—"],
-                  ["Lock", lockDays + " d"],
+                  ["Up to / day", cb != null ? cfmt(perDay, perDay < 10 ? 3 : 2) + " OSG" : "—", cb != null ? (cb / 100).toFixed(2) + "%" : ""],
+                  ["Up to / 30 days", cb != null ? cfmt(perDay * 30) + " OSG" : "—", cb != null ? Number(((cb * 30) / 100).toFixed(2)) + "%" : ""],
+                  ["Lock", lockDays + " d", ""],
                 ].map((b) => (
                   <div
                     key={b[0]}
@@ -8444,6 +8452,11 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
                     }}
                   >
                     <div style={kStyle}>{b[0]}</div>
+                    {b[2] ? (
+                      <div className="mono" style={{ fontSize: 13, fontWeight: 700, marginTop: 4, color: C.gold1 }}>
+                        {b[2]}
+                      </div>
+                    ) : null}
                     <div
                       className="mono"
                       style={{
