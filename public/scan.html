@@ -62,9 +62,11 @@ var RPCS = ["https://polygon-bor-rpc.publicnode.com", "https://polygon.drpc.org"
 var LENS = "0xdF9462D08CDcB70BCFc56579faC863F128B7Ff27";
 var TERM = "0xb3DE3956DF62a069c9AC428Ec58120b3d9CD7cCc";
 var LPM = "0x1F04F1441208ee8dDD3a124DEfc4a493d768d0fC";
+var LPT = "0x333a6c51Baa2d19Af036f45f32eaCF10234F17C8";
 var LENS_ABI = ["function directsView(address user) view returns (tuple(uint8 level, address wallet, uint256 stake, uint256 qualifyingStake, bool qualified, bool isLegacy, address referrer, uint256 joinedAt)[] list)"];
 var TERM_ABI = ["function getPositions(address user) view returns (tuple(uint256 amount, uint256 cap, uint256 rewardDebt, uint256 rewardPaid, uint256 unpaid, uint256 startTime, bool capped, bool closed)[])"];
 var LP_ABI = ["function positionCount(address user) view returns (uint256)", "function positions(address, uint256) view returns (uint256 lpAmount, uint256 osgValue, uint256 rewardDebt, uint256 rewardPaid, uint256 unpaid, uint256 startTime, bool closed)"];
+var LPT_ABI = ["function positionCount(address user) view returns (uint256)", "function positions(address, uint256) view returns (uint256 lpAmount, uint256 osgValue, uint256 rewardDebt, uint256 rewardPaid, uint256 unpaid, uint64 startTime, uint64 unlockAt, uint8 tier, bool closed)"];
 var VALID_SEC = 600;
 var SKEW_SEC = 120;
 var KEY_ENTRIES = "osgscan:entries";
@@ -108,7 +110,7 @@ async function getCfg() {
 
 // Same rules as the app: "self" = own new stake in the window, "team" = new
 // stake by directs in the window, "directs" = at least minDirects directs who
-// met one of the "of" steps. Term + LP, open positions only.
+// met one of the "of" steps. Term + LP (365 and 180 / 540 tiers), open positions only.
 async function openPositions(w, term, lp) {
   var out = [];
   var tp = await term.getPositions(w);
@@ -120,6 +122,14 @@ async function openPositions(w, term, lp) {
     var p = await lp.positions(w, m);
     if (!p.closed) out.push({ t: Number(p.startTime), a: p.osgValue });
   }
+  try {
+    var lpt = new E.Contract(LPT, LPT_ABI, lp.runner);
+    var tn = Number(await lpt.positionCount(w));
+    for (var q = 0; q < tn; q++) {
+      var tp2 = await lpt.positions(w, q);
+      if (!tp2.closed) out.push({ t: Number(tp2.startTime), a: tp2.osgValue });
+    }
+  } catch (e) {}
   return out;
 }
 function sumIn(list, s, e) {
