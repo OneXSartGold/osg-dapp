@@ -1240,7 +1240,7 @@ function refLevels() {
 //   "self"    -- the wallet's OWN new stake inside the window (minSelf)
 //   "team"    -- new stake by the wallet's directs inside the window (minNew)
 //   "directs" -- at least minDirects directs who met one of the "of" steps
-// Term + LP, open positions only. Returns the best step plus every step in
+// Term + LP (365 and the 180 / 540 tiers), open positions only. Returns the best step plus every step in
 // .steps, or null. Never throws.
 async function eventPassCheck(runner, who) {
   try {
@@ -1249,6 +1249,7 @@ async function eventPassCheck(runner, who) {
     const lens = new Contract(ADDRESSES.referralLens, REFERRAL_LENS_ABI, runner);
     const term = new Contract(ADDRESSES.termStaking, TERM_STAKING_ABI, runner);
     const lp = new Contract(ADDRESSES.lpMining, LP_MINING_ABI, runner);
+    const tiers = new Contract(ADDRESSES.lpTiers, LP_TIERS_ABI, runner);
     const ONE = 10n ** 18n;
     const cache = {};
     async function openPos(w) {
@@ -1263,6 +1264,14 @@ async function eventPassCheck(runner, who) {
         const p = await lp.positions(w, i);
         if (!p.closed) out.push({ t: Number(p.startTime), a: p.osgValue });
       }
+      // LP 180 / 540 day locks. A failed read counts as none, never blocks.
+      try {
+        const tn = Number(await tiers.positionCount(w));
+        for (let i = 0; i < tn; i++) {
+          const p = await tiers.positions(w, i);
+          if (!p.closed) out.push({ t: Number(p.startTime), a: p.osgValue });
+        }
+      } catch (e) {}
       cache[k] = out;
       return out;
     }
