@@ -58,7 +58,8 @@
 
 <script>
 var E = ethers;
-var RPCS = ["https://polygon-bor-rpc.publicnode.com", "https://polygon.drpc.org"];
+// Our own /api/rpc (paid plan, same origin) first, public nodes as backup.
+var RPCS = [location.origin + "/api/rpc", "https://polygon-bor-rpc.publicnode.com", "https://polygon.drpc.org", "https://1rpc.io/matic"];
 var LENS = "0xdF9462D08CDcB70BCFc56579faC863F128B7Ff27";
 var TERM = "0xb3DE3956DF62a069c9AC428Ec58120b3d9CD7cCc";
 var LPM = "0x1F04F1441208ee8dDD3a124DEfc4a493d768d0fC";
@@ -76,7 +77,7 @@ var provider = null;
 function getProvider() {
   if (!provider) {
     var list = RPCS.map(function (u, i) {
-      return { provider: new E.JsonRpcProvider(u, 137, { staticNetwork: true, batchMaxCount: 3 }), priority: i + 1, weight: 1, stallTimeout: 1200 };
+      return { provider: new E.JsonRpcProvider(u, 137, { staticNetwork: true, batchMaxCount: 3 }), priority: i + 1, weight: 1, stallTimeout: 2000 };
     });
     provider = new E.FallbackProvider(list, 137, { quorum: 1 });
   }
@@ -97,6 +98,14 @@ function timeIST(d) {
   var ist = new Date(d.getTime() + 330 * 60000);
   return ist.toISOString().slice(11, 16);
 }
+// Retry a read: a single slow answer at the gate must not turn a member away.
+async function retry(fn) {
+  var last;
+  for (var i = 0; i < 3; i++) {
+    try { return await fn(); } catch (e) { last = e; await new Promise(function (r) { setTimeout(r, 400 * (i + 1)); }); }
+  }
+  throw last;
+}
 function short(a) { return a.slice(0, 6) + "..." + a.slice(-4); }
 
 var cfgCache = null;
@@ -113,20 +122,20 @@ async function getCfg() {
 // met one of the "of" steps. Term + LP (365 and 180 / 540 tiers), open positions only.
 async function openPositions(w, term, lp) {
   var out = [];
-  var tp = await term.getPositions(w);
+  var tp = await retry(function () { return term.getPositions(w); });
   for (var j = 0; j < tp.length; j++) {
     if (!tp[j].closed) out.push({ t: Number(tp[j].startTime), a: tp[j].amount });
   }
-  var n = Number(await lp.positionCount(w));
+  var n = Number(await retry(function () { return lp.positionCount(w); }));
   for (var m = 0; m < n; m++) {
-    var p = await lp.positions(w, m);
+    var p = await retry(function () { return lp.positions(w, m); });
     if (!p.closed) out.push({ t: Number(p.startTime), a: p.osgValue });
   }
   try {
     var lpt = new E.Contract(LPT, LPT_ABI, lp.runner);
-    var tn = Number(await lpt.positionCount(w));
+    var tn = Number(await retry(function () { return lpt.positionCount(w); }));
     for (var q = 0; q < tn; q++) {
-      var tp2 = await lpt.positions(w, q);
+      var tp2 = await retry(function () { return lpt.positions(w, q); });
       if (!tp2.closed) out.push({ t: Number(tp2.startTime), a: tp2.osgValue });
     }
   } catch (e) {}
@@ -163,9 +172,10 @@ async function isQualified(addr, batchId) {
     unit = " directs";
     need = BigInt(b.minDirects || 3);
     var refs = all.filter(function (x) { return (b.of || []).indexOf(x.id) >= 0 && x.type === "self"; });
-    var ds = await lens.directsView(addr);
+    var ds = await retry(function () { return lens.directsView(addr); });
     for (var i = 0; i < ds.length && total < need; i++) {
-      var list = await openPositions(ds[i].wallet, term, lp);
+      var list;
+      try { list = await openPositions(ds[i].wallet, term, lp); } catch (e) { continue; }
       for (var r = 0; r < refs.length; r++) {
         var wr = winOf(refs[r]);
         if (sumIn(list, wr[0], wr[1]) >= E.parseUnits(String(refs[r].minSelf), 18)) { total += 1n; break; }
@@ -173,7 +183,7 @@ async function isQualified(addr, batchId) {
     }
   } else {
     need = E.parseUnits(String(b.minNew), 18);
-    var dl = await lens.directsView(addr);
+    var dl = await retry(function () { return lens.directsView(addr); });
     for (var d = 0; d < dl.length && total < need; d++) {
       total += sumIn(await openPositions(dl[d].wallet, term, lp), s, e);
     }
