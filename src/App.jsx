@@ -1242,9 +1242,18 @@ function refLevels() {
 //   "directs" -- at least minDirects directs who met one of the "of" steps
 // Term + LP (365 and the 180 / 540 tiers), open positions only. Returns the best step plus every step in
 // .steps, or null. Never throws.
+// Retry a read a few times: one slow or failed RPC answer must not hide a pass.
+async function passRetry(fn) {
+  let last;
+  for (let i = 0; i < 3; i++) {
+    try { return await fn(); } catch (e) { last = e; await new Promise(function (r) { setTimeout(r, 500 * (i + 1)); }); }
+  }
+  throw last;
+}
+const PASS_CACHE = "osgpass:qualified:";
 async function eventPassCheck(runner, who) {
   try {
-    const res = await fetch("/event-pass.json?t=" + Date.now());
+    const res = await passRetry(function () { return fetch("/event-pass.json?t=" + Date.now()); });
     const cfg = await res.json();
     const lens = new Contract(ADDRESSES.referralLens, REFERRAL_LENS_ABI, runner);
     const term = new Contract(ADDRESSES.termStaking, TERM_STAKING_ABI, runner);
@@ -1256,19 +1265,19 @@ async function eventPassCheck(runner, who) {
       const k = String(w).toLowerCase();
       if (cache[k]) return cache[k];
       const out = [];
-      for (const p of await term.getPositions(w)) {
+      for (const p of await passRetry(function () { return term.getPositions(w); })) {
         if (!p.closed) out.push({ t: Number(p.startTime), a: p.amount });
       }
-      const n = Number(await lp.positionCount(w));
+      const n = Number(await passRetry(function () { return lp.positionCount(w); }));
       for (let i = 0; i < n; i++) {
-        const p = await lp.positions(w, i);
+        const p = await passRetry(function () { return lp.positions(w, i); });
         if (!p.closed) out.push({ t: Number(p.startTime), a: p.osgValue });
       }
       // LP 180 / 540 day locks. A failed read counts as none, never blocks.
       try {
-        const tn = Number(await tiers.positionCount(w));
+        const tn = Number(await passRetry(function () { return tiers.positionCount(w); }));
         for (let i = 0; i < tn; i++) {
-          const p = await tiers.positions(w, i);
+          const p = await passRetry(function () { return tiers.positions(w, i); });
           if (!p.closed) out.push({ t: Number(p.startTime), a: p.osgValue });
         }
       } catch (e) {}
@@ -1286,17 +1295,26 @@ async function eventPassCheck(runner, who) {
     const open = (cfg.batches || []).filter(function (b) { return b.open; });
     let directs = null;
     async function getDirects() {
-      if (!directs) directs = await lens.directsView(who);
+      if (!directs) directs = await passRetry(function () { return lens.directsView(who); });
       return directs;
     }
     const now = Math.floor(Date.now() / 1000);
     const steps = [];
-    for (const b of open) {
+    // Cheap "self" steps first, so a member who already qualifies by their own
+    // stake never waits on (or fails on) the long walk through their directs.
+    const ordered = open.slice().sort(function (a, b) { return (a.type === "self" ? 0 : 1) - (b.type === "self" ? 0 : 1); });
+    for (const b of ordered) {
       const [s, e] = win(b);
       const kind = b.type || "team";
       let total = 0n;
       let need = 0n;
-      if (kind === "self") {
+      let failed = false;
+      let skipped = false;
+      try {
+      if (kind !== "self" && steps.some(function (x) { return x.qualified; })) {
+        skipped = true;
+        need = kind === "directs" ? BigInt(b.minDirects || 3) * ONE : parseUnits(String(b.minNew), 18);
+      } else if (kind === "self") {
         need = parseUnits(String(b.minSelf), 18);
         total = sumIn(await openPos(who), s, e);
       } else if (kind === "directs") {
@@ -1316,13 +1334,18 @@ async function eventPassCheck(runner, who) {
         need = parseUnits(String(b.minNew), 18);
         for (const d of await getDirects()) total += sumIn(await openPos(d.wallet), s, e);
       }
+      } catch (stepErr) {
+        failed = true;
+      }
       steps.push({
         batch: b.id,
         kind: kind,
         total: total,
         need: need,
         left: total >= need ? 0n : need - total,
-        qualified: total >= need,
+        qualified: !failed && !skipped && total >= need,
+        failed: failed,
+        skipped: skipped,
         started: now >= s,
         closed: now >= e,
         startsAt: s,
@@ -1330,14 +1353,28 @@ async function eventPassCheck(runner, who) {
       });
     }
     if (!steps.length) return null;
+    const order = open.map(function (b) { return b.id; });
+    steps.sort(function (a, b) { return order.indexOf(a.batch) - order.indexOf(b.batch); });
+    // Remember a qualified batch on this device. If the network fails later,
+    // the pass still opens; the gate scanner checks the chain again anyway.
+    const key = PASS_CACHE + String(who).toLowerCase();
+    const hit = steps.find(function (x) { return x.qualified; });
+    try {
+      if (hit) localStorage.setItem(key, hit.batch);
+      else if (steps.some(function (x) { return x.failed; })) {
+        const cached = localStorage.getItem(key);
+        const st = cached && steps.find(function (x) { return x.batch === cached; });
+        if (st) { st.qualified = true; st.cached = true; st.failed = false; }
+      }
+    } catch (e) {}
     const best =
       steps.find(function (x) { return x.qualified; }) ||
       steps.find(function (x) { return x.started && !x.closed; }) ||
       steps.find(function (x) { return !x.started; }) ||
       steps[steps.length - 1];
-    return Object.assign({}, best, { steps: steps });
+    return Object.assign({}, best, { steps: steps, failed: steps.some(function (x) { return x.failed; }) });
   } catch (err) {
-    return null;
+    return { error: true };
   }
 }
 
@@ -4553,6 +4590,7 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
   const [pass, setPass] = useState(null);
     const [passQr, setPassQr] = useState(null);
   const [passNow, setPassNow] = useState(Date.now());
+  const [passTick, setPassTick] = useState(0);
   useEffect(() => {
     setPassQr(null);
   }, [wallet]);
@@ -4572,10 +4610,14 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
     try {
       const ts = Math.floor(Date.now() / 1000);
       const sig = await signer.signMessage("OSG-PASS|137|" + pass.batch + "|" + ts);
+      // Level L keeps the code at 41 modules, so each square stays large on a
+      // phone screen. The SVG stays sharp at any size, and the 4-module white
+      // border is the quiet zone that QR readers need.
       const q = qrcode(0, "L");
       q.addData(("OSGPASS:2:137:" + pass.batch + ":" + ts + ":" + sig.slice(2)).toUpperCase(), "Alphanumeric");
       q.make();
-      setPassQr({ src: q.createDataURL(5, 2), exp: (ts + 600) * 1000 });
+      const svg = q.createSvgTag({ cellSize: 8, margin: 32, scalable: true });
+      setPassQr({ src: "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg), exp: (ts + 600) * 1000 });
       setPassNow(Date.now());
     } catch (e) {
       showToast("❌ " + (e.shortMessage || e.reason || "Signature cancelled"));
@@ -4591,7 +4633,7 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
     return function () {
       live = false;
     };
-  }, [wallet]);
+  }, [wallet, passTick]);
   // The upline and the direct list both used to come from old Staking, which
   // only knows the wallets bonded THERE. A member who registers in v4.2 has no
   // referrer in old Staking by construction -- register() refuses a wallet
@@ -5452,7 +5494,14 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
           </div>
         );
       })()}
-           {pass && pass.steps && (pass.qualified || pass.steps.some(function (x) { return x.started && !x.closed; })) && (
+      {pass && pass.error && (
+        <div className="card" style={{ marginTop: 14 }}>
+          <div className="sec">Event pass</div>
+          <div style={{ fontSize: 13, color: C.txt2, marginTop: 6 }}>Could not check your pass. The network was slow.</div>
+          <button className="btn-gold" onClick={function () { setPass(null); setPassTick(function (x) { return x + 1; }); }} style={{ width: "100%", marginTop: 12 }}>Check again</button>
+        </div>
+      )}
+           {pass && pass.steps && (pass.qualified || pass.failed || pass.steps.some(function (x) { return x.started && !x.closed; })) && (
         <div className="card" style={{ marginTop: 14, border: "1px solid " + (pass.qualified ? C.gold2 : C.line2) }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
             <div className="sec" style={{ color: pass.qualified ? C.gold1 : undefined }}>Event pass</div>
@@ -5465,6 +5514,8 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
             var day = function (t) { return new Date(t * 1000).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" }); };
             var label = st.kind === "self" ? "Your new stake" : st.kind === "directs" ? "Directs with a pass" : "New team stake";
             var tag = st.qualified ? "✓ Done"
+              : st.skipped ? "Not needed"
+              : st.failed ? "Could not check"
               : !st.started ? "Starts " + day(st.startsAt)
               : st.closed ? "Closed"
               : Math.max(0, Math.ceil((st.endsAt - Date.now() / 1000) / 86400)) + " days left";
@@ -5488,6 +5539,9 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
           <div style={{ fontSize: 13, color: pass.qualified ? C.txt : C.gold1, marginTop: 6 }}>
             {pass.qualified ? "Your pass is ready" : "Any one step is enough"}
           </div>
+          {!pass.qualified && pass.failed && (
+            <button className="btn-ghost" onClick={function () { setPass(null); setPassTick(function (x) { return x + 1; }); }} style={{ width: "100%", marginTop: 10 }}>Check again</button>
+          )}
           {pass.qualified && (!passQr || passNow >= passQr.exp) && (
             <button className="btn-gold" onClick={showPass} style={{ width: "100%", marginTop: 12 }}>
               {passQr ? "Refresh pass" : "Show pass"}
@@ -5495,10 +5549,10 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
           )}
           {pass.qualified && passQr && passNow < passQr.exp && (
             <div style={{ textAlign: "center", marginTop: 12 }}>
-              <div style={{ background: "#fff", borderRadius: 12, padding: 10, display: "inline-block" }}>
-                <img src={passQr.src} alt="Event pass QR" style={{ width: 260, height: 260, display: "block", imageRendering: "pixelated" }} />
+              <div style={{ background: "#fff", borderRadius: 14, padding: 6, display: "inline-block", width: "min(320px, 86vw)" }}>
+                <img src={passQr.src} alt="Event pass QR" style={{ width: "100%", height: "auto", display: "block" }} />
               </div>
-              <div style={{ fontSize: 13, color: C.txt2, marginTop: 8 }}>Show this QR at entry</div>
+              <div style={{ fontSize: 13, color: C.txt2, marginTop: 8 }}>Show this QR at entry. Turn screen brightness up.</div>
               <div style={{ fontSize: 13, color: C.gold1, marginTop: 4 }}>
                 {"Valid for " + Math.floor((passQr.exp - passNow) / 60000) + ":" + String(Math.floor(((passQr.exp - passNow) % 60000) / 1000)).padStart(2, "0")}
               </div>
