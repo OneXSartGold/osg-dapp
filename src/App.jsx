@@ -1252,6 +1252,9 @@ const PASS_CACHE = "osgpass:qualified:";
 //                "of" steps ("self" or "team")
 // A step may name "sources": ["term"], ["lp"] or both (default both). "lp"
 // means LP Mining 365 plus the LP 180 / 540 tiers. Open positions only.
+// LP counts the OSG side only: a position's osgValue values BOTH sides of
+// the pair in OSG (lpWeight = 2 x OSG reserve / LP supply), so the OSG the
+// member put in is osgValue / 2.
 // Returns the best step plus every step in .steps; { error: true } if the
 // rules file could not be read. Never throws.
 async function eventPassCheck(runner, who) {
@@ -1275,14 +1278,14 @@ async function eventPassCheck(runner, who) {
       const n = Number(await passRetry(function () { return lp.positionCount(w); }));
       for (let i = 0; i < n; i++) {
         const p = await passRetry(function () { return lp.positions(w, i); });
-        if (!p.closed) out.push({ t: Number(p.startTime), a: p.osgValue, src: "lp" });
+        if (!p.closed) out.push({ t: Number(p.startTime), a: p.osgValue / 2n, src: "lp" });
       }
       // LP 180 / 540 day locks. A failed read counts as none, never blocks.
       try {
         const tn = Number(await passRetry(function () { return tiers.positionCount(w); }));
         for (let i = 0; i < tn; i++) {
           const p = await passRetry(function () { return tiers.positions(w, i); });
-          if (!p.closed) out.push({ t: Number(p.startTime), a: p.osgValue, src: "lp" });
+          if (!p.closed) out.push({ t: Number(p.startTime), a: p.osgValue / 2n, src: "lp" });
         }
       } catch (e) {}
       cache[k] = out;

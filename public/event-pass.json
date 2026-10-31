@@ -1,6 +1,6 @@
 {
   "title": "Foreign Training Entry Pass",
-  "note": "Counts your directs' new LP stakes (LP 365 + 180 / 540), open positions only. Term stakes do not count.",
+  "note": "Counts only the OSG your directs put into new LP (LP 365 + 180 / 540), not the paired POL. Open positions only. Term stakes do not count.",
   "batches": [
     {
       "id": "f1",

@@ -121,6 +121,7 @@ async function getCfg() {
 // stake by directs in the window, "directs" = at least minDirects directs who
 // themselves met one of the "of" steps ("self" or "team"). A step may name
 // "sources": ["term"], ["lp"] or both (default both); "lp" = LP 365 + 180 / 540.
+// LP counts the OSG side only (osgValue / 2: osgValue values both sides).
 // Open positions only.
 var posCache = {}, dirCache = {};
 async function openPositions(w, term, lp) {
@@ -134,14 +135,14 @@ async function openPositions(w, term, lp) {
   var n = Number(await retry(function () { return lp.positionCount(w); }));
   for (var m = 0; m < n; m++) {
     var p = await retry(function () { return lp.positions(w, m); });
-    if (!p.closed) out.push({ t: Number(p.startTime), a: p.osgValue, src: "lp" });
+    if (!p.closed) out.push({ t: Number(p.startTime), a: p.osgValue / 2n, src: "lp" });
   }
   try {
     var lpt = new E.Contract(LPT, LPT_ABI, lp.runner);
     var tn = Number(await retry(function () { return lpt.positionCount(w); }));
     for (var q = 0; q < tn; q++) {
       var tp2 = await retry(function () { return lpt.positions(w, q); });
-      if (!tp2.closed) out.push({ t: Number(tp2.startTime), a: tp2.osgValue, src: "lp" });
+      if (!tp2.closed) out.push({ t: Number(tp2.startTime), a: tp2.osgValue / 2n, src: "lp" });
     }
   } catch (e) {}
   posCache[k] = out;
