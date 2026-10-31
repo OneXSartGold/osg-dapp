@@ -1,28 +1,41 @@
 {
+  "title": "Foreign Training Entry Pass",
+  "note": "Counts only the OSG your directs put into new LP (LP 365 + 180 / 540), not the paired POL. Open positions only. Term stakes do not count.",
   "batches": [
     {
-      "id": "s1",
+      "id": "f1",
       "open": true,
-      "type": "self",
-      "start": "2026-09-20T00:00:00+05:30",
-      "end": "2026-10-06T00:00:00+05:30",
-      "minSelf": 1000
+      "type": "team",
+      "sources": ["lp"],
+      "start": "2026-11-01T00:00:00+05:30",
+      "end": "2026-11-11T00:00:00+05:30",
+      "minNew": 2000
     },
     {
-      "id": "s2",
+      "id": "f2",
       "open": true,
-      "type": "self",
-      "start": "2026-10-06T00:00:00+05:30",
-      "end": "2026-10-21T00:00:00+05:30",
-      "minSelf": 1200
+      "type": "team",
+      "sources": ["lp"],
+      "start": "2026-11-11T00:00:00+05:30",
+      "end": "2026-11-21T00:00:00+05:30",
+      "minNew": 2500
     },
     {
-      "id": "s3",
+      "id": "f3",
+      "open": true,
+      "type": "team",
+      "sources": ["lp"],
+      "start": "2026-11-21T00:00:00+05:30",
+      "end": "2026-12-01T00:00:00+05:30",
+      "minNew": 3000
+    },
+    {
+      "id": "f4",
       "open": true,
       "type": "directs",
-      "of": ["s1", "s2"],
-      "start": "2026-09-20T00:00:00+05:30",
-      "end": "2026-10-21T00:00:00+05:30",
+      "of": ["f1", "f2", "f3"],
+      "start": "2026-11-01T00:00:00+05:30",
+      "end": "2026-12-01T00:00:00+05:30",
       "minDirects": 3
     }
   ],
