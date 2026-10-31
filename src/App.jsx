@@ -1235,13 +1235,6 @@ function refLevels() {
   return REF_V6 ? 50 : 15;
 }
 
-// Event pass. The rules live in /event-pass.json, so windows and amounts can
-// change without touching this file. Three kinds of step, any one is enough:
-//   "self"    -- the wallet's OWN new stake inside the window (minSelf)
-//   "team"    -- new stake by the wallet's directs inside the window (minNew)
-//   "directs" -- at least minDirects directs who met one of the "of" steps
-// Term + LP (365 and the 180 / 540 tiers), open positions only. Returns the best step plus every step in
-// .steps, or null. Never throws.
 // Retry a read a few times: one slow or failed RPC answer must not hide a pass.
 async function passRetry(fn) {
   let last;
@@ -1251,6 +1244,16 @@ async function passRetry(fn) {
   throw last;
 }
 const PASS_CACHE = "osgpass:qualified:";
+// Event pass. Rules live in /event-pass.json, so windows and amounts can
+// change without touching this file. Three kinds of step, any one is enough:
+//   "self"    -- the wallet's OWN new stake inside the window (minSelf)
+//   "team"    -- new stake by the wallet's directs inside the window (minNew)
+//   "directs" -- at least minDirects directs who themselves met one of the
+//                "of" steps ("self" or "team")
+// A step may name "sources": ["term"], ["lp"] or both (default both). "lp"
+// means LP Mining 365 plus the LP 180 / 540 tiers. Open positions only.
+// Returns the best step plus every step in .steps; { error: true } if the
+// rules file could not be read. Never throws.
 async function eventPassCheck(runner, who) {
   try {
     const res = await passRetry(function () { return fetch("/event-pass.json?t=" + Date.now()); });
@@ -1261,85 +1264,104 @@ async function eventPassCheck(runner, who) {
     const tiers = new Contract(ADDRESSES.lpTiers, LP_TIERS_ABI, runner);
     const ONE = 10n ** 18n;
     const cache = {};
+    const dcache = {};
     async function openPos(w) {
       const k = String(w).toLowerCase();
       if (cache[k]) return cache[k];
       const out = [];
       for (const p of await passRetry(function () { return term.getPositions(w); })) {
-        if (!p.closed) out.push({ t: Number(p.startTime), a: p.amount });
+        if (!p.closed) out.push({ t: Number(p.startTime), a: p.amount, src: "term" });
       }
       const n = Number(await passRetry(function () { return lp.positionCount(w); }));
       for (let i = 0; i < n; i++) {
         const p = await passRetry(function () { return lp.positions(w, i); });
-        if (!p.closed) out.push({ t: Number(p.startTime), a: p.osgValue });
+        if (!p.closed) out.push({ t: Number(p.startTime), a: p.osgValue, src: "lp" });
       }
       // LP 180 / 540 day locks. A failed read counts as none, never blocks.
       try {
         const tn = Number(await passRetry(function () { return tiers.positionCount(w); }));
         for (let i = 0; i < tn; i++) {
           const p = await passRetry(function () { return tiers.positions(w, i); });
-          if (!p.closed) out.push({ t: Number(p.startTime), a: p.osgValue });
+          if (!p.closed) out.push({ t: Number(p.startTime), a: p.osgValue, src: "lp" });
         }
       } catch (e) {}
       cache[k] = out;
       return out;
     }
-    function sumIn(list, s, e) {
+    async function directsOf(w) {
+      const k = String(w).toLowerCase();
+      if (!dcache[k]) dcache[k] = await passRetry(function () { return lens.directsView(w); });
+      return dcache[k];
+    }
+    function srcOf(b) { return b.sources && b.sources.length ? b.sources : ["term", "lp"]; }
+    function sumIn(list, s, e, src) {
       let t = 0n;
-      for (const x of list) if (x.t >= s && x.t < e) t += x.a;
+      for (const x of list) if (x.t >= s && x.t < e && src.indexOf(x.src) >= 0) t += x.a;
       return t;
     }
     function win(b) {
       return [Math.floor(Date.parse(b.start) / 1000), Math.floor(Date.parse(b.end) / 1000)];
     }
-    const open = (cfg.batches || []).filter(function (b) { return b.open; });
-    let directs = null;
-    async function getDirects() {
-      if (!directs) directs = await passRetry(function () { return lens.directsView(who); });
-      return directs;
+    // New stake by w's directs in batch b's window.
+    async function teamNew(w, b, stopAt) {
+      const [s, e] = win(b);
+      let t = 0n;
+      for (const d of await directsOf(w)) {
+        t += sumIn(await openPos(d.wallet), s, e, srcOf(b));
+        if (stopAt && t >= stopAt) break;
+      }
+      return t;
     }
+    // Did wallet w meet batch r ("self" or "team") on its own?
+    async function meets(w, r) {
+      if (r.type === "self") {
+        const [s, e] = win(r);
+        return sumIn(await openPos(w), s, e, srcOf(r)) >= parseUnits(String(r.minSelf), 18);
+      }
+      const need = parseUnits(String(r.minNew), 18);
+      return (await teamNew(w, r, need)) >= need;
+    }
+    const open = (cfg.batches || []).filter(function (b) { return b.open; });
     const now = Math.floor(Date.now() / 1000);
     const steps = [];
-    // Cheap "self" steps first, so a member who already qualifies by their own
-    // stake never waits on (or fails on) the long walk through their directs.
-    const ordered = open.slice().sort(function (a, b) { return (a.type === "self" ? 0 : 1) - (b.type === "self" ? 0 : 1); });
+    // Cheapest steps first ("self", then "team", then "directs"), so a member
+    // who already qualifies never waits on (or fails on) the longest walk.
+    const rank = { self: 0, team: 1, directs: 2 };
+    const ordered = open.slice().sort(function (a, b) { return (rank[a.type || "team"] || 1) - (rank[b.type || "team"] || 1); });
     for (const b of ordered) {
       const [s, e] = win(b);
       const kind = b.type || "team";
       let total = 0n;
-      let need = 0n;
+      let need = kind === "directs" ? BigInt(b.minDirects || 3) * ONE : parseUnits(String(kind === "self" ? b.minSelf : b.minNew), 18);
       let failed = false;
       let skipped = false;
       try {
-      if (kind !== "self" && steps.some(function (x) { return x.qualified; })) {
-        skipped = true;
-        need = kind === "directs" ? BigInt(b.minDirects || 3) * ONE : parseUnits(String(b.minNew), 18);
-      } else if (kind === "self") {
-        need = parseUnits(String(b.minSelf), 18);
-        total = sumIn(await openPos(who), s, e);
-      } else if (kind === "directs") {
-        need = BigInt(b.minDirects || 3) * ONE;
-        const refs = open.filter(function (x) { return (b.of || []).indexOf(x.id) >= 0 && x.type === "self"; });
-        let count = 0n;
-        for (const d of await getDirects()) {
-          const list = await openPos(d.wallet);
-          for (const r of refs) {
-            const [rs, re] = win(r);
-            if (sumIn(list, rs, re) >= parseUnits(String(r.minSelf), 18)) { count += 1n; break; }
+        if (kind !== "self" && steps.some(function (x) { return x.qualified; })) {
+          skipped = true;
+        } else if (now < s) {
+          // Not started yet: nothing can count, so do not spend reads on it.
+        } else if (kind === "self") {
+          total = sumIn(await openPos(who), s, e, srcOf(b));
+        } else if (kind === "directs") {
+          const refs = open.filter(function (x) { return (b.of || []).indexOf(x.id) >= 0 && x.type !== "directs"; });
+          let count = 0n;
+          for (const d of await directsOf(who)) {
+            for (const r of refs) {
+              if (await meets(d.wallet, r)) { count += 1n; break; }
+            }
+            if (count * ONE >= need) break;
           }
-          if (count * ONE >= need) break;
+          total = count * ONE;
+        } else {
+          total = await teamNew(who, b);
         }
-        total = count * ONE;
-      } else {
-        need = parseUnits(String(b.minNew), 18);
-        for (const d of await getDirects()) total += sumIn(await openPos(d.wallet), s, e);
-      }
       } catch (stepErr) {
         failed = true;
       }
       steps.push({
         batch: b.id,
         kind: kind,
+        lpOnly: srcOf(b).length === 1 && srcOf(b)[0] === "lp",
         total: total,
         need: need,
         left: total >= need ? 0n : need - total,
@@ -1372,7 +1394,7 @@ async function eventPassCheck(runner, who) {
       steps.find(function (x) { return x.started && !x.closed; }) ||
       steps.find(function (x) { return !x.started; }) ||
       steps[steps.length - 1];
-    return Object.assign({}, best, { steps: steps, failed: steps.some(function (x) { return x.failed; }) });
+    return Object.assign({}, best, { steps: steps, title: cfg.title || "Event pass", note: cfg.note || "", failed: steps.some(function (x) { return x.failed; }) });
   } catch (err) {
     return { error: true };
   }
@@ -5501,10 +5523,10 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
           <button className="btn-gold" onClick={function () { setPass(null); setPassTick(function (x) { return x + 1; }); }} style={{ width: "100%", marginTop: 12 }}>Check again</button>
         </div>
       )}
-           {pass && pass.steps && (pass.qualified || pass.failed || pass.steps.some(function (x) { return x.started && !x.closed; })) && (
+           {pass && pass.steps && (pass.qualified || pass.failed || pass.steps.some(function (x) { return !x.closed; })) && (
         <div className="card" style={{ marginTop: 14, border: "1px solid " + (pass.qualified ? C.gold2 : C.line2) }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-            <div className="sec" style={{ color: pass.qualified ? C.gold1 : undefined }}>Event pass</div>
+            <div className="sec" style={{ color: pass.qualified ? C.gold1 : undefined }}>{pass.title}</div>
             {pass.qualified && <span className="chip good">✓ Ready</span>}
           </div>
           {pass.steps.map(function (st, i) {
@@ -5512,7 +5534,7 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
             var have = Number(f18(st.total));
             var want = Number(f18(st.need));
             var day = function (t) { return new Date(t * 1000).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" }); };
-            var label = st.kind === "self" ? "Your new stake" : st.kind === "directs" ? "Directs with a pass" : "New team stake";
+            var label = st.kind === "self" ? (st.lpOnly ? "Your new LP" : "Your new stake") : st.kind === "directs" ? "Directs with a pass" : (st.lpOnly ? "Directs' new LP" : "New team stake");
             var tag = st.qualified ? "✓ Done"
               : st.skipped ? "Not needed"
               : st.failed ? "Could not check"
@@ -5558,7 +5580,7 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
               </div>
             </div>
           )}
-          <div style={{ fontSize: 11.5, color: C.txt3, marginTop: 8 }}>New stake counts Term + LP, open positions only</div>
+          <div style={{ fontSize: 11.5, color: C.txt3, marginTop: 8 }}>{pass.note || "New stake counts Term + LP, open positions only"}</div>
         </div>
       )}
 

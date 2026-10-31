@@ -30,7 +30,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>ENTRY SCANNER</h1>
+  <h1 id="evTitle">ENTRY SCANNER</h1>
 
   <div id="result"></div>
 
@@ -119,34 +119,64 @@ async function getCfg() {
 
 // Same rules as the app: "self" = own new stake in the window, "team" = new
 // stake by directs in the window, "directs" = at least minDirects directs who
-// met one of the "of" steps. Term + LP (365 and 180 / 540 tiers), open positions only.
+// themselves met one of the "of" steps ("self" or "team"). A step may name
+// "sources": ["term"], ["lp"] or both (default both); "lp" = LP 365 + 180 / 540.
+// Open positions only.
+var posCache = {}, dirCache = {};
 async function openPositions(w, term, lp) {
+  var k = String(w).toLowerCase();
+  if (posCache[k]) return posCache[k];
   var out = [];
   var tp = await retry(function () { return term.getPositions(w); });
   for (var j = 0; j < tp.length; j++) {
-    if (!tp[j].closed) out.push({ t: Number(tp[j].startTime), a: tp[j].amount });
+    if (!tp[j].closed) out.push({ t: Number(tp[j].startTime), a: tp[j].amount, src: "term" });
   }
   var n = Number(await retry(function () { return lp.positionCount(w); }));
   for (var m = 0; m < n; m++) {
     var p = await retry(function () { return lp.positions(w, m); });
-    if (!p.closed) out.push({ t: Number(p.startTime), a: p.osgValue });
+    if (!p.closed) out.push({ t: Number(p.startTime), a: p.osgValue, src: "lp" });
   }
   try {
     var lpt = new E.Contract(LPT, LPT_ABI, lp.runner);
     var tn = Number(await retry(function () { return lpt.positionCount(w); }));
     for (var q = 0; q < tn; q++) {
       var tp2 = await retry(function () { return lpt.positions(w, q); });
-      if (!tp2.closed) out.push({ t: Number(tp2.startTime), a: tp2.osgValue });
+      if (!tp2.closed) out.push({ t: Number(tp2.startTime), a: tp2.osgValue, src: "lp" });
     }
   } catch (e) {}
+  posCache[k] = out;
   return out;
 }
-function sumIn(list, s, e) {
+function srcOf(b) { return b.sources && b.sources.length ? b.sources : ["term", "lp"]; }
+function sumIn(list, s, e, src) {
   var t = 0n;
-  for (var i = 0; i < list.length; i++) if (list[i].t >= s && list[i].t < e) t += list[i].a;
+  for (var i = 0; i < list.length; i++) if (list[i].t >= s && list[i].t < e && src.indexOf(list[i].src) >= 0) t += list[i].a;
   return t;
 }
 function winOf(b) { return [Math.floor(Date.parse(b.start) / 1000), Math.floor(Date.parse(b.end) / 1000)]; }
+async function directsOf(lens, w) {
+  var k = String(w).toLowerCase();
+  if (!dirCache[k]) dirCache[k] = await retry(function () { return lens.directsView(w); });
+  return dirCache[k];
+}
+async function teamNew(w, b, stopAt, lens, term, lp) {
+  var wv = winOf(b), t = 0n, dl = await directsOf(lens, w);
+  for (var d = 0; d < dl.length; d++) {
+    var list;
+    try { list = await openPositions(dl[d].wallet, term, lp); } catch (e) { continue; }
+    t += sumIn(list, wv[0], wv[1], srcOf(b));
+    if (stopAt && t >= stopAt) break;
+  }
+  return t;
+}
+async function meets(w, r, lens, term, lp) {
+  if (r.type === "self") {
+    var wr = winOf(r);
+    return sumIn(await openPositions(w, term, lp), wr[0], wr[1], srcOf(r)) >= E.parseUnits(String(r.minSelf), 18);
+  }
+  var need = E.parseUnits(String(r.minNew), 18);
+  return (await teamNew(w, r, need, lens, term, lp)) >= need;
+}
 
 async function isQualified(addr, batchId) {
   var okMap = load(KEY_OK, {});
@@ -155,8 +185,9 @@ async function isQualified(addr, batchId) {
   var cfg = await getCfg();
   if (!cfg) return { ok: false, why: "Rules file not reachable" };
   var all = cfg.batches || [];
-  var b = all.filter(function (x) { return x.id === batchId; })[0];
-  if (!b) return { ok: false, why: "Unknown batch" };
+  var b = all.filter(function (x) { return x.id === batchId && x.open; })[0];
+  if (!b) return { ok: false, why: "This pass is not valid for this event" };
+  if ((cfg.revoked || []).map(function (x) { return String(x).toLowerCase(); }).indexOf(addr) >= 0) return { ok: false, why: "Pass revoked" };
   var w0 = winOf(b);
   var s = w0[0], e = w0[1];
   var kind = b.type || "team";
@@ -167,26 +198,22 @@ async function isQualified(addr, batchId) {
   var total = 0n, need = 0n, unit = " OSG";
   if (kind === "self") {
     need = E.parseUnits(String(b.minSelf), 18);
-    total = sumIn(await openPositions(addr, term, lp), s, e);
+    total = sumIn(await openPositions(addr, term, lp), s, e, srcOf(b));
   } else if (kind === "directs") {
     unit = " directs";
     need = BigInt(b.minDirects || 3);
-    var refs = all.filter(function (x) { return (b.of || []).indexOf(x.id) >= 0 && x.type === "self"; });
-    var ds = await retry(function () { return lens.directsView(addr); });
+    var refs = all.filter(function (x) { return (b.of || []).indexOf(x.id) >= 0 && x.type !== "directs"; });
+    var ds = await directsOf(lens, addr);
     for (var i = 0; i < ds.length && total < need; i++) {
-      var list;
-      try { list = await openPositions(ds[i].wallet, term, lp); } catch (e) { continue; }
       for (var r = 0; r < refs.length; r++) {
-        var wr = winOf(refs[r]);
-        if (sumIn(list, wr[0], wr[1]) >= E.parseUnits(String(refs[r].minSelf), 18)) { total += 1n; break; }
+        var hit = false;
+        try { hit = await meets(ds[i].wallet, refs[r], lens, term, lp); } catch (e2) {}
+        if (hit) { total += 1n; break; }
       }
     }
   } else {
     need = E.parseUnits(String(b.minNew), 18);
-    var dl = await retry(function () { return lens.directsView(addr); });
-    for (var d = 0; d < dl.length && total < need; d++) {
-      total += sumIn(await openPositions(dl[d].wallet, term, lp), s, e);
-    }
+    total = await teamNew(addr, b, need, lens, term, lp);
   }
   if (total >= need) {
     okMap[k] = true;
@@ -198,6 +225,7 @@ async function isQualified(addr, batchId) {
 }
 
 async function checkPayload(text) {
+  posCache = {}; dirCache = {};
   var p = String(text || "").trim().split(":");
   if (p[0] !== "OSGPASS" || p[2] !== "137") return { ok: false, why: "Not an OSG pass" };
   var batch, ts, addr, sig;
@@ -296,7 +324,7 @@ document.getElementById("clearBtn").onclick = function () {
 };
 
 refreshCounts();
-getCfg();
+getCfg().then(function (c) { if (c && c.title) document.getElementById("evTitle").textContent = "ENTRY SCANNER · " + c.title.toUpperCase(); });
 </script>
 </body>
 </html>
