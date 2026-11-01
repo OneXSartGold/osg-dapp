@@ -2515,11 +2515,11 @@ function LpCalcBody({ polPerOsg, polUsd, unit, setUnit, amt, setAmt, scrollId, r
   );
 }
 
-// OSG Games teaser. The games portal will run on its own site, separate from
-// the DApp, so no game code ever runs next to wallet transactions. The card
-// links to the static info page /games/ only: no OSG, no rewards.
+// OSG Games card. It links to /games/, plain static pages outside the React
+// bundle with our own free trial games: no wallet calls, no login, no OSG,
+// no rewards. Third-party games will later run on a separate site.
 function GamesSoonCard() {
-  var tags = ["Solitaire", "Ludo", "Call Break", "Chess", "Sudoku", "Memory"];
+  var tags = ["Gem Match", "Solitaire", "Memory", "Ludo", "Call Break", "Chess", "Sudoku"];
   return (
     <a
       href="/games/"
@@ -2554,7 +2554,7 @@ function GamesSoonCard() {
             whiteSpace: "nowrap",
           }}
         >
-          Coming soon
+          Free trial
         </span>
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 12 }}>
@@ -2577,9 +2577,9 @@ function GamesSoonCard() {
         })}
       </div>
       <div style={{ fontSize: 11, color: C.txt3, marginTop: 10, lineHeight: 1.5 }}>
-        Sign in with your wallet, no transaction or gas. No OSG needed to play. No betting, no paid entry, no prizes.
+        Trial games need no login and no OSG. No betting, no paid entry, no prizes. Points are for fun only.
       </div>
-      <div style={{ fontSize: 12.5, fontWeight: 700, color: C.purple, marginTop: 10 }}>See what's coming →</div>
+      <div style={{ fontSize: 12.5, fontWeight: 700, color: C.purple, marginTop: 10 }}>▶ Play 3 free games</div>
     </a>
   );
 }

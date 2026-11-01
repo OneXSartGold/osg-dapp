@@ -25,6 +25,7 @@ h1{font-size:clamp(44px,9vw,84px);font-weight:900;line-height:.92;letter-spacing
 h1 span{background:linear-gradient(95deg,var(--gold2),var(--gold) 35%,#C084FC 70%,#60A5FA);-webkit-background-clip:text;background-clip:text;color:transparent}
 .lead{color:#D9D6F2;font-size:17px;line-height:1.55;margin-top:14px;max-width:520px}
 .lead b{color:#fff}
+.cta{display:inline-block;margin-top:16px;text-decoration:none;background:linear-gradient(90deg,var(--gold2),var(--gold));color:#120E2E;font-weight:900;font-size:16px;border-radius:14px;padding:13px 20px;box-shadow:0 0 24px rgba(245,184,61,.4)}
 .pad{width:100%;max-width:360px;justify-self:center}
 h2{font-size:20px;font-weight:800;margin:30px 0 12px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
@@ -48,6 +49,14 @@ h2{font-size:20px;font-weight:800;margin:30px 0 12px}
 .band .big em{font-style:normal;color:var(--gold2)}
 .band p{font-size:14px;color:#D9D6F2;margin-top:4px}
 .band a{margin-left:auto;text-decoration:none;background:#fff;color:#120E2E;border-radius:14px;padding:12px 16px;font-weight:900;font-size:15px;white-space:nowrap}
+.play{display:grid;gap:12px}
+.pc{display:flex;align-items:center;gap:14px;text-decoration:none;color:#fff;border-radius:20px;padding:16px;border:1px solid rgba(255,255,255,.14);box-shadow:inset 0 1px 0 rgba(255,255,255,.15),0 12px 28px rgba(0,0,0,.35);transition:transform .15s}
+.pc:active{transform:scale(.98)}
+.pc i{font-style:normal;font-size:40px;flex:0 0 auto}
+.pc b{display:block;font-size:17px}
+.pc small{color:rgba(255,255,255,.8);font-size:12.5px}
+.pc .go{margin-left:auto;flex:0 0 auto;background:linear-gradient(90deg,var(--gold2),var(--gold));color:#120E2E;font-weight:900;font-size:14px;border-radius:12px;padding:10px 14px;box-shadow:0 0 18px rgba(245,184,61,.35)}
+.note{color:var(--mute);font-size:12.5px;margin-top:8px}
 footer{color:var(--mute);font-size:12px;line-height:1.6;padding:24px 0 34px;border-top:1px solid var(--line);margin-top:30px}
 @media (max-width:720px){.hero{grid-template-columns:1fr}.pad{max-width:260px;order:-1}.band a{margin-left:0}}
 </style>
@@ -62,9 +71,10 @@ footer{color:var(--mute);font-size:12px;line-height:1.6;padding:24px 0 34px;bord
 
   <section class="hero">
     <div>
-      <span class="soon">COMING SOON</span>
+      <span class="soon">FREE TRIAL · 3 GAMES</span>
       <h1>OSG<br><span>Games</span></h1>
       <p class="lead">A <b>free-to-play social gaming portal</b> for the OSG community. Sign in with your wallet and play classic games on mobile and web. Climb the weekly leaderboard, just for fun.</p>
+      <a class="cta" href="#play">▶ Play free games</a>
     </div>
     <svg class="pad" viewBox="0 0 400 300" aria-hidden="true">
       <defs>
@@ -79,14 +89,20 @@ footer{color:var(--mute);font-size:12px;line-height:1.6;padding:24px 0 34px;bord
     </svg>
   </section>
 
-  <h2>Games on the way</h2>
+  <h2 id="play">Play now · Free trial</h2>
+  <div class="play">
+    <a class="pc" href="gem/" style="background:linear-gradient(150deg,#EC4899,#7C3AED 60%,#1E1B4B)"><i>💎</i><div><b>OSG Gem Match</b><small>Swap gems, make chains</small></div><span class="go">▶ Play</span></a>
+    <a class="pc" href="solitaire/" style="background:linear-gradient(150deg,#10B981,#065F46 60%,#1E1B4B)"><i>🃏</i><div><b>OSG Solitaire</b><small>Classic Klondike, tap to move</small></div><span class="go">▶ Play</span></a>
+    <a class="pc" href="memory/" style="background:linear-gradient(150deg,#7C3AED,#2563EB 60%,#1E1B4B)"><i>🧠</i><div><b>OSG Memory</b><small>Find the pairs, build combos</small></div><span class="go">▶ Play</span></a>
+  </div>
+  <p class="note">No login needed for the trial. Points are for fun only.</p>
+
+  <h2>More games on the way</h2>
   <div class="grid">
-    <div class="g" style="background:linear-gradient(150deg,#2563EB,#1E1B4B)"><span class="tag">SOON</span><i>🃏</i><div><b>Solitaire</b><small>Cards · 7 classic modes</small></div></div>
     <div class="g" style="background:linear-gradient(150deg,#F59E0B,#1E1B4B)"><span class="tag">SOON</span><i>🎲</i><div><b>Ludo</b><small>Board · play vs computer</small></div></div>
     <div class="g" style="background:linear-gradient(150deg,#0EA5E9,#1E1B4B)"><span class="tag">SOON</span><i>♠️</i><div><b>Call Break</b><small>Cards · trick taking</small></div></div>
     <div class="g" style="background:linear-gradient(150deg,#475569,#1E1B4B)"><span class="tag">SOON</span><i>♟️</i><div><b>Chess</b><small>Strategy</small></div></div>
-    <div class="g" style="background:linear-gradient(150deg,#10B981,#1E1B4B)"><span class="tag">SOON</span><i>🔢</i><div><b>Sudoku</b><small>Puzzle · daily grid</small></div></div>
-    <div class="g" style="background:linear-gradient(150deg,#7C3AED,#1E1B4B)"><span class="tag">FIRST</span><i>🧠</i><div><b>OSG Memory</b><small>Puzzle · match the pairs</small></div></div>
+    <div class="g" style="background:linear-gradient(150deg,#2563EB,#1E1B4B)"><span class="tag">SOON</span><i>🔢</i><div><b>Sudoku</b><small>Puzzle · daily grid</small></div></div>
   </div>
 
   <h2>Why OSG Games</h2>
@@ -110,7 +126,7 @@ footer{color:var(--mute);font-size:12px;line-height:1.6;padding:24px 0 34px;bord
   </div>
 
   <footer>
-    OSG Games is a planned feature and is not live yet. It will offer social, non-wagering games only: no betting, no paid entry, no deposits, and no cash or token prizes. Scores are for fun and ranking only. OSG is a crypto token; its value can go up or down.<br>
+    OSG Games is in free trial. Wallet login and leaderboards are not live yet. It offers social, non-wagering games only: no betting, no paid entry, no deposits, and no cash or token prizes. Scores are for fun and ranking only. OSG is a crypto token; its value can go up or down.<br>
     Contact: team@onexsmartgold.com
   </footer>
 </div>
