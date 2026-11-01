@@ -1278,14 +1278,14 @@ async function eventPassCheck(runner, who) {
       const n = Number(await passRetry(function () { return lp.positionCount(w); }));
       for (let i = 0; i < n; i++) {
         const p = await passRetry(function () { return lp.positions(w, i); });
-        if (!p.closed) out.push({ t: Number(p.startTime), a: p.osgValue / 2n, src: "lp" });
+        if (!p.closed) out.push({ t: Number(p.startTime), a: p.osgValue, src: "lp" });
       }
       // LP 180 / 540 day locks. A failed read counts as none, never blocks.
       try {
         const tn = Number(await passRetry(function () { return tiers.positionCount(w); }));
         for (let i = 0; i < tn; i++) {
           const p = await passRetry(function () { return tiers.positions(w, i); });
-          if (!p.closed) out.push({ t: Number(p.startTime), a: p.osgValue / 2n, src: "lp" });
+          if (!p.closed) out.push({ t: Number(p.startTime), a: p.osgValue, src: "lp" });
         }
       } catch (e) {}
       cache[k] = out;
@@ -1297,9 +1297,12 @@ async function eventPassCheck(runner, who) {
       return dcache[k];
     }
     function srcOf(b) { return b.sources && b.sources.length ? b.sources : ["term", "lp"]; }
-    function sumIn(list, s, e, src) {
+    // LP counts the OSG side (osgValue / 2) unless the batch sets lpFull
+    // (the Goa batches were measured on the full osgValue).
+    function sumIn(list, s, e, b) {
+      const src = srcOf(b);
       let t = 0n;
-      for (const x of list) if (x.t >= s && x.t < e && src.indexOf(x.src) >= 0) t += x.a;
+      for (const x of list) if (x.t >= s && x.t < e && src.indexOf(x.src) >= 0) t += x.src === "lp" && !b.lpFull ? x.a / 2n : x.a;
       return t;
     }
     function win(b) {
@@ -1310,7 +1313,7 @@ async function eventPassCheck(runner, who) {
       const [s, e] = win(b);
       let t = 0n;
       for (const d of await directsOf(w)) {
-        t += sumIn(await openPos(d.wallet), s, e, srcOf(b));
+        t += sumIn(await openPos(d.wallet), s, e, b);
         if (stopAt && t >= stopAt) break;
       }
       return t;
@@ -1319,13 +1322,16 @@ async function eventPassCheck(runner, who) {
     async function meets(w, r) {
       if (r.type === "self") {
         const [s, e] = win(r);
-        return sumIn(await openPos(w), s, e, srcOf(r)) >= parseUnits(String(r.minSelf), 18);
+        return sumIn(await openPos(w), s, e, r) >= parseUnits(String(r.minSelf), 18);
       }
       const need = parseUnits(String(r.minNew), 18);
       return (await teamNew(w, r, need)) >= need;
     }
-    const open = (cfg.batches || []).filter(function (b) { return b.open; });
     const now = Math.floor(Date.now() / 1000);
+    // validUntil: a batch that is switched on only until that moment.
+    const open = (cfg.batches || []).filter(function (b) {
+      return b.open && (!b.validUntil || now < Math.floor(Date.parse(b.validUntil) / 1000));
+    });
     const steps = [];
     // Cheapest steps first ("self", then "team", then "directs"), so a member
     // who already qualifies never waits on (or fails on) the longest walk.
@@ -1344,7 +1350,7 @@ async function eventPassCheck(runner, who) {
         } else if (now < s) {
           // Not started yet: nothing can count, so do not spend reads on it.
         } else if (kind === "self") {
-          total = sumIn(await openPos(who), s, e, srcOf(b));
+          total = sumIn(await openPos(who), s, e, b);
         } else if (kind === "directs") {
           const refs = open.filter(function (x) { return (b.of || []).indexOf(x.id) >= 0 && x.type !== "directs"; });
           let count = 0n;

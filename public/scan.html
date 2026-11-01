@@ -135,25 +135,30 @@ async function openPositions(w, term, lp) {
   var n = Number(await retry(function () { return lp.positionCount(w); }));
   for (var m = 0; m < n; m++) {
     var p = await retry(function () { return lp.positions(w, m); });
-    if (!p.closed) out.push({ t: Number(p.startTime), a: p.osgValue / 2n, src: "lp" });
+    if (!p.closed) out.push({ t: Number(p.startTime), a: p.osgValue, src: "lp" });
   }
   try {
     var lpt = new E.Contract(LPT, LPT_ABI, lp.runner);
     var tn = Number(await retry(function () { return lpt.positionCount(w); }));
     for (var q = 0; q < tn; q++) {
       var tp2 = await retry(function () { return lpt.positions(w, q); });
-      if (!tp2.closed) out.push({ t: Number(tp2.startTime), a: tp2.osgValue / 2n, src: "lp" });
+      if (!tp2.closed) out.push({ t: Number(tp2.startTime), a: tp2.osgValue, src: "lp" });
     }
   } catch (e) {}
   posCache[k] = out;
   return out;
 }
 function srcOf(b) { return b.sources && b.sources.length ? b.sources : ["term", "lp"]; }
-function sumIn(list, s, e, src) {
-  var t = 0n;
-  for (var i = 0; i < list.length; i++) if (list[i].t >= s && list[i].t < e && src.indexOf(list[i].src) >= 0) t += list[i].a;
+// LP counts the OSG side (osgValue / 2) unless the batch sets lpFull.
+function sumIn(list, s, e, b) {
+  var src = srcOf(b), t = 0n;
+  for (var i = 0; i < list.length; i++) {
+    var x = list[i];
+    if (x.t >= s && x.t < e && src.indexOf(x.src) >= 0) t += x.src === "lp" && !b.lpFull ? x.a / 2n : x.a;
+  }
   return t;
 }
+function isOpen(b) { return b.open && (!b.validUntil || Date.now() < Date.parse(b.validUntil)); }
 function winOf(b) { return [Math.floor(Date.parse(b.start) / 1000), Math.floor(Date.parse(b.end) / 1000)]; }
 async function directsOf(lens, w) {
   var k = String(w).toLowerCase();
@@ -165,7 +170,7 @@ async function teamNew(w, b, stopAt, lens, term, lp) {
   for (var d = 0; d < dl.length; d++) {
     var list;
     try { list = await openPositions(dl[d].wallet, term, lp); } catch (e) { continue; }
-    t += sumIn(list, wv[0], wv[1], srcOf(b));
+    t += sumIn(list, wv[0], wv[1], b);
     if (stopAt && t >= stopAt) break;
   }
   return t;
@@ -173,20 +178,21 @@ async function teamNew(w, b, stopAt, lens, term, lp) {
 async function meets(w, r, lens, term, lp) {
   if (r.type === "self") {
     var wr = winOf(r);
-    return sumIn(await openPositions(w, term, lp), wr[0], wr[1], srcOf(r)) >= E.parseUnits(String(r.minSelf), 18);
+    return sumIn(await openPositions(w, term, lp), wr[0], wr[1], r) >= E.parseUnits(String(r.minSelf), 18);
   }
   var need = E.parseUnits(String(r.minNew), 18);
   return (await teamNew(w, r, need, lens, term, lp)) >= need;
 }
 
 async function isQualified(addr, batchId) {
-  var okMap = load(KEY_OK, {});
-  var k = batchId + ":" + addr;
-  if (okMap[k]) return { ok: true, cached: true };
   var cfg = await getCfg();
   if (!cfg) return { ok: false, why: "Rules file not reachable" };
+  var okMap = load(KEY_OK, {});
+  var k = batchId + ":" + addr;
+  var bb = (cfg.batches || []).filter(function (x) { return x.id === batchId; })[0];
+  if (okMap[k] && bb && isOpen(bb)) return { ok: true, cached: true };
   var all = cfg.batches || [];
-  var b = all.filter(function (x) { return x.id === batchId && x.open; })[0];
+  var b = all.filter(function (x) { return x.id === batchId && isOpen(x); })[0];
   if (!b) return { ok: false, why: "This pass is not valid for this event" };
   if ((cfg.revoked || []).map(function (x) { return String(x).toLowerCase(); }).indexOf(addr) >= 0) return { ok: false, why: "Pass revoked" };
   var w0 = winOf(b);
@@ -199,7 +205,7 @@ async function isQualified(addr, batchId) {
   var total = 0n, need = 0n, unit = " OSG";
   if (kind === "self") {
     need = E.parseUnits(String(b.minSelf), 18);
-    total = sumIn(await openPositions(addr, term, lp), s, e, srcOf(b));
+    total = sumIn(await openPositions(addr, term, lp), s, e, b);
   } else if (kind === "directs") {
     unit = " directs";
     need = BigInt(b.minDirects || 3);
