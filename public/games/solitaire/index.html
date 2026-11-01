@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>OSG Solitaire</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0B0A1F;--ink:#F4F2FF;--mute:#A9A6C8;--line:rgba(255,255,255,.1);--gold:#F5B83D;--gold2:#FFD97A;--cw:46px;--ch:64px}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{background:var(--bg)}
+body{font-family:Inter,system-ui,sans-serif;color:var(--ink);min-height:100vh;overflow-x:hidden;background:radial-gradient(600px 400px at 90% 0%,rgba(16,185,129,.22),transparent 60%),radial-gradient(500px 400px at 0% 50%,rgba(59,130,246,.22),transparent 60%),var(--bg)}
+.wrap{max-width:480px;margin:0 auto;padding:0 12px 28px}
+header{display:flex;align-items:center;gap:10px;padding:14px 2px}
+header img{width:34px;height:34px}
+header b{font-weight:900;font-size:19px}
+header b i{font-style:normal;color:var(--gold2)}
+header a{margin-left:auto;font-size:13px;font-weight:700;text-decoration:none;color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:8px 12px}
+.trial{display:inline-block;font-size:11px;font-weight:900;letter-spacing:.16em;color:#120E2E;background:linear-gradient(90deg,var(--gold2),var(--gold));padding:5px 11px;border-radius:999px;margin-left:2px}
+h1{font-size:28px;font-weight:900;margin:8px 2px 2px}
+.sub{color:var(--mute);font-size:13.5px;margin:0 2px 12px}
+.hud{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:7px;margin-bottom:8px}
+.box{background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:14px;padding:7px 9px}
+.box small{display:block;font-size:9.5px;letter-spacing:.12em;color:var(--mute);font-weight:800}
+.box b{font-size:18px;font-weight:900}
+#score{color:var(--gold2);display:inline-block}
+.bump{animation:bump .35s}
+@keyframes bump{40%{transform:scale(1.3)}}
+.tools{display:flex;gap:7px;margin-bottom:10px}
+.tools button{flex:1;border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--ink);border-radius:11px;padding:8px 6px;font:700 12.5px Inter,sans-serif;cursor:pointer}
+.tools button.gold{background:linear-gradient(90deg,var(--gold2),var(--gold));color:#120E2E;border:0}
+.felt{border-radius:18px;padding:10px 8px 14px;background:radial-gradient(120% 80% at 50% 0%,#14532D,#0B3B22 60%,#072A18);border:1px solid rgba(52,211,153,.25);box-shadow:0 14px 40px rgba(0,0,0,.45);position:relative;min-height:430px;user-select:none}
+.row{display:grid;grid-template-columns:repeat(7,var(--cw));justify-content:space-between}
+.slot{position:relative;width:var(--cw);height:var(--ch);border-radius:7px;border:1.5px dashed rgba(255,255,255,.18)}
+.slot .lbl{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:20px;color:rgba(255,255,255,.18)}
+.tab{margin-top:14px;align-items:start}
+.col{position:relative;width:var(--cw);min-height:var(--ch)}
+.card{position:absolute;left:0;width:var(--cw);height:var(--ch);border-radius:7px;background:#fff;color:#111;box-shadow:0 2px 5px rgba(0,0,0,.35);cursor:pointer;overflow:hidden}
+.card .tl{position:absolute;left:4px;top:2px;font-weight:900;font-size:14px;line-height:1;text-align:center}
+.card .tl i{display:block;font-style:normal;font-size:12px}
+.card .mid{position:absolute;right:3px;bottom:2px;font-size:22px;line-height:1}
+.card.red{color:#DC2626}
+.card.back{background:linear-gradient(150deg,#7C3AED,#2563EB);border:2px solid #fff}
+.card.back:after{content:"";position:absolute;inset:0;background:url(../logo.png) center/55% no-repeat;opacity:.5}
+.card.sel{box-shadow:0 0 0 3px var(--gold2),0 0 14px rgba(255,217,122,.8)}
+.card.flash{animation:flash .5s}
+@keyframes flash{40%{box-shadow:0 0 0 3px #34D399,0 0 22px rgba(52,211,153,.9)}}
+.card.no{animation:no .35s}
+@keyframes no{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+.stock{cursor:pointer}
+.stock .lbl{font-size:18px}
+.float{position:fixed;pointer-events:none;font-weight:900;font-size:20px;color:var(--gold2);text-shadow:0 2px 10px rgba(0,0,0,.6);animation:up 1s ease-out forwards;z-index:9}
+@keyframes up{0%{opacity:0;transform:translate(-50%,0) scale(.6)}20%{opacity:1;transform:translate(-50%,-14px) scale(1.15)}100%{opacity:0;transform:translate(-50%,-60px) scale(1)}}
+.spark{position:fixed;width:8px;height:8px;border-radius:2px;pointer-events:none;z-index:8}
+.banner{position:fixed;left:50%;top:40%;transform:translate(-50%,-50%);font-size:32px;font-weight:900;white-space:nowrap;pointer-events:none;z-index:10;text-shadow:0 4px 24px rgba(0,0,0,.7);animation:ban 1.4s ease-out forwards}
+@keyframes ban{0%{opacity:0;transform:translate(-50%,-50%) scale(.5)}20%{opacity:1;transform:translate(-50%,-50%) scale(1.1)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-60%) scale(1)}}
+.end{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(7,42,24,.86);border-radius:18px;z-index:5;text-align:center;padding:20px}
+.end h3{font-size:16px;color:#BBF7D0}
+.end b{display:block;font-size:36px;color:var(--gold2);margin:6px 0}
+.end p{color:#D1FAE5;font-size:13px;line-height:1.6}
+.btn{margin-top:14px;border:0;border-radius:12px;padding:12px 20px;font:800 15px Inter,sans-serif;background:linear-gradient(90deg,var(--gold2),var(--gold));color:#120E2E;cursor:pointer}
+footer{color:var(--mute);font-size:11.5px;line-height:1.55;margin-top:20px;border-top:1px solid var(--line);padding-top:14px}
+</style></head><body><div class="wrap">
+<header><img src="../logo.png" alt="OSG logo"><b>OSG <i>Games</i></b><a href="../">← All games</a></header>
+<span class="trial">FREE TRIAL</span>
+<h1>OSG Solitaire</h1>
+<p class="sub">Classic Klondike. Just tap a card — it jumps to the best place. Build each suit from A to K.</p>
+<div class="hud">
+  <div class="box"><small>SCORE</small><b id="score">0</b></div>
+  <div class="box"><small>MOVES</small><b id="moves">0</b></div>
+  <div class="box"><small>TIME</small><b id="time">0:00</b></div>
+</div>
+<div class="tools"><button id="undo" type="button">↶ Undo</button><button id="hint" type="button">💡 Hint</button><button id="auto" class="gold" type="button" style="display:none">⚡ Auto finish</button><button id="new" type="button">New deal</button><button id="snd" type="button" style="flex:0 0 44px">🔊</button></div>
+<div class="felt" id="felt">
+  <div class="row" id="top"></div>
+  <div class="row tab" id="tab"></div>
+  <div class="end" id="end"></div>
+</div>
+<footer>Trial version: no login, nothing is saved to a server. Free to play: no betting, no paid entry, no prizes. Points are for fun only.</footer>
+</div>
+<script>
+// Scoring (points are for fun only):
+//   card to a foundation = +10, waste to tableau = +5, turning a hidden card = +5
+//   win bonus = 1,000 + time bonus (up to 1,000, falls 2 points per second)
+var SUITS=["♠","♥","♦","♣"], RANKS=["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
+var S, hist=[], sound=true, actx=null, sel=null, clock=null;
+function $(i){return document.getElementById(i);}
+function red(c){return c.s===1||c.s===2;}
+function clone(o){return JSON.parse(JSON.stringify(o));}
+function sizeCards(){var w=Math.min(window.innerWidth,480)-24-16;var cw=Math.floor((w-6*5)/7);cw=Math.max(38,Math.min(60,cw));document.documentElement.style.setProperty("--cw",cw+"px");document.documentElement.style.setProperty("--ch",Math.round(cw*1.4)+"px");return cw;}
+var CW=sizeCards(); window.addEventListener("resize",function(){CW=sizeCards();render();});
+
+// ---------- sound & effects ----------
+function tone(freqs,dur,type,vol){if(!sound)return;try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();var t=actx.currentTime;freqs.forEach(function(f,i){var o=actx.createOscillator(),g=actx.createGain();o.type=type||"sine";o.frequency.value=f;g.gain.setValueAtTime(0.0001,t+i*dur);g.gain.exponentialRampToValueAtTime(vol||0.16,t+i*dur+0.01);g.gain.exponentialRampToValueAtTime(0.0001,t+(i+1)*dur);o.connect(g);g.connect(actx.destination);o.start(t+i*dur);o.stop(t+(i+1)*dur+0.02);});}catch(e){}}
+function buzz(ms){try{navigator.vibrate&&navigator.vibrate(ms);}catch(e){}}
+function floatText(x,y,txt){var d=document.createElement("div");d.className="float";d.textContent=txt;d.style.left=x+"px";d.style.top=y+"px";document.body.appendChild(d);setTimeout(function(){d.remove();},1000);}
+function sparks(x,y,n){var cols=["#FFD97A","#F5B83D","#A78BFA","#60A5FA","#34D399","#F472B6"];for(var i=0;i<n;i++){(function(i){var s=document.createElement("div");s.className="spark";s.style.background=cols[i%cols.length];s.style.left=x+"px";s.style.top=y+"px";document.body.appendChild(s);var a=Math.random()*Math.PI*2,v=40+Math.random()*80;s.animate([{transform:"translate(0,0)",opacity:1},{transform:"translate("+Math.cos(a)*v+"px,"+(Math.sin(a)*v+30)+"px) rotate("+(Math.random()*540)+"deg)",opacity:0}],{duration:600+Math.random()*400,easing:"cubic-bezier(.2,.7,.4,1)"});setTimeout(function(){s.remove();},1050);})(i);}}
+function banner(txt,color){var d=document.createElement("div");d.className="banner";d.textContent=txt;d.style.color=color||"#FFD97A";document.body.appendChild(d);setTimeout(function(){d.remove();},1400);}
+function confetti(){for(var k=0;k<8;k++)setTimeout(function(){sparks(Math.random()*window.innerWidth,window.innerHeight*0.35,18);},k*140);}
+$("snd").onclick=function(){sound=!sound;this.textContent=sound?"🔊":"🔇";};
+
+// ---------- game state ----------
+function deal(){
+  var deck=[];for(var s=0;s<4;s++)for(var r=0;r<13;r++)deck.push({s:s,r:r,up:false,id:s*13+r});
+  for(var i=deck.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=deck[i];deck[i]=deck[j];deck[j]=t;}
+  var tab=[];for(var c=0;c<7;c++){tab.push([]);for(var k=0;k<=c;k++){var card=deck.pop();card.up=(k===c);tab[c].push(card);}}
+  S={stock:deck,waste:[],found:[[],[],[],[]],tab:tab,score:0,moves:0,t0:0,won:false};
+  hist=[];sel=null;$("end").style.display="none";clearInterval(clock);$("time").textContent="0:00";
+  render();updHud();
+}
+function startClock(){if(S.t0)return;S.t0=Date.now();clock=setInterval(function(){var s=Math.floor((Date.now()-S.t0)/1000);$("time").textContent=Math.floor(s/60)+":"+String(s%60).padStart(2,"0");},500);}
+function save(){hist.push(clone(S));if(hist.length>200)hist.shift();}
+var shown=0;
+function addScore(p,x,y){
+  if(!p)return;S.score=Math.max(0,S.score+p);var from=shown,to=S.score,t0=performance.now();
+  (function step(now){var k=Math.min(1,(now-t0)/400);shown=Math.round(from+(to-from)*k);$("score").textContent=shown.toLocaleString("en-US");if(k<1)requestAnimationFrame(step);})(t0);
+  var el=$("score");el.classList.remove("bump");void el.offsetWidth;el.classList.add("bump");
+  if(x!==undefined)floatText(x,y,(p>0?"+":"")+p);
+}
+function updHud(){$("moves").textContent=S.moves;shown=S.score;$("score").textContent=S.score.toLocaleString("en-US");
+  var canAuto=!S.stock.length&&!S.waste.length&&S.tab.every(function(col){return col.every(function(c){return c.up;});})&&!S.won;
+  $("auto").style.display=canAuto?"":"none";}
+
+// ---------- rules ----------
+function canFound(card){var f=S.found[card.s];return f.length===card.r;}
+function canTab(card,col){var t=S.tab[col];if(!t.length)return card.r===12;var top=t[t.length-1];return top.up&&red(top)!==red(card)&&top.r===card.r+1;}
+
+// ---------- rendering (with FLIP animation) ----------
+function cardEl(card){
+  var d=document.createElement("div");d.dataset.id=card.id;
+  if(!card.up){d.className="card back";return d;}
+  d.className="card"+(red(card)?" red":"");
+  d.innerHTML='<div class="tl">'+RANKS[card.r]+'<i>'+SUITS[card.s]+'</i></div><div class="mid">'+SUITS[card.s]+'</div>';
+  return d;
+}
+function rects(){var m={};document.querySelectorAll(".card[data-id]").forEach(function(e){m[e.dataset.id]=e.getBoundingClientRect();});return m;}
+function render(anim){
+  var before=anim?rects():null;
+  var top=$("top"),tab=$("tab");top.innerHTML="";tab.innerHTML="";
+  // stock
+  var st=document.createElement("div");st.className="slot stock";
+  if(S.stock.length){var b=cardEl({up:false,id:"stock"});b.removeAttribute("data-id");st.appendChild(b);}
+  else st.innerHTML='<div class="lbl">↻</div>';
+  st.onclick=drawStock;top.appendChild(st);
+  // waste (show top card)
+  var w=document.createElement("div");w.className="slot";w.style.border="0";
+  if(S.waste.length){var wc=S.waste[S.waste.length-1];var e=cardEl(wc);e.onclick=function(){tapWaste();};w.appendChild(e);}
+  top.appendChild(w);
+  top.appendChild(document.createElement("div"));
+  // foundations
+  for(var f=0;f<4;f++){(function(f){var s=document.createElement("div");s.className="slot";s.innerHTML='<div class="lbl">'+SUITS[f]+'</div>';
+    var pile=S.found[f];if(pile.length){var e=cardEl(pile[pile.length-1]);s.appendChild(e);}
+    top.appendChild(s);})(f);}
+  // tableau
+  var ch=Math.round(CW*1.4),downGap=Math.round(ch*0.16),upGap=Math.round(ch*0.4);
+  for(var c=0;c<7;c++){(function(c){
+    var col=document.createElement("div");col.className="col";var y=0;
+    if(!S.tab[c].length){var s=document.createElement("div");s.className="slot";s.innerHTML='<div class="lbl">K</div>';col.appendChild(s);}
+    S.tab[c].forEach(function(card,i){var e=cardEl(card);e.style.top=y+"px";e.style.zIndex=i+1;
+      if(card.up)e.onclick=function(ev){ev.stopPropagation();tapTab(c,i);};
+      if(sel&&sel.col===c&&i>=sel.i)e.classList.add("sel");
+      col.appendChild(e);y+=card.up?upGap:downGap;});
+    col.style.height=(y+ch)+"px";
+    tab.appendChild(col);})(c);}
+  if(before){document.querySelectorAll(".card[data-id]").forEach(function(e){var o=before[e.dataset.id];if(!o)return;var n=e.getBoundingClientRect();var dx=o.left-n.left,dy=o.top-n.top;if(dx||dy){var z=e.style.zIndex;e.style.zIndex=200+(Number(z)||0);e.animate([{transform:"translate("+dx+"px,"+dy+"px)"},{transform:"translate(0,0)"}],{duration:260,easing:"cubic-bezier(.2,.8,.3,1)"}).onfinish=function(){e.style.zIndex=z;};}});}
+}
+function elFor(card){return document.querySelector('.card[data-id="'+card.id+'"]');}
+function center(el){if(!el)return [window.innerWidth/2,window.innerHeight/2];var r=el.getBoundingClientRect();return [r.left+r.width/2,r.top+r.height/2];}
+
+// ---------- moves ----------
+function afterMove(points,card,flashFound){
+  S.moves++;
+  // turn up hidden cards
+  var flips=0;S.tab.forEach(function(col){if(col.length&&!col[col.length-1].up){col[col.length-1].up=true;flips++;}});
+  render(true);
+  var el=card?elFor(card):null,p=center(el);
+  if(el){el.classList.add("flash");}
+  var total=points+flips*5;addScore(total,p[0],p[1]-24);
+  if(flashFound){tone([660,880],0.07,"sine",0.18);sparks(p[0],p[1],10);buzz(20);}else tone([520],0.06,"triangle",0.1);
+  if(flips)setTimeout(function(){tone([780],0.05,"triangle",0.1);},120);
+  var fc=S.found.reduce(function(a,f){return a+f.length;},0);
+  if(flashFound&&S.found[card.s].length===13)banner(SUITS[card.s]+" complete!", red(card)?"#F87171":"#E5E7EB");
+  updHud();
+  if(fc===52)win();
+}
+function moveTo(src,card,count){
+  // src: {type:'waste'} or {type:'tab',col,i}
+  startClock();
+  // 1. single card to foundation
+  if(count===1&&canFound(card)){save();take(src,1);S.found[card.s].push(card);sel=null;afterMove(10,card,true);return true;}
+  // 2. to a tableau column (prefer non-empty, then empty)
+  var order=[];for(var c=0;c<7;c++)if(!(src.type==="tab"&&src.col===c))order.push(c);
+  order.sort(function(a,b){return (S.tab[a].length?0:1)-(S.tab[b].length?0:1);});
+  for(var k=0;k<order.length;k++){var c2=order[k];
+    if(canTab(card,c2)){
+      // don't move a King from the bottom of a column to another empty column (no use)
+      if(src.type==="tab"&&src.i===0&&!S.tab[c2].length)continue;
+      save();var cards=take(src,count);S.tab[c2]=S.tab[c2].concat(cards);sel=null;afterMove(src.type==="waste"?5:0,card,false);return true;}
+  }
+  return false;
+}
+function take(src,count){if(src.type==="waste")return [S.waste.pop()];return S.tab[src.col].splice(src.i,count);}
+function nope(card){var e=elFor(card);if(e){e.classList.remove("no");void e.offsetWidth;e.classList.add("no");}tone([200,170],0.07,"square",0.04);buzz([10,25,10]);}
+function tapTab(col,i){var t=S.tab[col],card=t[i];if(!moveTo({type:"tab",col:col,i:i},card,t.length-i))nope(card);}
+function tapWaste(){var card=S.waste[S.waste.length-1];if(!card)return;if(!moveTo({type:"waste"},card,1))nope(card);}
+function drawStock(){
+  startClock();save();
+  if(S.stock.length){var c=S.stock.pop();c.up=true;S.waste.push(c);tone([340],0.05,"triangle",0.08);}
+  else if(S.waste.length){S.stock=S.waste.reverse().map(function(c){c.up=false;return c;});S.waste=[];tone([300,250],0.06,"triangle",0.08);}
+  else{hist.pop();return;}
+  S.moves++;render(true);updHud();
+}
+$("undo").onclick=function(){if(!hist.length)return;S=hist.pop();sel=null;render(true);updHud();tone([400,330],0.05,"triangle",0.08);};
+$("new").onclick=function(){deal();};
+$("hint").onclick=function(){
+  var tries=[];if(S.waste.length)tries.push({type:"waste",card:S.waste[S.waste.length-1],n:1});
+  S.tab.forEach(function(col,c){col.forEach(function(card,i){if(card.up)tries.push({type:"tab",col:c,i:i,card:card,n:col.length-i});});});
+  for(var k=0;k<tries.length;k++){var t=tries[k];
+    if(t.n===1&&canFound(t.card)){flashHint(t.card);return;}
+    for(var c=0;c<7;c++){if(t.type==="tab"&&t.col===c)continue;if(canTab(t.card,c)&&!(t.type==="tab"&&t.i===0&&!S.tab[c].length)){flashHint(t.card);return;}}
+  }
+  banner(S.stock.length||S.waste.length?"Tap the deck ↻":"No moves left","#A7F3D0");
+};
+function flashHint(card){var e=elFor(card);if(!e)return;e.classList.add("sel");setTimeout(function(){e.classList.remove("sel");},1200);}
+$("auto").onclick=function(){
+  $("auto").style.display="none";
+  (function step(){
+    for(var c=0;c<7;c++){var col=S.tab[c];if(!col.length)continue;var card=col[col.length-1];if(canFound(card)){save();col.pop();S.found[card.s].push(card);afterMove(10,card,true);if(!S.won)setTimeout(step,120);return;}}
+  })();
+};
+function win(){
+  S.won=true;clearInterval(clock);
+  var secs=Math.floor((Date.now()-S.t0)/1000),bonus=1000+Math.max(0,1000-secs*2);
+  confetti();tone([523,659,784,1047,1319],0.13,"sine",0.2);buzz([50,60,50,60,80]);banner("🏆 You win!");
+  setTimeout(function(){addScore(bonus);
+    var best=0;try{best=Number(localStorage.getItem("osgSolBest"))||0;}catch(e){}
+    var nb=S.score>best;if(nb)try{localStorage.setItem("osgSolBest",String(S.score));}catch(e){}
+    var e=$("end");e.innerHTML="<div><h3>Solved in "+S.moves+" moves · "+Math.floor(secs/60)+":"+String(secs%60).padStart(2,"0")+"</h3><b>"+S.score.toLocaleString("en-US")+"</b><p>Includes win bonus +"+bonus.toLocaleString("en-US")+(nb?"<br>New best on this device! 🎉":"")+"</p><button class='btn' id='again'>New deal</button></div>";
+    e.style.display="flex";$("again").onclick=function(){deal();};
+  },900);
+}
+deal();
+</script></body></html>

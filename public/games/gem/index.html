@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>OSG Gem Match</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0B0A1F;--ink:#F4F2FF;--mute:#A9A6C8;--line:rgba(255,255,255,.1);--gold:#F5B83D;--gold2:#FFD97A}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{background:var(--bg)}
+body{font-family:Inter,system-ui,sans-serif;color:var(--ink);min-height:100vh;overflow-x:hidden;background:radial-gradient(600px 400px at 90% 0%,rgba(236,72,153,.28),transparent 60%),radial-gradient(500px 400px at 0% 50%,rgba(59,130,246,.24),transparent 60%),var(--bg)}
+.wrap{max-width:480px;margin:0 auto;padding:0 14px 28px}
+header{display:flex;align-items:center;gap:10px;padding:14px 0}
+header img{width:34px;height:34px}
+header b{font-weight:900;font-size:19px}
+header b i{font-style:normal;color:var(--gold2)}
+header a{margin-left:auto;font-size:13px;font-weight:700;text-decoration:none;color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:8px 12px}
+.trial{display:inline-block;font-size:11px;font-weight:900;letter-spacing:.16em;color:#120E2E;background:linear-gradient(90deg,var(--gold2),var(--gold));padding:5px 11px;border-radius:999px}
+h1{font-size:28px;font-weight:900;margin:8px 0 2px}
+.sub{color:var(--mute);font-size:13.5px;margin-bottom:12px}
+.hud{display:grid;grid-template-columns:1.3fr 1fr 1fr 1fr;gap:7px;margin-bottom:8px}
+.box{background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:14px;padding:7px 9px}
+.box small{display:block;font-size:9.5px;letter-spacing:.12em;color:var(--mute);font-weight:800}
+.box b{font-size:18px;font-weight:900}
+#score{color:var(--gold2);display:inline-block}
+.bump{animation:bump .35s}
+@keyframes bump{40%{transform:scale(1.3)}}
+#moves.low{color:#F87171}
+.goal{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--mute);font-weight:700;margin-bottom:10px}
+.goal .bar{flex:1;height:8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}
+.goal .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#34D399,var(--gold2),#F472B6);transition:width .4s}
+.snd{background:none;border:1px solid var(--line);color:var(--ink);border-radius:10px;padding:4px 8px;font-size:13px;cursor:pointer}
+.board{position:relative;width:100%;aspect-ratio:1;border-radius:18px;overflow:hidden;background:rgba(20,16,52,.85);border:1px solid rgba(167,139,250,.3);box-shadow:0 14px 40px rgba(0,0,0,.45),inset 0 0 40px rgba(139,92,246,.15);touch-action:none;user-select:none}
+.board:before{content:"";position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);background-size:12.5% 12.5%}
+.t{position:absolute;width:12.5%;height:12.5%;padding:3px;transition:top .26s cubic-bezier(.3,1.3,.6,1),left .2s ease}
+.t span{display:flex;width:100%;height:100%;align-items:center;justify-content:center;border-radius:12px;font-size:min(7vw,30px);transition:transform .15s}
+.g0 span{background:radial-gradient(circle at 30% 25%,#FDE68A,#F59E0B 70%)}
+.g1 span{background:radial-gradient(circle at 30% 25%,#BAE6FD,#3B82F6 70%)}
+.g2 span{background:radial-gradient(circle at 30% 25%,#BBF7D0,#10B981 70%)}
+.g3 span{background:radial-gradient(circle at 30% 25%,#FBCFE8,#EC4899 70%)}
+.g4 span{background:radial-gradient(circle at 30% 25%,#DDD6FE,#8B5CF6 70%)}
+.g5 span{background:radial-gradient(circle at 30% 25%,#FECACA,#EF4444 70%)}
+.t span{box-shadow:inset 0 -3px 0 rgba(0,0,0,.18),inset 0 2px 0 rgba(255,255,255,.35)}
+.t.sel span{transform:scale(1.12);box-shadow:0 0 0 3px #fff,0 0 18px rgba(255,255,255,.7)}
+.t.pop span{animation:pop .28s forwards}
+@keyframes pop{50%{transform:scale(1.35);filter:brightness(1.6)}100%{transform:scale(0);opacity:0}}
+.t.no span{animation:no .35s}
+@keyframes no{25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+.t.hint span{animation:hint 1s infinite}
+@keyframes hint{50%{transform:scale(1.12);filter:brightness(1.3)}}
+.float{position:fixed;pointer-events:none;font-weight:900;font-size:22px;color:var(--gold2);text-shadow:0 2px 10px rgba(0,0,0,.6);animation:up 1s ease-out forwards;z-index:9}
+.float.big{font-size:28px;color:#FB923C}
+@keyframes up{0%{opacity:0;transform:translate(-50%,0) scale(.6)}20%{opacity:1;transform:translate(-50%,-14px) scale(1.15)}100%{opacity:0;transform:translate(-50%,-70px) scale(1)}}
+.spark{position:fixed;width:8px;height:8px;border-radius:2px;pointer-events:none;z-index:8}
+.banner{position:fixed;left:50%;top:40%;transform:translate(-50%,-50%);font-size:34px;font-weight:900;white-space:nowrap;pointer-events:none;z-index:10;text-shadow:0 4px 24px rgba(0,0,0,.7);animation:ban 1.3s ease-out forwards}
+@keyframes ban{0%{opacity:0;transform:translate(-50%,-50%) scale(.5)}20%{opacity:1;transform:translate(-50%,-50%) scale(1.1)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-60%) scale(1)}}
+.end{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(11,10,31,.82);backdrop-filter:blur(3px);z-index:5;text-align:center;padding:20px}
+.end h3{font-size:16px;color:var(--mute)}
+.end b{display:block;font-size:36px;color:var(--gold2);margin:6px 0}
+.end p{color:var(--mute);font-size:13px;line-height:1.6}
+.btn{margin-top:14px;border:0;border-radius:12px;padding:12px 20px;font:800 15px Inter,sans-serif;background:linear-gradient(90deg,var(--gold2),var(--gold));color:#120E2E;cursor:pointer}
+footer{color:var(--mute);font-size:11.5px;line-height:1.55;margin-top:20px;border-top:1px solid var(--line);padding-top:14px}
+</style></head><body><div class="wrap">
+<header><img src="../logo.png" alt="OSG logo"><b>OSG <i>Games</i></b><a href="../">← All games</a></header>
+<span class="trial">FREE TRIAL</span>
+<h1>OSG Gem Match</h1>
+<p class="sub">Swipe or tap two gems to swap them. Line up 3 or more of the same gem. Chain reactions score more!</p>
+<div class="hud">
+  <div class="box"><small>SCORE</small><b id="score">0</b></div>
+  <div class="box"><small>LEVEL</small><b id="lvl">1</b></div>
+  <div class="box"><small>MOVES</small><b id="moves">20</b></div>
+  <div class="box"><small>BEST</small><b id="best">—</b></div>
+</div>
+<div class="goal"><span id="goalTxt">Goal 2,000</span><div class="bar"><i id="gbar"></i></div><button class="snd" id="snd" type="button">🔊</button></div>
+<div class="board" id="board"><div class="end" id="end"></div></div>
+<footer>Trial version: no login, nothing is saved to a server. Free to play: no betting, no paid entry, no prizes. Points are for fun only.</footer>
+</div>
+<script>
+// Scoring (points are for fun only):
+//   each gem cleared = 20 x chain step   (chain = cascade number 1,2,3...)
+//   line of 4 = +100 bonus, line of 5+ = +300 bonus
+//   level goal reached = 50 points for each move left
+var N=8, GEMS=["🪙","💎","🍀","💖","🔮","🔥"], T=GEMS.length;
+var board=document.getElementById("board"), grid=[], busy=false, sel=null, sound=true, actx=null;
+var st={score:0,level:1,moves:20,goal:2000,levelStart:0};
+var hintTimer=null;
+function $(i){return document.getElementById(i);}
+function sleep(ms){return new Promise(function(r){setTimeout(r,ms);});}
+function getBest(){try{return Number(localStorage.getItem("osgGemBest"))||0;}catch(e){return 0;}}
+function setBest(v){try{localStorage.setItem("osgGemBest",String(v));}catch(e){}}
+
+// ---------- sound & effects ----------
+function tone(freqs,dur,type,vol){
+  if(!sound)return;
+  try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();var t=actx.currentTime;
+    freqs.forEach(function(f,i){var o=actx.createOscillator(),g=actx.createGain();o.type=type||"sine";o.frequency.value=f;
+      g.gain.setValueAtTime(0.0001,t+i*dur);g.gain.exponentialRampToValueAtTime(vol||0.18,t+i*dur+0.01);g.gain.exponentialRampToValueAtTime(0.0001,t+(i+1)*dur);
+      o.connect(g);g.connect(actx.destination);o.start(t+i*dur);o.stop(t+(i+1)*dur+0.02);});
+  }catch(e){}
+}
+function buzz(ms){try{navigator.vibrate&&navigator.vibrate(ms);}catch(e){}}
+$("snd").onclick=function(){sound=!sound;this.textContent=sound?"🔊":"🔇";};
+function floatText(x,y,txt,cls){var d=document.createElement("div");d.className="float "+(cls||"");d.textContent=txt;d.style.left=x+"px";d.style.top=y+"px";document.body.appendChild(d);setTimeout(function(){d.remove();},1000);}
+function sparks(x,y,n,colors){
+  var cols=colors||["#FFD97A","#F5B83D","#A78BFA","#60A5FA","#34D399","#F472B6"];
+  for(var i=0;i<n;i++){(function(i){var s=document.createElement("div");s.className="spark";s.style.background=cols[i%cols.length];s.style.left=x+"px";s.style.top=y+"px";document.body.appendChild(s);
+    var a=Math.random()*Math.PI*2,v=40+Math.random()*80;
+    s.animate([{transform:"translate(0,0)",opacity:1},{transform:"translate("+Math.cos(a)*v+"px,"+(Math.sin(a)*v+30)+"px) rotate("+(Math.random()*540)+"deg)",opacity:0}],{duration:600+Math.random()*400,easing:"cubic-bezier(.2,.7,.4,1)"});
+    setTimeout(function(){s.remove();},1050);})(i);}
+}
+function banner(txt,color){var d=document.createElement("div");d.className="banner";d.textContent=txt;d.style.color=color||"#FFD97A";document.body.appendChild(d);setTimeout(function(){d.remove();},1300);}
+function confetti(){for(var k=0;k<6;k++)setTimeout(function(){sparks(Math.random()*window.innerWidth,window.innerHeight*0.35,16);},k*150);}
+var COLORS=[["#FDE68A","#F59E0B"],["#BAE6FD","#3B82F6"],["#BBF7D0","#10B981"],["#FBCFE8","#EC4899"],["#DDD6FE","#8B5CF6"],["#FECACA","#EF4444"]];
+
+// ---------- score ----------
+var shown=0;
+function addScore(p){
+  st.score+=p;var from=shown,to=st.score,t0=performance.now();
+  (function step(now){var k=Math.min(1,(now-t0)/400);shown=Math.round(from+(to-from)*k);$("score").textContent=shown.toLocaleString("en-US");if(k<1)requestAnimationFrame(step);})(t0);
+  bump($("score"));drawGoal();
+}
+function bump(el){el.classList.remove("bump");void el.offsetWidth;el.classList.add("bump");}
+function drawGoal(){var got=st.score-st.levelStart;$("gbar").style.width=Math.min(100,got/st.goal*100)+"%";$("goalTxt").textContent="Goal "+Math.min(got,st.goal).toLocaleString("en-US")+" / "+st.goal.toLocaleString("en-US");}
+function drawHud(){$("lvl").textContent=st.level;$("moves").textContent=st.moves;$("moves").className=st.moves<=5?"low":"";var b=getBest();$("best").textContent=b?b.toLocaleString("en-US"):"—";drawGoal();}
+
+// ---------- tiles ----------
+function place(tile,r,c){tile.el.style.top=(r*12.5)+"%";tile.el.style.left=(c*12.5)+"%";}
+function makeTile(t,r,c,fromRow){
+  var el=document.createElement("div");el.className="t g"+t;el.innerHTML="<span>"+GEMS[t]+"</span>";
+  var tile={t:t,el:el};board.appendChild(el);
+  place(tile,fromRow===undefined?r:fromRow,c);
+  return tile;
+}
+function types(){return grid.map(function(row){return row.map(function(x){return x?x.t:-1;});});}
+function findMatches(g){
+  var set=new Set(),runs=[];
+  for(var r=0;r<N;r++){var c=0;while(c<N){var e=c;while(e+1<N&&g[r][e+1]===g[r][c]&&g[r][c]>=0)e++;if(e-c+1>=3){runs.push(e-c+1);for(var k=c;k<=e;k++)set.add(r*N+k);}c=e+1;}}
+  for(var c2=0;c2<N;c2++){var r2=0;while(r2<N){var e2=r2;while(e2+1<N&&g[e2+1][c2]===g[r2][c2]&&g[r2][c2]>=0)e2++;if(e2-r2+1>=3){runs.push(e2-r2+1);for(var k2=r2;k2<=e2;k2++)set.add(k2*N+c2);}r2=e2+1;}}
+  return {set:set,runs:runs};
+}
+function findMove(){
+  var g=types();
+  for(var r=0;r<N;r++)for(var c=0;c<N;c++){
+    var dirs=[[0,1],[1,0]];
+    for(var d=0;d<2;d++){var r2=r+dirs[d][0],c2=c+dirs[d][1];if(r2>=N||c2>=N)continue;
+      var a=g[r][c];g[r][c]=g[r2][c2];g[r2][c2]=a;var m=findMatches(g).set.size;a=g[r][c];g[r][c]=g[r2][c2];g[r2][c2]=a;
+      if(m)return [[r,c],[r2,c2]];}
+  }
+  return null;
+}
+function fill(){
+  board.querySelectorAll(".t").forEach(function(e){e.remove();});
+  grid=[];
+  for(var r=0;r<N;r++){grid.push([]);for(var c=0;c<N;c++){
+    var t;do{t=Math.floor(Math.random()*T);}while((c>=2&&grid[r][c-1].t===t&&grid[r][c-2].t===t)||(r>=2&&grid[r-1][c].t===t&&grid[r-2][c].t===t));
+    grid[r].push(makeTile(t,r,c,r-N));
+  }}
+  requestAnimationFrame(function(){requestAnimationFrame(function(){for(var r=0;r<N;r++)for(var c=0;c<N;c++)place(grid[r][c],r,c);});});
+  if(!findMove())fill();
+}
+function cellCenter(r,c){var b=board.getBoundingClientRect();return [b.left+(c+.5)*b.width/N,b.top+(r+.5)*b.height/N];}
+
+// ---------- resolve matches, gravity, refill ----------
+async function resolve(){
+  var chain=0;
+  while(true){
+    var m=findMatches(types());if(!m.set.size)break;chain++;
+    var pts=m.set.size*20*chain,bonus=0,maxRun=Math.max.apply(null,m.runs);
+    if(maxRun>=5)bonus=300;else if(maxRun===4)bonus=100;
+    var sx=0,sy=0;
+    m.set.forEach(function(k){var r=Math.floor(k/N),c=k%N,tile=grid[r][c];tile.el.classList.add("pop");var p=cellCenter(r,c);sx+=p[0];sy+=p[1];sparks(p[0],p[1],5,COLORS[tile.t]);});
+    sx/=m.set.size;sy/=m.set.size;
+    floatText(sx,sy,"+"+(pts+bonus),chain>=2||bonus?"big":"");
+    tone([520+chain*90,700+chain*110],0.07,"sine",0.18);buzz(20);
+    if(chain===2)banner("Sweet chain! x2","#F472B6");
+    if(chain===3)banner("🔥 Super chain x3!","#FB923C");
+    if(chain>=4)banner("⚡ AMAZING x"+chain+"!","#FFD97A");
+    if(maxRun>=5&&chain<2)banner("💥 Line of "+maxRun+"!","#60A5FA");
+    else if(maxRun===4&&chain<2)banner("Line of 4!","#34D399");
+    addScore(pts+bonus);
+    await sleep(280);
+    m.set.forEach(function(k){var r=Math.floor(k/N),c=k%N;grid[r][c].el.remove();grid[r][c]=null;});
+    // gravity
+    for(var c=0;c<N;c++){
+      var w=N-1;
+      for(var r=N-1;r>=0;r--){if(grid[r][c]){if(w!==r){grid[w][c]=grid[r][c];grid[r][c]=null;}w--;}}
+      var missing=w+1;
+      for(var r2=w;r2>=0;r2--){grid[r2][c]=makeTile(Math.floor(Math.random()*T),r2,c,r2-missing);}
+    }
+    await new Promise(function(res){requestAnimationFrame(function(){requestAnimationFrame(function(){for(var r=0;r<N;r++)for(var c=0;c<N;c++)place(grid[r][c],r,c);res();});});});
+    await sleep(300);
+  }
+  return chain;
+}
+
+// ---------- input ----------
+function adjacent(a,b){return Math.abs(a[0]-b[0])+Math.abs(a[1]-b[1])===1;}
+function clearSel(){if(sel){var t=grid[sel[0]][sel[1]];if(t)t.el.classList.remove("sel");}sel=null;}
+function clearHint(){board.querySelectorAll(".hint").forEach(function(e){e.classList.remove("hint");});clearTimeout(hintTimer);hintTimer=setTimeout(showHint,6000);}
+function showHint(){if(busy)return;var mv=findMove();if(mv){grid[mv[0][0]][mv[0][1]].el.classList.add("hint");grid[mv[1][0]][mv[1][1]].el.classList.add("hint");}}
+async function trySwap(a,b){
+  if(busy||st.moves<=0)return;busy=true;clearSel();clearHint();
+  var A=grid[a[0]][a[1]],B=grid[b[0]][b[1]];
+  grid[a[0]][a[1]]=B;grid[b[0]][b[1]]=A;place(A,b[0],b[1]);place(B,a[0],a[1]);tone([440],0.05,"triangle",0.08);
+  await sleep(220);
+  if(!findMatches(types()).set.size){
+    grid[a[0]][a[1]]=A;grid[b[0]][b[1]]=B;place(A,a[0],a[1]);place(B,b[0],b[1]);
+    A.el.classList.add("no");B.el.classList.add("no");tone([200,170],0.08,"square",0.05);buzz([15,30,15]);
+    await sleep(380);A.el.classList.remove("no");B.el.classList.remove("no");busy=false;return;
+  }
+  st.moves--;drawHud();bump($("moves"));
+  await resolve();
+  if(!findMove()){banner("Shuffle!","#A78BFA");await sleep(500);fill();await sleep(400);}
+  busy=false;checkEnd();
+}
+var start=null;
+function cellAt(e){var b=board.getBoundingClientRect();var c=Math.floor((e.clientX-b.left)/(b.width/N)),r=Math.floor((e.clientY-b.top)/(b.height/N));if(r<0||c<0||r>=N||c>=N)return null;return [r,c];}
+board.addEventListener("pointerdown",function(e){if(e.target.closest(".end"))return;var cell=cellAt(e);if(!cell)return;start={cell:cell,x:e.clientX,y:e.clientY,moved:false};});
+board.addEventListener("pointermove",function(e){
+  if(!start||start.moved)return;var dx=e.clientX-start.x,dy=e.clientY-start.y;
+  if(Math.max(Math.abs(dx),Math.abs(dy))<18)return;start.moved=true;
+  var a=start.cell,b=Math.abs(dx)>Math.abs(dy)?[a[0],a[1]+(dx>0?1:-1)]:[a[0]+(dy>0?1:-1),a[1]];
+  if(b[0]>=0&&b[1]>=0&&b[0]<N&&b[1]<N)trySwap(a,b);
+});
+board.addEventListener("pointerup",function(){
+  if(!start)return;var s=start;start=null;if(s.moved||busy)return;
+  var cell=s.cell;
+  if(sel&&adjacent(sel,cell)){var a=sel;trySwap(a,cell);return;}
+  clearSel();sel=cell;grid[cell[0]][cell[1]].el.classList.add("sel");tone([600],0.04,"triangle",0.06);
+});
+
+// ---------- levels ----------
+function checkEnd(){
+  var got=st.score-st.levelStart;
+  if(got>=st.goal){
+    var bonus=st.moves*50;
+    busy=true;confetti();tone([523,659,784,1047],0.12,"sine",0.2);buzz([40,60,40]);banner("Level "+st.level+" clear!");
+    setTimeout(function(){addScore(bonus);showEnd("<h3>Level "+st.level+" complete! 🎉</h3><b>+"+bonus.toLocaleString("en-US")+"</b><p>Bonus for "+st.moves+" moves left</p><button class='btn' id='nx'>Next level ▶</button>",function(){
+      st.level++;st.goal=Math.round(2000+st.level*1000);st.moves=20;st.levelStart=st.score;drawHud();fill();busy=false;clearHint();banner("Level "+st.level,"#A78BFA");
+    });},700);
+  }else if(st.moves<=0){
+    busy=true;var best=getBest(),nb=st.score>best;if(nb)setBest(st.score);
+    if(nb){confetti();banner("🏆 New best!");}
+    setTimeout(function(){showEnd("<h3>Out of moves</h3><b>"+st.score.toLocaleString("en-US")+"</b><p>You reached level "+st.level+". "+(nb?"New best on this device! 🎉":"Best on this device: "+best.toLocaleString("en-US"))+"</p><button class='btn' id='nx'>Play again</button>",function(){newGame();});},500);
+  }
+}
+function showEnd(html,next){var e=$("end");e.innerHTML="<div>"+html+"</div>";e.style.display="flex";$("nx").onclick=function(){e.style.display="none";next();};}
+function newGame(){st={score:0,level:1,moves:20,goal:2000,levelStart:0};shown=0;$("score").textContent="0";drawHud();fill();busy=false;clearHint();}
+newGame();
+</script></body></html>
