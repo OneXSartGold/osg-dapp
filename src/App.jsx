@@ -2515,6 +2515,70 @@ function LpCalcBody({ polPerOsg, polUsd, unit, setUnit, amt, setAmt, scrollId, r
   );
 }
 
+// OSG Games teaser. The games portal will run on its own site, separate from
+// the DApp, so no game code ever runs next to wallet transactions. This card is
+// information only: no link yet, no OSG, no rewards.
+function GamesSoonCard() {
+  var tags = ["Solitaire", "Ludo", "Call Break", "Rummy", "Memory"];
+  return (
+    <div
+      style={{
+        position: "relative",
+        overflow: "hidden",
+        background: "linear-gradient(150deg,rgba(124,58,237,.22),rgba(37,99,235,.14) 55%," + C.card + ")",
+        border: "1px solid rgba(167,139,250,.28)",
+        borderRadius: 20,
+        padding: "16px 16px 14px",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ fontSize: 30, lineHeight: 1 }}>🎮</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 16, fontWeight: 800, color: C.txt }}>OSG Games</div>
+          <div style={{ fontSize: 12, color: C.txt2, marginTop: 2 }}>Free-to-play social games with wallet login</div>
+        </div>
+        <span
+          style={{
+            flex: "0 0 auto",
+            fontSize: 9.5,
+            letterSpacing: ".08em",
+            textTransform: "uppercase",
+            color: C.purple,
+            border: "1px solid rgba(167,139,250,.45)",
+            padding: "3px 8px",
+            borderRadius: 999,
+            whiteSpace: "nowrap",
+          }}
+        >
+          Coming soon
+        </span>
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 12 }}>
+        {tags.map(function (g) {
+          return (
+            <span
+              key={g}
+              style={{
+                fontSize: 11.5,
+                color: C.txt,
+                background: "rgba(255,255,255,.06)",
+                border: "1px solid " + C.line2,
+                borderRadius: 999,
+                padding: "4px 10px",
+              }}
+            >
+              {g}
+            </span>
+          );
+        })}
+      </div>
+      <div style={{ fontSize: 11, color: C.txt3, marginTop: 10, lineHeight: 1.5 }}>
+        Sign in with your wallet, no transaction or gas. No OSG needed to play. No betting, no paid entry, no prizes.
+      </div>
+    </div>
+  );
+}
+
 function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvider, getReadProvider, ensureReady, showToast, setTab, refParam }) {
   const [calcAmt, setCalcAmt] = useState("100");
   const [calcUnit, setCalcUnit] = useState("USD");
@@ -3336,8 +3400,7 @@ function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvid
       
       <TeamJoin wallet={wallet} refParam={refParam} getReadProvider={getProvider} ensureReady={ensureReady} showToast={showToast} />
       <PoolCards getProvider={getProvider} wallet={wallet} oldStaked={data.staked} setTab={setTab} />
-      
-      
+      <GamesSoonCard />
     </div>
   );
 }
