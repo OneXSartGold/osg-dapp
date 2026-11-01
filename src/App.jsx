@@ -2519,7 +2519,7 @@ function LpCalcBody({ polPerOsg, polUsd, unit, setUnit, amt, setAmt, scrollId, r
 // bundle with our own free trial games: no wallet calls, no login, no OSG,
 // no rewards. Third-party games will later run on a separate site.
 function GamesSoonCard() {
-  var tags = ["Gem Match", "Solitaire", "Memory", "Ludo", "Call Break", "Chess", "Sudoku"];
+  var tags = ["Gem Match", "Merge", "Rocket", "Solitaire", "Brick Blast", "Snake", "Sudoku", "Four in a Row", "Crypto Quiz", "Memory"];
   return (
     <a
       href="/games/"
@@ -2579,7 +2579,7 @@ function GamesSoonCard() {
       <div style={{ fontSize: 11, color: C.txt3, marginTop: 10, lineHeight: 1.5 }}>
         Trial games need no login and no OSG. No betting, no paid entry, no prizes. Points are for fun only.
       </div>
-      <div style={{ fontSize: 12.5, fontWeight: 700, color: C.purple, marginTop: 10 }}>▶ Play 3 free games</div>
+      <div style={{ fontSize: 12.5, fontWeight: 700, color: C.purple, marginTop: 10 }}>▶ Play 10 free games</div>
     </a>
   );
 }
