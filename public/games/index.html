@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OSG Games</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800;900&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0B0A1F;--card:#15123A;--line:rgba(255,255,255,.1);--ink:#F4F2FF;--mute:#A9A6C8;--gold:#F5B83D;--gold2:#FFD97A;--purple:#8B5CF6}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg)}
+body{font-family:Inter,system-ui,sans-serif;color:var(--ink);min-height:100vh;
+background:radial-gradient(620px 420px at 92% 0%,rgba(139,92,246,.38),transparent 60%),radial-gradient(520px 420px at 0% 45%,rgba(59,130,246,.26),transparent 60%),radial-gradient(500px 360px at 60% 100%,rgba(245,184,61,.14),transparent 60%),var(--bg)}
+a{color:inherit}
+.wrap{max-width:980px;margin:0 auto;padding:0 16px}
+header{display:flex;align-items:center;gap:10px;padding:16px 0}
+header img{width:40px;height:40px;filter:drop-shadow(0 0 12px rgba(245,184,61,.5))}
+header b{font-weight:900;font-size:21px;letter-spacing:-.01em}
+header b i{font-style:normal;color:var(--gold2)}
+.back{margin-left:auto;font-size:13px;font-weight:700;text-decoration:none;border:1px solid var(--line);border-radius:12px;padding:9px 13px;white-space:nowrap}
+.hero{padding:26px 0 8px;display:grid;gap:22px;grid-template-columns:1.2fr 1fr;align-items:center}
+.soon{display:inline-block;font-weight:900;font-size:12px;letter-spacing:.2em;color:#120E2E;background:linear-gradient(90deg,var(--gold2),var(--gold));padding:7px 14px;border-radius:999px;box-shadow:0 0 24px rgba(245,184,61,.4)}
+h1{font-size:clamp(44px,9vw,84px);font-weight:900;line-height:.92;letter-spacing:-.04em;margin-top:16px}
+h1 span{background:linear-gradient(95deg,var(--gold2),var(--gold) 35%,#C084FC 70%,#60A5FA);-webkit-background-clip:text;background-clip:text;color:transparent}
+.lead{color:#D9D6F2;font-size:17px;line-height:1.55;margin-top:14px;max-width:520px}
+.lead b{color:#fff}
+.pad{width:100%;max-width:360px;justify-self:center}
+h2{font-size:20px;font-weight:800;margin:30px 0 12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.g{border-radius:18px;padding:16px;min-height:140px;display:flex;flex-direction:column;justify-content:space-between;border:1px solid var(--line);position:relative;box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 12px 26px rgba(0,0,0,.3)}
+.g i{font-style:normal;font-size:38px}
+.g b{font-size:16px;display:block}
+.g small{color:rgba(255,255,255,.78);font-size:12px}
+.g .tag{position:absolute;top:10px;right:10px;font-size:10px;font-weight:800;letter-spacing:.08em;padding:4px 8px;border-radius:999px;background:rgba(0,0,0,.35)}
+.feats{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+.f{display:flex;gap:12px;align-items:center;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:16px;padding:14px}
+.f .ic{width:46px;height:46px;flex:0 0 46px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:22px;background:linear-gradient(135deg,rgba(139,92,246,.35),rgba(59,130,246,.35));border:1px solid rgba(255,255,255,.14)}
+.f b{display:block;font-size:15px}
+.f span{font-size:13px;color:var(--mute)}
+.steps{counter-reset:s;display:grid;gap:10px}
+.st{display:flex;gap:12px;align-items:flex-start;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px}
+.st:before{counter-increment:s;content:counter(s);flex:0 0 30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;background:linear-gradient(90deg,var(--gold2),var(--gold));color:#120E2E}
+.st b{display:block;font-size:15px}
+.st span{font-size:13px;color:var(--mute)}
+.band{margin:30px 0 0;border-radius:22px;padding:20px;background:linear-gradient(100deg,rgba(245,184,61,.16),rgba(139,92,246,.18));border:1.5px solid rgba(255,217,122,.35);display:flex;flex-wrap:wrap;gap:14px;align-items:center}
+.band .big{font-size:24px;font-weight:900;line-height:1.15}
+.band .big em{font-style:normal;color:var(--gold2)}
+.band p{font-size:14px;color:#D9D6F2;margin-top:4px}
+.band a{margin-left:auto;text-decoration:none;background:#fff;color:#120E2E;border-radius:14px;padding:12px 16px;font-weight:900;font-size:15px;white-space:nowrap}
+footer{color:var(--mute);font-size:12px;line-height:1.6;padding:24px 0 34px;border-top:1px solid var(--line);margin-top:30px}
+@media (max-width:720px){.hero{grid-template-columns:1fr}.pad{max-width:260px;order:-1}.band a{margin-left:0}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <img src="logo.png" alt="OSG logo">
+    <b>OSG <i>Games</i></b>
+    <a class="back" href="/">← OSG DApp</a>
+  </header>
+
+  <section class="hero">
+    <div>
+      <span class="soon">COMING SOON</span>
+      <h1>OSG<br><span>Games</span></h1>
+      <p class="lead">A <b>free-to-play social gaming portal</b> for the OSG community. Sign in with your wallet and play classic games on mobile and web. Climb the weekly leaderboard, just for fun.</p>
+    </div>
+    <svg class="pad" viewBox="0 0 400 300" aria-hidden="true">
+      <defs>
+        <linearGradient id="pg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8B5CF6"/><stop offset=".55" stop-color="#3B82F6"/><stop offset="1" stop-color="#22D3EE"/></linearGradient>
+        <filter id="gl"><feGaussianBlur stdDeviation="14"/></filter>
+      </defs>
+      <path d="M90 90 h220 c48 0 80 40 80 92 v20 c0 40-28 66-58 66 c-26 0-40-16-56-40 l-14-20 h-124 l-14 20 c-16 24-30 40-56 40 c-30 0-58-26-58-66 v-20 c0-52 32-92 80-92z" fill="url(#pg)" opacity=".55" filter="url(#gl)"/>
+      <path d="M90 90 h220 c48 0 80 40 80 92 v20 c0 40-28 66-58 66 c-26 0-40-16-56-40 l-14-20 h-124 l-14 20 c-16 24-30 40-56 40 c-30 0-58-26-58-66 v-20 c0-52 32-92 80-92z" fill="url(#pg)" stroke="rgba(255,255,255,.35)" stroke-width="2"/>
+      <rect x="78" y="140" width="64" height="20" rx="6" fill="#fff" opacity=".92"/><rect x="100" y="118" width="20" height="64" rx="6" fill="#fff" opacity=".92"/>
+      <circle cx="300" cy="128" r="13" fill="#FFD97A"/><circle cx="330" cy="156" r="13" fill="#F472B6"/><circle cx="270" cy="156" r="13" fill="#34D399"/><circle cx="300" cy="184" r="13" fill="#60A5FA"/>
+      <image href="logo.png" x="176" y="140" width="48" height="48"/>
+    </svg>
+  </section>
+
+  <h2>Games on the way</h2>
+  <div class="grid">
+    <div class="g" style="background:linear-gradient(150deg,#2563EB,#1E1B4B)"><span class="tag">SOON</span><i>🃏</i><div><b>Solitaire</b><small>Cards · 7 classic modes</small></div></div>
+    <div class="g" style="background:linear-gradient(150deg,#F59E0B,#1E1B4B)"><span class="tag">SOON</span><i>🎲</i><div><b>Ludo</b><small>Board · play vs computer</small></div></div>
+    <div class="g" style="background:linear-gradient(150deg,#0EA5E9,#1E1B4B)"><span class="tag">SOON</span><i>♠️</i><div><b>Call Break</b><small>Cards · trick taking</small></div></div>
+    <div class="g" style="background:linear-gradient(150deg,#475569,#1E1B4B)"><span class="tag">SOON</span><i>♟️</i><div><b>Chess</b><small>Strategy</small></div></div>
+    <div class="g" style="background:linear-gradient(150deg,#10B981,#1E1B4B)"><span class="tag">SOON</span><i>🔢</i><div><b>Sudoku</b><small>Puzzle · daily grid</small></div></div>
+    <div class="g" style="background:linear-gradient(150deg,#7C3AED,#1E1B4B)"><span class="tag">FIRST</span><i>🧠</i><div><b>OSG Memory</b><small>Puzzle · match the pairs</small></div></div>
+  </div>
+
+  <h2>Why OSG Games</h2>
+  <div class="feats">
+    <div class="f"><div class="ic">🔐</div><div><b>Wallet login</b><span>Sign a message. No password, no transaction, no gas.</span></div></div>
+    <div class="f"><div class="ic">🆓</div><div><b>Free to play</b><span>No OSG needed to sign in or play.</span></div></div>
+    <div class="f"><div class="ic">🏆</div><div><b>Weekly leaderboard</b><span>Ranks for fun and bragging rights.</span></div></div>
+    <div class="f"><div class="ic">📱</div><div><b>Mobile &amp; web</b><span>Works in your wallet's browser too.</span></div></div>
+  </div>
+
+  <h2>How it will work</h2>
+  <div class="steps">
+    <div class="st"><div><b>Open OSG Games</b><span>From the OSG DApp home screen, or directly on the web.</span></div></div>
+    <div class="st"><div><b>Connect your wallet</b><span>Sign one login message. Nothing is sent from your wallet.</span></div></div>
+    <div class="st"><div><b>Pick a game and play</b><span>Your best score of the week joins the leaderboard.</span></div></div>
+  </div>
+
+  <div class="band">
+    <div><div class="big">Play together. <em>Grow the community.</em></div><p>More games will be added step by step. Watch the OSG DApp for the launch.</p></div>
+    <a href="/">Go to OSG DApp</a>
+  </div>
+
+  <footer>
+    OSG Games is a planned feature and is not live yet. It will offer social, non-wagering games only: no betting, no paid entry, no deposits, and no cash or token prizes. Scores are for fun and ranking only. OSG is a crypto token; its value can go up or down.<br>
+    Contact: team@onexsmartgold.com
+  </footer>
+</div>
+</body>
+</html>

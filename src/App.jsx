@@ -2516,13 +2516,17 @@ function LpCalcBody({ polPerOsg, polUsd, unit, setUnit, amt, setAmt, scrollId, r
 }
 
 // OSG Games teaser. The games portal will run on its own site, separate from
-// the DApp, so no game code ever runs next to wallet transactions. This card is
-// information only: no link yet, no OSG, no rewards.
+// the DApp, so no game code ever runs next to wallet transactions. The card
+// links to the static info page /games/ only: no OSG, no rewards.
 function GamesSoonCard() {
-  var tags = ["Solitaire", "Ludo", "Call Break", "Rummy", "Memory"];
+  var tags = ["Solitaire", "Ludo", "Call Break", "Chess", "Sudoku", "Memory"];
   return (
-    <div
+    <a
+      href="/games/"
       style={{
+        display: "block",
+        textDecoration: "none",
+        color: "inherit",
         position: "relative",
         overflow: "hidden",
         background: "linear-gradient(150deg,rgba(124,58,237,.22),rgba(37,99,235,.14) 55%," + C.card + ")",
@@ -2575,7 +2579,8 @@ function GamesSoonCard() {
       <div style={{ fontSize: 11, color: C.txt3, marginTop: 10, lineHeight: 1.5 }}>
         Sign in with your wallet, no transaction or gas. No OSG needed to play. No betting, no paid entry, no prizes.
       </div>
-    </div>
+      <div style={{ fontSize: 12.5, fontWeight: 700, color: C.purple, marginTop: 10 }}>See what's coming →</div>
+    </a>
   );
 }
 
