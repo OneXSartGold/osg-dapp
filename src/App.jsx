@@ -1365,6 +1365,7 @@ async function eventPassCheck(runner, who) {
         batch: b.id,
         kind: kind,
         lpOnly: srcOf(b).length === 1 && srcOf(b)[0] === "lp",
+        label: b.label || "",
         total: total,
         need: need,
         left: total >= need ? 0n : need - total,
@@ -5537,7 +5538,7 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
             var have = Number(f18(st.total));
             var want = Number(f18(st.need));
             var day = function (t) { return new Date(t * 1000).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" }); };
-            var label = st.kind === "self" ? (st.lpOnly ? "Your new LP" : "Your new stake") : st.kind === "directs" ? "Directs with a pass" : (st.lpOnly ? "Directs' new LP" : "New team stake");
+            var label = st.label ? st.label : st.kind === "self" ? (st.lpOnly ? "Your new LP" : "Your new stake") : st.kind === "directs" ? "Directs with a pass" : (st.lpOnly ? "Directs' new LP" : "New team stake");
             var tag = st.qualified ? "✓ Done"
               : st.skipped ? "Not needed"
               : st.failed ? "Could not check"

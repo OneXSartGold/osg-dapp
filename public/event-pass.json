@@ -6,26 +6,59 @@
       "id": "f1",
       "open": true,
       "type": "team",
-      "sources": ["lp"],
+      "sources": [
+        "lp"
+      ],
       "start": "2026-11-01T00:00:00+05:30",
       "end": "2026-11-11T00:00:00+05:30",
-      "minNew": 2000
+      "minNew": 2000,
+      "label": "Directs' new LP · 10 days"
     },
     {
       "id": "f2",
       "open": true,
       "type": "team",
-      "sources": ["lp"],
+      "sources": [
+        "lp"
+      ],
       "start": "2026-11-11T00:00:00+05:30",
       "end": "2026-11-21T00:00:00+05:30",
-      "minNew": 2500
+      "minNew": 2500,
+      "label": "Directs' new LP · 10 days"
     },
     {
       "id": "f3",
       "open": true,
       "type": "team",
-      "sources": ["lp"],
+      "sources": [
+        "lp"
+      ],
       "start": "2026-11-21T00:00:00+05:30",
+      "end": "2026-12-01T00:00:00+05:30",
+      "minNew": 3000,
+      "label": "Directs' new LP · 10 days"
+    },
+    {
+      "id": "t20",
+      "open": true,
+      "type": "team",
+      "sources": [
+        "lp"
+      ],
+      "label": "Directs' new LP · 20-day total",
+      "start": "2026-11-01T00:00:00+05:30",
+      "end": "2026-11-21T00:00:00+05:30",
+      "minNew": 2500
+    },
+    {
+      "id": "t30",
+      "open": true,
+      "type": "team",
+      "sources": [
+        "lp"
+      ],
+      "label": "Directs' new LP · 30-day total",
+      "start": "2026-11-01T00:00:00+05:30",
       "end": "2026-12-01T00:00:00+05:30",
       "minNew": 3000
     },
@@ -33,10 +66,17 @@
       "id": "f4",
       "open": true,
       "type": "directs",
-      "of": ["f1", "f2", "f3"],
+      "of": [
+        "f1",
+        "f2",
+        "f3",
+        "t20",
+        "t30"
+      ],
       "start": "2026-11-01T00:00:00+05:30",
       "end": "2026-12-01T00:00:00+05:30",
-      "minDirects": 3
+      "minDirects": 3,
+      "label": "Directs with a pass"
     }
   ],
   "revoked": []
