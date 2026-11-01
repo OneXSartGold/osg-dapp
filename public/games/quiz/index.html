@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>OSG Crypto Quiz</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0B0A1F;--ink:#F4F2FF;--mute:#A9A6C8;--line:rgba(255,255,255,.1);--gold:#F5B83D;--gold2:#FFD97A}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{background:var(--bg)}
+body{font-family:Inter,system-ui,sans-serif;color:var(--ink);min-height:100vh;overflow-x:hidden;background:radial-gradient(600px 400px at 90% 0%,rgba(139,92,246,.35),transparent 60%),radial-gradient(500px 400px at 0% 50%,rgba(59,130,246,.22),transparent 60%),var(--bg)}
+.wrap{max-width:480px;margin:0 auto;padding:0 14px 28px}
+header{display:flex;align-items:center;gap:10px;padding:14px 0}
+header img{width:34px;height:34px}
+header b{font-weight:900;font-size:19px}
+header b i{font-style:normal;color:var(--gold2)}
+header .sp{margin-left:auto}
+header a,header button{font:700 13px Inter,sans-serif;text-decoration:none;color:var(--ink);background:none;border:1px solid var(--line);border-radius:12px;padding:8px 12px;cursor:pointer}
+.trial{display:inline-block;font-size:11px;font-weight:900;letter-spacing:.16em;color:#120E2E;background:linear-gradient(90deg,var(--gold2),var(--gold));padding:5px 11px;border-radius:999px}
+h1{font-size:28px;font-weight:900;margin:8px 0 2px}
+.sub{color:var(--mute);font-size:13.5px;margin-bottom:12px;line-height:1.45}
+.hud{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:7px;margin-bottom:10px}
+.box{background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:14px;padding:7px 9px;min-width:0}
+.box small{display:block;font-size:9.5px;letter-spacing:.12em;color:var(--mute);font-weight:800}
+.box b{font-size:18px;font-weight:900;display:inline-block;white-space:nowrap}
+.gold{color:var(--gold2)}
+.bump{animation:bump .35s}
+@keyframes bump{40%{transform:scale(1.3)}}
+.btn{border:0;border-radius:12px;padding:12px 20px;font:800 15px Inter,sans-serif;background:linear-gradient(90deg,var(--gold2),var(--gold));color:#120E2E;cursor:pointer}
+.btn.ghost{background:rgba(255,255,255,.07);color:var(--ink);border:1px solid var(--line)}
+.float{position:fixed;pointer-events:none;font-weight:900;font-size:22px;color:var(--gold2);text-shadow:0 2px 10px rgba(0,0,0,.6);animation:up 1s ease-out forwards;z-index:30}
+@keyframes up{0%{opacity:0;transform:translate(-50%,0) scale(.6)}20%{opacity:1;transform:translate(-50%,-14px) scale(1.15)}100%{opacity:0;transform:translate(-50%,-70px) scale(1)}}
+.spark{position:fixed;width:8px;height:8px;border-radius:2px;pointer-events:none;z-index:29}
+.banner{position:fixed;left:50%;top:38%;transform:translate(-50%,-50%);font-size:32px;font-weight:900;white-space:nowrap;pointer-events:none;z-index:31;text-shadow:0 4px 24px rgba(0,0,0,.75);animation:ban 1.3s ease-out forwards}
+@keyframes ban{0%{opacity:0;transform:translate(-50%,-50%) scale(.5)}20%{opacity:1;transform:translate(-50%,-50%) scale(1.1)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-60%) scale(1)}}
+.modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(8,7,26,.78);backdrop-filter:blur(3px);z-index:40;padding:20px}
+.modal .in{width:min(360px,100%);background:#15123A;border:1px solid rgba(167,139,250,.35);border-radius:20px;padding:22px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.6);animation:min .3s ease-out}
+@keyframes min{from{transform:scale(.85);opacity:0}}
+.modal h3{font-size:16px;color:var(--mute);font-weight:700}
+.modal .big{display:block;font-size:38px;font-weight:900;color:var(--gold2);margin:6px 0}
+.modal p{color:var(--mute);font-size:13.5px;line-height:1.6}
+.modal .acts{display:flex;gap:8px;justify-content:center;margin-top:16px;flex-wrap:wrap}
+footer{color:var(--mute);font-size:11.5px;line-height:1.55;margin-top:20px;border-top:1px solid var(--line);padding-top:14px}
+
+.qcard{background:rgba(255,255,255,.05);border:1px solid rgba(167,139,250,.3);border-radius:18px;padding:16px;box-shadow:0 14px 40px rgba(0,0,0,.35)}
+.qtop{display:flex;justify-content:space-between;font-size:12px;font-weight:800;color:var(--mute);letter-spacing:.08em;margin-bottom:8px}
+.tbar{height:8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;margin-bottom:14px}
+.tbar i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#34D399,#FFD97A,#F87171);transition:width .2s linear}
+.q{font-size:19px;font-weight:800;line-height:1.35;margin-bottom:14px;animation:qin .3s ease-out}
+@keyframes qin{from{opacity:0;transform:translateY(8px)}}
+.opts{display:grid;gap:9px}
+.opt{text-align:left;border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--ink);border-radius:14px;padding:13px 14px;font:600 15px Inter,sans-serif;cursor:pointer;display:flex;gap:10px;align-items:center;transition:transform .1s}
+.opt:active{transform:scale(.98)}
+.opt b{flex:0 0 28px;height:28px;border-radius:9px;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-size:13px}
+.opt.right{background:rgba(52,211,153,.25);border-color:#34D399;animation:okp .4s}
+.opt.wrong{background:rgba(248,113,113,.22);border-color:#F87171;animation:shk .35s}
+@keyframes okp{50%{transform:scale(1.03)}}
+@keyframes shk{25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+.why{display:none;margin-top:12px;font-size:13.5px;line-height:1.5;color:#DDD6FE;background:rgba(139,92,246,.15);border-radius:12px;padding:11px 12px}
+.next{display:none;width:100%;margin-top:12px}
+.streak{color:#FB923C}
+</style></head><body><div class="wrap">
+<header><img src="../logo.png" alt="OSG logo"><b>OSG <i>Games</i></b><span class="sp"></span><button id="snd" type="button">🔊</button><a href="../">← All games</a></header>
+<span class="trial">FREE TRIAL</span>
+<h1>OSG Crypto Quiz</h1>
+<p class="sub">10 questions about crypto and blockchain. Answer fast for bonus points and learn as you play.</p>
+<div class="hud"><div class="box"><small>SCORE</small><b id="score" class="gold">0</b></div><div class="box"><small>CORRECT</small><b id="ok">0/10</b></div><div class="box"><small>STREAK</small><b id="st" class="streak">0</b></div></div>
+<div class="qcard"><div class="qtop"><span id="qn">QUESTION 1 / 10</span><span id="tl">15 s</span></div><div class="tbar"><i id="tb"></i></div>
+<div class="q" id="q"></div><div class="opts" id="opts"></div><div class="why" id="why"></div><button class="btn next" id="next" type="button">Next ▶</button></div>
+
+<footer>Trial version: no login, nothing is saved to a server. Free to play: no betting, no paid entry, no prizes. Points are for fun only.</footer>
+</div>
+<div class="modal" id="modal"></div>
+<script>
+var sound=true,actx=null;
+function $(i){return document.getElementById(i);}
+function tone(freqs,dur,type,vol){
+  if(!sound)return;
+  try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();var t=actx.currentTime;
+    freqs.forEach(function(f,i){var o=actx.createOscillator(),g=actx.createGain();o.type=type||"sine";o.frequency.value=f;
+      g.gain.setValueAtTime(0.0001,t+i*dur);g.gain.exponentialRampToValueAtTime(vol||0.16,t+i*dur+0.01);g.gain.exponentialRampToValueAtTime(0.0001,t+(i+1)*dur);
+      o.connect(g);g.connect(actx.destination);o.start(t+i*dur);o.stop(t+(i+1)*dur+0.02);});
+  }catch(e){}
+}
+function buzz(ms){try{navigator.vibrate&&navigator.vibrate(ms);}catch(e){}}
+function floatText(x,y,txt,color,size){var d=document.createElement("div");d.className="float";d.textContent=txt;d.style.left=x+"px";d.style.top=y+"px";if(color)d.style.color=color;if(size)d.style.fontSize=size+"px";document.body.appendChild(d);setTimeout(function(){d.remove();},1000);}
+function sparks(x,y,n,cols){
+  cols=cols||["#FFD97A","#F5B83D","#A78BFA","#60A5FA","#34D399","#F472B6"];
+  for(var i=0;i<n;i++){(function(i){var s=document.createElement("div");s.className="spark";s.style.background=cols[i%cols.length];s.style.left=x+"px";s.style.top=y+"px";document.body.appendChild(s);
+    var a=Math.random()*Math.PI*2,v=40+Math.random()*80;
+    if(s.animate)s.animate([{transform:"translate(0,0)",opacity:1},{transform:"translate("+Math.cos(a)*v+"px,"+(Math.sin(a)*v+30)+"px) rotate("+(Math.random()*540)+"deg)",opacity:0}],{duration:600+Math.random()*400,easing:"cubic-bezier(.2,.7,.4,1)"});
+    setTimeout(function(){s.remove();},1050);})(i);}
+}
+function banner(txt,color){var d=document.createElement("div");d.className="banner";d.textContent=txt;d.style.color=color||"#FFD97A";document.body.appendChild(d);setTimeout(function(){d.remove();},1300);}
+function confetti(){for(var k=0;k<6;k++)setTimeout(function(){sparks(Math.random()*window.innerWidth,window.innerHeight*0.35,16);},k*150);}
+function getBest(k){try{return Number(localStorage.getItem(k))||0;}catch(e){return 0;}}
+function setBest(k,v){try{localStorage.setItem(k,String(v));}catch(e){}}
+function bump(el){el.classList.remove("bump");void el.offsetWidth;el.classList.add("bump");}
+function fmt(n){return Number(n).toLocaleString("en-US");}
+function rollTo(el,from,to){var t0=performance.now();(function step(now){var k=Math.min(1,(now-t0)/400);el.textContent=fmt(Math.round(from+(to-from)*k));if(k<1)requestAnimationFrame(step);})(t0);bump(el);}
+function center(el){var r=el.getBoundingClientRect();return [r.left+r.width/2,r.top+r.height/2];}
+function modal(html,actions){
+  var m=$("modal");m.innerHTML='<div class="in">'+html+'<div class="acts"></div></div>';
+  var a=m.querySelector(".acts");
+  actions.forEach(function(x){var b=document.createElement("button");b.className="btn"+(x.ghost?" ghost":"");b.textContent=x.label;b.onclick=function(){m.style.display="none";x.fn&&x.fn();};a.appendChild(b);});
+  m.style.display="flex";
+}
+function closeModal(){$("modal").style.display="none";}
+$("snd").onclick=function(){sound=!sound;this.textContent=sound?"🔊":"🔇";};
+
+// Scoring (fun only): correct answer 100 + 10 for each second left,
+// +50 extra on a streak of 3 or more. 15 seconds per question.
+var BANK=[
+["What should you do with your wallet's recovery (seed) phrase?",["Never share it with anyone","Share it with support staff","Post it in your group for backup","Type it into any website that asks"],0,"Anyone with your recovery phrase controls your wallet. Real support teams never ask for it."],
+["What does “DeFi” stand for?",["Decentralized Finance","Digital Fiat","Defined Finance","Deferred Finance"],0,"DeFi means financial apps that run on smart contracts instead of banks."],
+["What is the native gas token of Polygon PoS today?",["POL","ETH","BNB","USDT"],0,"Polygon moved its gas token from MATIC to POL in 2024."],
+["What is the chain ID of Polygon PoS mainnet?",["137","1","56","80002"],0,"137 is Polygon PoS mainnet. 1 is Ethereum and 56 is BNB Smart Chain."],
+["What is the maximum supply of Bitcoin?",["21 million","100 million","1 billion","No limit"],0,"Bitcoin's code caps supply at 21 million coins."],
+["Who created Bitcoin?",["Satoshi Nakamoto (a pseudonym)","Vitalik Buterin","Elon Musk","Charles Hoskinson"],0,"Bitcoin's white paper (2008) was published under the name Satoshi Nakamoto. Vitalik Buterin co-founded Ethereum."],
+["Which language is most used for Ethereum smart contracts?",["Solidity","HTML","Excel","SQL"],0,"Solidity is the main language for EVM smart contracts."],
+["ERC-20 is a standard for…",["Fungible tokens","NFTs only","Wallet passwords","Mining hardware"],0,"ERC-20 tokens are interchangeable, like coins. NFTs usually use ERC-721 or ERC-1155."],
+["What does NFT stand for?",["Non-Fungible Token","New Finance Token","Network Fee Ticket","No-Fee Transfer"],0,"Each NFT is unique, so it is “non-fungible”."],
+["An EVM wallet address starts with…",["0x","bc1","www","@"],0,"EVM addresses are 0x followed by 40 hex characters."],
+["What is a DEX?",["A decentralized exchange","A digital ID card","A type of mining rig","A bank account"],0,"A DEX lets you swap tokens through smart contracts, without a company holding your funds."],
+["What is a liquidity pool?",["Tokens locked in a smart contract to enable swaps","A savings account at a bank","A wallet backup","A mining pool"],0,"Liquidity providers deposit token pairs so others can trade against the pool."],
+["What is “slippage” in a swap?",["The difference between the expected and the final price","A network outage","A failed password","A token burn"],0,"Prices can move while your swap is processed. The slippage setting limits how much."],
+["What do you pay a “gas fee” for?",["Processing your transaction on the network","Buying fuel for miners","A monthly wallet subscription","Customer support"],0,"Gas pays validators to include and run your transaction."],
+["Which site shows Polygon transactions and contracts?",["Polygonscan","Wikipedia","Google Maps","YouTube"],0,"Polygonscan is the block explorer for Polygon PoS."],
+["A stablecoin is designed to…",["Keep a steady value, usually 1 US dollar","Double every year","Only be used for games","Never be transferred"],0,"USDT and USDC aim to track the US dollar."],
+["What does “DYOR” mean?",["Do Your Own Research","Double Your Own Return","Deposit Your Online Reward","Don't Yell On Reddit"],0,"Always check facts yourself before you decide anything."],
+["What consensus does Ethereum use since “The Merge” (2022)?",["Proof of Stake","Proof of Work","Proof of Authority","No consensus"],0,"Ethereum moved from Proof of Work to Proof of Stake in September 2022."],
+["Which consensus does Bitcoin use?",["Proof of Work","Proof of Stake","Proof of History","Delegated voting"],0,"Bitcoin miners compete with computing power: Proof of Work."],
+["What is a testnet?",["A practice network where coins have no real value","The fastest mainnet","A hacked network","A paid network"],0,"Developers test apps on testnets before going live."],
+["Unknown tokens suddenly appear in your wallet with a “claim” link. What should you do?",["Ignore them and don't open the link","Open the link quickly","Approve them to sell","Share your seed phrase to claim"],0,"This is a common scam. The link often asks for approvals that drain your wallet."],
+["Before you approve a token spend in your wallet, you should…",["Check who the spender is and the amount","Always approve unlimited","Turn off your phone","Share the screen with strangers"],0,"Unlimited approvals to unknown contracts can let them move your tokens later."],
+["What is a “cold wallet”?",["A wallet kept offline, like a hardware wallet","A wallet in a cold country","A wallet with no tokens","A wallet that is frozen by a bank"],0,"Keeping keys offline protects them from online attacks."],
+["What is the smallest unit of Bitcoin called?",["Satoshi","Wei","Gwei","Cent"],0,"1 satoshi = 0.00000001 BTC. Wei and Gwei are Ethereum units."],
+["1 Gwei equals how much ETH?",["0.000000001 ETH","0.01 ETH","1 ETH","1,000 ETH"],0,"Gwei is 10⁻⁹ ETH, often used for gas prices."],
+["What does KYC mean?",["Know Your Customer","Keep Your Coins","Key Your Contract","Kill Your Cache"],0,"KYC is identity checking that many exchanges must do by law."],
+["What is a blockchain?",["A shared ledger of blocks linked by cryptographic hashes","A single company's database","A type of password","A social media app"],0,"Each block points to the previous one, which makes history very hard to change."],
+["What is a “hash”?",["A fixed-size fingerprint of data","A secret password","A token price","A mining machine"],0,"Change the data a little and the hash changes completely."],
+["A website looks like your exchange but its address is spelled slightly differently. It is most likely…",["A phishing site","A new official site","A faster mirror","Safe if it has a logo"],0,"Always check the exact address and use bookmarks for important sites."],
+["What does “HODL” mean in crypto slang?",["Holding for the long term","Selling quickly","Hacking a wallet","A type of token"],0,"It started as a typo of “hold” in a 2013 forum post."],
+["What does a smart contract do?",["Runs code automatically on the blockchain","Signs paper documents","Stores your passwords","Prints money"],0,"Smart contracts follow their code exactly; anyone can check it on the explorer if it is verified."],
+["Where can you check whether a smart contract's code is published?",["On the block explorer (verified source)","In a WhatsApp group","On a printed flyer","Nowhere"],0,"Verified contracts show their source code on explorers like Polygonscan."]
+];
+var qs,qi,score,ok,streak,tLeft,timer,answered;
+function shuffle(a){for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;}return a;}
+function start(){qs=shuffle(BANK.slice()).slice(0,10);qi=0;score=0;ok=0;streak=0;$("score").textContent="0";$("ok").textContent="0/10";$("st").textContent="0";show();}
+function show(){
+  answered=false;var q=qs[qi];$("qn").textContent="QUESTION "+(qi+1)+" / 10";
+  var qe=$("q");qe.textContent=q[0];qe.style.animation="none";void qe.offsetWidth;qe.style.animation="";
+  var order=shuffle([0,1,2,3]),o=$("opts");o.innerHTML="";
+  order.forEach(function(idx,k){var b=document.createElement("button");b.type="button";b.className="opt";b.innerHTML="<b>"+"ABCD"[k]+"</b><span></span>";b.lastChild.textContent=q[1][idx];b.onclick=function(){answer(idx,b);};b.dataset.i=idx;o.appendChild(b);});
+  $("why").style.display="none";$("next").style.display="none";
+  tLeft=15;$("tl").textContent="15 s";$("tb").style.width="100%";clearInterval(timer);
+  timer=setInterval(function(){tLeft-=0.1;if(tLeft<=0){tLeft=0;answer(-1,null);}$("tb").style.width=(tLeft/15*100)+"%";$("tl").textContent=Math.ceil(tLeft)+" s";if(tLeft<=3&&Math.abs(tLeft-Math.round(tLeft))<0.05)tone([880],0.03,"square",0.03);},100);
+}
+function answer(idx,btn){
+  if(answered)return;answered=true;clearInterval(timer);var q=qs[qi];
+  $("opts").querySelectorAll(".opt").forEach(function(b){if(Number(b.dataset.i)===q[2])b.classList.add("right");});
+  if(idx===q[2]){ok++;streak++;var pts=100+Math.round(tLeft)*10+(streak>=3?50:0);var from=score;score+=pts;rollTo($("score"),from,score);
+    var p=center(btn);floatText(p[0],p[1]-20,"+"+pts,streak>=3?"#FB923C":null);sparks(p[0],p[1],12);tone([660,880,1100],0.07,"sine",0.16);buzz(15);
+    if(streak===3)banner("🔥 3 in a row!","#FB923C");if(streak===5)banner("⚡ 5 streak!","#F472B6");if(streak===10)banner("🏆 Perfect 10!");}
+  else{streak=0;if(btn)btn.classList.add("wrong");tone([220,170],0.09,"square",0.05);buzz([20,40,20]);if(idx<0)banner("⏰ Time's up","#F87171");}
+  $("ok").textContent=ok+"/10";$("st").textContent=streak;bump($("st"));
+  var w=$("why");w.textContent="💡 "+q[3];w.style.display="block";
+  var n=$("next");n.textContent=qi<9?"Next ▶":"See result 🏁";n.style.display="block";
+}
+$("next").onclick=function(){qi++;if(qi<10)show();else finish();};
+function finish(){var bk="osgQuizBest",b=getBest(bk),nb=score>b;if(nb)setBest(bk,score);
+  if(ok>=7||nb)confetti();tone([523,659,784,1047],0.12,"sine",0.2);
+  var msg=ok===10?"Crypto master! 🏆":ok>=7?"Great knowledge! 🎉":ok>=4?"Good start, keep learning! 📚":"Every expert started here. Try again! 💪";
+  modal('<h3>'+ok+' of 10 correct</h3><span class="big">'+fmt(score)+'</span><p>'+msg+(nb?"<br>New best on this device!":"<br>Best: "+fmt(b))+'</p>',[{label:"Play again",fn:start}]);}
+start();
+</script></body></html>
