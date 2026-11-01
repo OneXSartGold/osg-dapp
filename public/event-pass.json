@@ -77,6 +77,43 @@
       "end": "2026-12-01T00:00:00+05:30",
       "minDirects": 3,
       "label": "Directs with a pass"
+    },
+    {
+      "id": "s1",
+      "open": true,
+      "validUntil": "2026-11-02T00:00:00+05:30",
+      "type": "self",
+      "lpFull": true,
+      "label": "Goa achiever · your new stake",
+      "start": "2026-09-20T00:00:00+05:30",
+      "end": "2026-10-06T00:00:00+05:30",
+      "minSelf": 1000
+    },
+    {
+      "id": "s2",
+      "open": true,
+      "validUntil": "2026-11-02T00:00:00+05:30",
+      "type": "self",
+      "lpFull": true,
+      "label": "Goa achiever · your new stake",
+      "start": "2026-10-06T00:00:00+05:30",
+      "end": "2026-10-21T00:00:00+05:30",
+      "minSelf": 1200
+    },
+    {
+      "id": "s3",
+      "open": true,
+      "validUntil": "2026-11-02T00:00:00+05:30",
+      "type": "directs",
+      "lpFull": true,
+      "of": [
+        "s1",
+        "s2"
+      ],
+      "label": "Goa achiever · directs with a pass",
+      "start": "2026-09-20T00:00:00+05:30",
+      "end": "2026-10-21T00:00:00+05:30",
+      "minDirects": 3
     }
   ],
   "revoked": []
