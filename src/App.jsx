@@ -51,6 +51,35 @@ import {
   MAX_PLAINTEXT_CHARS,
 } from "./crypto.js";
 
+// Polling that pauses while the tab is hidden (phone locked, another app or
+// tab in front). Each tick is a set of RPC reads through /api/rpc, so a
+// DApp left open in the background used to keep calling the server every
+// few seconds. When the member comes back, the data refreshes once at
+// once if the last refresh is older than the interval.
+function setVisibleInterval(fn, ms) {
+  var last = Date.now();
+  function hidden() {
+    return typeof document !== "undefined" && document.hidden;
+  }
+  function tick() {
+    if (hidden()) return;
+    last = Date.now();
+    fn();
+  }
+  function onVisible() {
+    if (!hidden() && Date.now() - last >= ms) tick();
+  }
+  var id = setInterval(tick, ms);
+  if (typeof document !== "undefined") document.addEventListener("visibilitychange", onVisible);
+  return { id: id, onVisible: onVisible };
+}
+function clearVisibleInterval(h) {
+  if (!h) return;
+  clearInterval(h.id);
+  if (typeof document !== "undefined") document.removeEventListener("visibilitychange", h.onVisible);
+}
+
+
 
 // ══════════════════════════════════════════════════════════
 //  OSG logo (base64). Replace this string anytime with your
@@ -1471,10 +1500,10 @@ function EmissionHero({ getProvider }) {
       }
     }
     load();
-    const t = setInterval(load, 30000);
+    const t = setVisibleInterval(load, 30000);
     return () => {
       dead = true;
-      clearInterval(t);
+      clearVisibleInterval(t);
     };
   }, [getProvider]);
 
@@ -1860,10 +1889,10 @@ function PoolCards({ getProvider, wallet, oldStaked, setTab }) {
       }
     }
     load();
-    const t = setInterval(load, 60000);
+    const t = setVisibleInterval(load, 60000);
     return () => {
       dead = true;
-      clearInterval(t);
+      clearVisibleInterval(t);
     };
   }, [getProvider, wallet]);
 
@@ -2643,10 +2672,10 @@ function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvid
         .catch(function () {});
     }
     loadHalving();
-    var id = setInterval(loadHalving, 600000);
+    var id = setVisibleInterval(loadHalving, 600000);
     return function () {
       alive = false;
-      clearInterval(id);
+      clearVisibleInterval(id);
     };
   }, []);
   useEffect(
@@ -2686,10 +2715,10 @@ function Dashboard({ data, wallet, polUsd, holders, chg24, t, network, getProvid
           .catch(function () {});
       }
       loadPairPrice();
-      var id = setInterval(loadPairPrice, 60000);
+      var id = setVisibleInterval(loadPairPrice, 60000);
       return function () {
         alive = false;
-        clearInterval(id);
+        clearVisibleInterval(id);
       };
     },
     [wallet],
@@ -6085,9 +6114,9 @@ function P2PPanel({ wallet, network, getProvider, ensureReady, showToast, t, poo
   useEffect(
     function () {
       loadBook();
-      const id = setInterval(loadBook, 20000);
+      const id = setVisibleInterval(loadBook, 20000);
       return function () {
-        clearInterval(id);
+        clearVisibleInterval(id);
       };
     },
     [loadBook],
@@ -7270,8 +7299,8 @@ function Earn({ wallet, ensureReady, showToast }) {
 
   useEffect(() => {
     loadRead();
-    const id = setInterval(loadRead, 20000);
-    return () => clearInterval(id);
+    const id = setVisibleInterval(loadRead, 20000);
+    return () => clearVisibleInterval(id);
   }, [loadRead]);
 
   /* ---------------- writes ---------------- */
@@ -8019,8 +8048,8 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
 
   useEffect(() => {
     loadRead();
-    const id = setInterval(loadRead, 15000);
-    return () => clearInterval(id);
+    const id = setVisibleInterval(loadRead, 15000);
+    return () => clearVisibleInterval(id);
   }, [loadRead]);
 
   // live block pulse on Deposited / MiningClaimed events
@@ -9609,8 +9638,8 @@ function Messenger({
   }, [load]);
   useEffect(() => {
     if (!wallet) return;
-    const tm = setInterval(load, 6000);
-    return () => clearInterval(tm);
+    const tm = setVisibleInterval(load, 20000);
+    return () => clearVisibleInterval(tm);
   }, [wallet, load]);
 
   const convMap = {};
@@ -11852,10 +11881,10 @@ function OSGScan({ wallet, data, holders, polUsd, chg24, t }) {
       } catch (e) {}
     }
     load();
-    var id = setInterval(load, 120000);
+    var id = setVisibleInterval(load, 120000);
     return function () {
       alive = false;
-      clearInterval(id);
+      clearVisibleInterval(id);
     };
   }, []);
   var mcap =
@@ -11892,10 +11921,10 @@ function OSGScan({ wallet, data, holders, polUsd, chg24, t }) {
           .catch(function () {});
       }
       loadActivity();
-      var id = setInterval(loadActivity, 90000);
+      var id = setVisibleInterval(loadActivity, 90000);
       return function () {
         alive = false;
-        clearInterval(id);
+        clearVisibleInterval(id);
       };
     },
     [activityRange],
@@ -12427,9 +12456,9 @@ export default function App() {
         .catch(function () {});
     };
     go();
-    var id = setInterval(go, 60000);
+    var id = setVisibleInterval(go, 60000);
     return function () {
-      clearInterval(id);
+      clearVisibleInterval(id);
     };
   }, []);
   useEffect(() => {
@@ -12458,9 +12487,9 @@ export default function App() {
         .catch(function () {});
     };
     go();
-    var id = setInterval(go, 120000);
+    var id = setVisibleInterval(go, 120000);
     return function () {
-      clearInterval(id);
+      clearVisibleInterval(id);
     };
   }, []);
   useEffect(() => {
@@ -12482,9 +12511,9 @@ export default function App() {
         .catch(function () {});
     };
     go();
-    var id = setInterval(go, 120000);
+    var id = setVisibleInterval(go, 120000);
     return function () {
-      clearInterval(id);
+      clearVisibleInterval(id);
     };
   }, []);
 
@@ -12751,8 +12780,8 @@ export default function App() {
 
   useEffect(() => {
     if (!wallet) return;
-    const tm = setInterval(() => { if (!document.hidden) loadData(wallet); }, 20000);
-    return () => clearInterval(tm);
+    const tm = setVisibleInterval(() => loadData(wallet), 20000);
+    return () => clearVisibleInterval(tm);
   }, [wallet, loadData]);
 
   const actions = {
@@ -13312,8 +13341,8 @@ function LegacyMining({ wallet, ensureReady, showToast }) {
 
   useEffect(function () {
     loadLegacy();
-    const t = setInterval(loadLegacy, 30000);
-    return function () { clearInterval(t); };
+    const t = setVisibleInterval(loadLegacy, 30000);
+    return function () { clearVisibleInterval(t); };
   }, [loadLegacy]);
 
   async function doLegacyClaim(posId) {
@@ -13582,8 +13611,8 @@ function YourOrders({ wallet, ensureReady, showToast, poolRate, polUsd }) {
 
   useEffect(function () {
     loadOrders();
-    const t = setInterval(loadOrders, 30000);
-    return function () { clearInterval(t); };
+    const t = setVisibleInterval(loadOrders, 30000);
+    return function () { clearVisibleInterval(t); };
   }, [loadOrders]);
 
   /* countdown ticks on its own so the timer never looks frozen */
