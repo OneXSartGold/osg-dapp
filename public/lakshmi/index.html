@@ -166,7 +166,7 @@ canvas#fx{position:fixed;inset:0;width:100%;height:100%;z-index:6;pointer-events
   </div>
 
   <div class="actions" id="after">
-    <div class="tapmore">Tap anywhere for a shower of blessings ✨</div>
+    <div class="tapmore">Tap anywhere for more OSG coins ✨</div>
     <button class="btn" id="mine" type="button">🪔 Send your own Lakshmi Pujan wish</button>
     <div class="row"><button class="btn ghost" id="shareThis" type="button">Share</button><button class="btn ghost" id="replay" type="button">↺ Replay</button></div>
   </div>
@@ -240,15 +240,26 @@ canvas#fx{position:fixed;inset:0;width:100%;height:100%;z-index:6;pointer-events
   var cv=$("fx"),c=cv.getContext("2d"),W,H,D=Math.min(2,window.devicePixelRatio||1),ps=[],showering=false,last=performance.now();
   function size(){W=innerWidth;H=innerHeight;cv.width=W*D;cv.height=H*D;c.setTransform(D,0,0,D,0,0);}
   size();addEventListener("resize",function(){size();placeFeet();});
-  function coin(x,y){ps.push({k:"c",x:x,y:y,vx:(Math.random()-.5)*1.2,vy:1+Math.random()*1.5,r:7+Math.random()*6,sp:Math.random()*6,life:1});}
+  // OSG coin sprites: front shows the OSG logo, back shows "OSG" embossed.
+  var SP=96,front=document.createElement("canvas"),back=document.createElement("canvas");front.width=front.height=back.width=back.height=SP;
+  function rim(g){var r=SP/2;var gr=g.createRadialGradient(r*.7,r*.6,4,r,r,r);gr.addColorStop(0,"#FFF4C2");gr.addColorStop(.55,"#F5B83D");gr.addColorStop(1,"#8A5410");g.fillStyle=gr;g.beginPath();g.arc(r,r,r-1,0,7);g.fill();
+    g.strokeStyle="rgba(255,240,190,.9)";g.lineWidth=2;g.beginPath();g.arc(r,r,r-6,0,7);g.stroke();
+    g.strokeStyle="rgba(120,70,10,.8)";g.setLineDash([2,4]);g.lineWidth=2;g.beginPath();g.arc(r,r,r-11,0,7);g.stroke();g.setLineDash([]);}
+  (function(){var g=back.getContext("2d"),r=SP/2;rim(g);g.fillStyle="rgba(120,70,10,.85)";g.font="900 26px Cinzel, serif";g.textAlign="center";g.textBaseline="middle";g.fillText("OSG",r,r+1);
+    g.fillStyle="rgba(255,244,194,.55)";g.fillText("OSG",r-1,r);})();
+  var fg=front.getContext("2d");rim(fg);
+  (function(){var r=SP/2;fg.fillStyle="#2A0610";fg.beginPath();fg.arc(r,r,r-14,0,7);fg.fill();})();
+  var logo=new Image();logo.onload=function(){var r=SP/2,s2=(r-14)*2*1.25;fg.save();fg.beginPath();fg.arc(r,r,r-14,0,7);fg.clip();fg.drawImage(logo,r-s2/2,r-s2/2,s2,s2);fg.restore();};logo.src="logo.png";
+  function coin(x,y){var n=0;for(var i=0;i<ps.length;i++)if(ps[i].k==="c")n++;if(n>60)return;
+    ps.push({k:"c",x:x,y:y,vx:(Math.random()-.5)*.8,vy:.8+Math.random()*1.2,r:11+Math.random()*8,sp:Math.random()*6,spv:.06+Math.random()*.08,sw:Math.random()*6,life:1});}
   function petal(x,y){ps.push({k:"p",x:x,y:y,vx:(Math.random()-.5)*.8,vy:.6+Math.random()*.8,r:6+Math.random()*5,sp:Math.random()*6,rot:Math.random()*6,life:1,col:Math.random()<.5?"#F06292":"#FF9F1C"});}
   function spark(x,y,n){for(var i=0;i<n;i++){var a=Math.random()*Math.PI*2,v=1+Math.random()*3.5;ps.push({k:"s",x:x,y:y,vx:Math.cos(a)*v,vy:Math.sin(a)*v-1,r:1.5+Math.random()*2,life:1,col:["#FFE9A8","#FFD66B","#FFB347","#fff"][i%4]});}}
   function frame(now){
     var dt=Math.min(2.5,(now-last)/16.67);last=now;c.clearRect(0,0,W,H);
-    if(showering&&!document.hidden){if(Math.random()<.35*dt)coin(Math.random()*W,-20);if(Math.random()<.2*dt)petal(Math.random()*W,-20);}
+    if(showering&&!document.hidden){if(Math.random()<.11*dt)coin(Math.random()*W,-30);if(Math.random()<.08*dt)petal(Math.random()*W,-20);}
     for(var i=ps.length-1;i>=0;i--){var p=ps[i];p.x+=p.vx*dt;p.y+=p.vy*dt;
-      if(p.k==="c"){p.vy+=.05*dt;p.sp+=.15*dt;var sx=Math.abs(Math.cos(p.sp));c.save();c.translate(p.x,p.y);c.scale(Math.max(.15,sx),1);
-        var g=c.createRadialGradient(-p.r*.3,-p.r*.3,1,0,0,p.r);g.addColorStop(0,"#FFF4C2");g.addColorStop(.5,"#F5B83D");g.addColorStop(1,"#A86412");c.fillStyle=g;c.beginPath();c.arc(0,0,p.r,0,7);c.fill();c.strokeStyle="rgba(138,84,16,.8)";c.lineWidth=1.2;c.beginPath();c.arc(0,0,p.r*.7,0,7);c.stroke();c.restore();
+      if(p.k==="c"){p.vy=Math.min(3.2,p.vy+.03*dt);p.sp+=p.spv*dt;p.sw+=.03*dt;p.x+=Math.sin(p.sw)*.4;var cs=Math.cos(p.sp),sx=Math.abs(cs);c.save();c.translate(p.x,p.y);c.scale(Math.max(.12,sx),1);
+        c.shadowColor="rgba(255,190,70,.6)";c.shadowBlur=8;c.drawImage(cs>=0?front:back,-p.r,-p.r,p.r*2,p.r*2);c.restore();
         if(p.y>H+30)ps.splice(i,1);}
       else if(p.k==="p"){p.sp+=.04*dt;p.rot+=.03*dt;p.x+=Math.sin(p.sp)*.6;c.save();c.translate(p.x,p.y);c.rotate(p.rot);c.fillStyle=p.col;c.globalAlpha=.9;c.beginPath();c.ellipse(0,0,p.r,p.r*.5,0,0,7);c.fill();c.restore();if(p.y>H+30)ps.splice(i,1);}
       else{p.vy+=.06*dt;p.life-=.02*dt;if(p.life<=0){ps.splice(i,1);continue;}c.globalAlpha=p.life;c.fillStyle=p.col;c.beginPath();c.arc(p.x,p.y,p.r,0,7);c.fill();c.globalAlpha=1;}}
@@ -266,12 +277,12 @@ canvas#fx{position:fixed;inset:0;width:100%;height:100%;z-index:6;pointer-events
     later(function(){sc.classList.add("go");},900);
     later(function(){sc.classList.add("bloom");tone(784,.5,"sine",.08);tone(1175,.7,"sine",.06,.15);},2700);
     diyas.forEach(function(d,k){later(function(){d.classList.add("on");var p=center(d);spark(p[0],p[1]-10,10);tone(880+k*60,.25,"sine",.06);},3500+k*190);});
-    later(function(){showering=true;for(var k=0;k<14;k++)later(clink,k*120);},5100);
+    later(function(){for(var k=0;k<14;k++)later(clink,k*120);for(var j=0;j<18;j++)coin(Math.random()*W,-30-Math.random()*200);},5100);
     later(function(){$("feet").classList.add("fade");},4900);later(function(){st.classList.add("done");document.body.classList.remove("locked");},5300);
-    later(function(){showering=false;},9800);
+    
   }
   function openDoors(){
-    if(opened)return;opened=true;$("doors").classList.add("open");bell();
+    if(opened)return;opened=true;setTimeout(function(){showering=true;for(var j=0;j<24;j++)coin(Math.random()*W,-30-Math.random()*300);},350);$("doors").classList.add("open");bell();
     try{navigator.vibrate&&navigator.vibrate([30,60,30]);}catch(e){}
     setTimeout(function(){$("doors").style.pointerEvents="none";},800);
     setTimeout(function(){$("doors").style.display="none";},1700);
