@@ -1,6 +1,6 @@
 {
   "title": "Foreign Training Entry Pass",
-  "note": "Counts only the OSG your directs put into new LP (LP 365 + 180 / 540), not the paired POL. Open positions only. Term stakes do not count.",
+  "note": "Counts only the OSG your direct members put into new LP (180 / 365 / 540-day locks), not the paired POL. Open positions only. Term stake does not count.",
   "batches": [
     {
       "id": "f1",
@@ -12,7 +12,36 @@
       "start": "2026-11-01T00:00:00+05:30",
       "end": "2026-11-11T00:00:00+05:30",
       "minNew": 2000,
-      "label": "Directs' new LP · 10 days"
+      "label": "Directs' new LP"
+    },
+    {
+      "id": "t11",
+      "open": true,
+      "type": "team",
+      "sources": [
+        "lp"
+      ],
+      "label": "Directs' new LP",
+      "start": "2026-11-11T00:00:00+05:30",
+      "end": "2026-12-01T00:00:00+05:30",
+      "minNew": 2500
+    },
+    {
+      "id": "f4",
+      "open": true,
+      "type": "directs",
+      "of": [
+        "f1",
+        "t11",
+        "f2",
+        "f3",
+        "t20",
+        "t30"
+      ],
+      "start": "2026-11-01T00:00:00+05:30",
+      "end": "2026-12-01T00:00:00+05:30",
+      "minDirects": 3,
+      "label": "3 directs who hold a pass"
     },
     {
       "id": "f2",
@@ -24,7 +53,8 @@
       "start": "2026-11-11T00:00:00+05:30",
       "end": "2026-11-21T00:00:00+05:30",
       "minNew": 2500,
-      "label": "Directs' new LP · 10 days"
+      "label": "Directs' new LP · 10 days",
+      "hidden": true
     },
     {
       "id": "f3",
@@ -36,7 +66,8 @@
       "start": "2026-11-21T00:00:00+05:30",
       "end": "2026-12-01T00:00:00+05:30",
       "minNew": 2500,
-      "label": "Directs' new LP · 10 days"
+      "label": "Directs' new LP · 10 days",
+      "hidden": true
     },
     {
       "id": "t20",
@@ -48,7 +79,8 @@
       "label": "Directs' new LP · 20-day total",
       "start": "2026-11-01T00:00:00+05:30",
       "end": "2026-11-21T00:00:00+05:30",
-      "minNew": 2500
+      "minNew": 2500,
+      "hidden": true
     },
     {
       "id": "t30",
@@ -60,23 +92,8 @@
       "label": "Directs' new LP · 30-day total",
       "start": "2026-11-01T00:00:00+05:30",
       "end": "2026-12-01T00:00:00+05:30",
-      "minNew": 3000
-    },
-    {
-      "id": "f4",
-      "open": true,
-      "type": "directs",
-      "of": [
-        "f1",
-        "f2",
-        "f3",
-        "t20",
-        "t30"
-      ],
-      "start": "2026-11-01T00:00:00+05:30",
-      "end": "2026-12-01T00:00:00+05:30",
-      "minDirects": 3,
-      "label": "Directs with a pass"
+      "minNew": 3000,
+      "hidden": true
     },
     {
       "id": "s1",
