@@ -1398,6 +1398,7 @@ async function eventPassCheck(runner, who) {
       }
       steps.push({
         batch: b.id,
+        hidden: !!b.hidden,
         kind: kind,
         lpOnly: srcOf(b).length === 1 && srcOf(b)[0] === "lp",
         label: b.label || "",
@@ -5630,70 +5631,117 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
           <button className="btn-gold" onClick={function () { setPass(null); setPassTick(function (x) { return x + 1; }); }} style={{ width: "100%", marginTop: 12 }}>Check again</button>
         </div>
       )}
-           {pass && pass.steps && (pass.qualified || pass.failed || pass.steps.some(function (x) { return !x.closed; })) && (
-        <div className="card" style={{ marginTop: 14, border: "1px solid " + (pass.qualified ? C.gold2 : C.line2) }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-            <div className="sec" style={{ color: pass.qualified ? C.gold1 : undefined }}>{pass.title}</div>
-            {pass.qualified && <span className="chip good">✓ Ready</span>}
-          </div>
-          {/* Show only what still matters: when the pass is ready, the step(s)
-              that earned it; otherwise steps that are open or not started.
-              Closed steps stay in the rules (so passes earned there still
-              count) but are no longer listed. */}
-          {pass.steps.filter(function (st) { return pass.qualified ? st.qualified : (!st.closed || st.failed); }).map(function (st, i) {
-            var isCount = st.kind === "directs";
-            var have = Number(f18(st.total));
-            var want = Number(f18(st.need));
-            var day = function (t) { return new Date(t * 1000).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" }); };
-            var label = st.label ? st.label : st.kind === "self" ? (st.lpOnly ? "Your new LP" : "Your new stake") : st.kind === "directs" ? "Directs with a pass" : (st.lpOnly ? "Directs' new LP" : "New team stake");
-            var tag = st.qualified ? "✓ Done"
-              : st.skipped ? "Not needed"
-              : st.failed ? "Could not check"
-              : !st.started ? "Starts " + day(st.startsAt)
-              : st.closed ? "Closed"
-              : Math.max(0, Math.ceil((st.endsAt - Date.now() / 1000) / 86400)) + " days left";
-            return (
-              <div key={st.batch} style={{ padding: "10px 0", borderTop: i ? "1px solid " + C.line : "none", opacity: st.qualified || (st.started && !st.closed) ? 1 : 0.55 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontSize: 13, color: C.txt2 }}>
-                  <span>{"Step " + (i + 1) + " · " + label}</span>
-                  <span style={{ fontSize: 12, color: st.qualified ? C.green : !st.started ? C.blue : st.closed ? C.red : daysTone(Math.ceil((st.endsAt - Date.now() / 1000) / 86400)) }}>{tag}</span>
-                </div>
-                <div style={{ fontSize: 11.5, color: C.txt3, marginTop: 2 }}>{day(st.startsAt) + " – " + day(st.endsAt - 1)}</div>
-                <div style={{ fontSize: 18, fontWeight: 600, color: toneNum(have, "team"), marginTop: 4 }}>
-                  {isCount ? String(have) : fmt(have, 2)}{" "}
-                  <span style={{ fontSize: 13, color: C.txt3 }}>{"/ " + (isCount ? String(want) : fmt(want, 0) + " OSG")}</span>
-                </div>
-                <div style={{ height: 6, background: C.line2, borderRadius: 3, overflow: "hidden", marginTop: 6 }}>
-                  <div style={{ height: "100%", width: Math.min(100, want ? (have / want) * 100 : 0) + "%", background: st.qualified || (want > 0 && have >= want) ? C.green : C.gold2 }} />
-                </div>
+           {pass && pass.steps && (pass.qualified || pass.failed || pass.steps.some(function (x) { return !x.closed; })) && (function () {
+        // Fresh white / blue card. Steps marked "hidden" in event-pass.json
+        // are still checked (so a pass earned there still counts) but are not
+        // listed. When the pass is ready, only the step that earned it shows.
+        var PF = { blue: "#1447C8", blueD: "#0A2E8A", ink: "#0B2A6B", sub: "#5570A8", green: "#17A34A", greenD: "#0B6B30", red: "#E3262E", line: "#E3EBFA", soft: "#F7FAFF" };
+        var font = 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif';
+        var day = function (t) { return new Date(t * 1000).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" }); };
+        var shown = pass.steps.filter(function (st) { return pass.qualified ? st.qualified : (!st.hidden || st.failed); });
+        var lastEnd = shown.reduce(function (m, st) { return Math.max(m, st.endsAt); }, 0);
+        var chip = function (bg, fg, txt, extra) { return <span style={Object.assign({ fontSize: 11.5, fontWeight: 700, padding: "5px 10px", borderRadius: 999, background: bg, color: fg }, extra || {})}>{txt}</span>; };
+        return (
+        <div style={{ marginTop: 14, borderRadius: 22, overflow: "hidden", background: "#fff", border: "1px solid #CFE0FF", boxShadow: "0 10px 30px rgba(0,0,0,.35)", fontFamily: font }}>
+          <div style={{ padding: "18px 18px 16px", background: pass.qualified ? "linear-gradient(135deg," + PF.green + "," + PF.greenD + ")" : "linear-gradient(135deg,#1E5BFF," + PF.blueD + ")", color: "#fff" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ width: 44, height: 44, borderRadius: 14, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}>
+                <svg viewBox="0 0 24 24" width="26" height="26"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z" fill={pass.qualified ? PF.green : PF.red} /></svg>
               </div>
-            );
-          })}
-          <div style={{ fontSize: 13, color: pass.qualified ? C.txt : C.gold1, marginTop: 6 }}>
-            {pass.qualified ? "Your pass is ready" : "Any one step is enough"}
-          </div>
-          {!pass.qualified && pass.failed && (
-            <button className="btn-ghost" onClick={function () { setPass(null); setPassTick(function (x) { return x + 1; }); }} style={{ width: "100%", marginTop: 10 }}>Check again</button>
-          )}
-          {pass.qualified && (!passQr || passNow >= passQr.exp) && (
-            <button className="btn-gold" onClick={showPass} style={{ width: "100%", marginTop: 12 }}>
-              {passQr ? "Refresh pass" : "Show pass"}
-            </button>
-          )}
-          {pass.qualified && passQr && passNow < passQr.exp && (
-            <div style={{ textAlign: "center", marginTop: 12 }}>
-              <div style={{ background: "#fff", borderRadius: 14, padding: 6, display: "inline-block", width: "min(320px, 86vw)" }}>
-                <img src={passQr.src} alt="Event pass QR" style={{ width: "100%", height: "auto", display: "block" }} />
-              </div>
-              <div style={{ fontSize: 13, color: C.txt2, marginTop: 8 }}>Show this QR at entry. Turn screen brightness up.</div>
-              <div style={{ fontSize: 13, color: C.gold1, marginTop: 4 }}>
-                {"Valid for " + Math.floor((passQr.exp - passNow) / 60000) + ":" + String(Math.floor(((passQr.exp - passNow) % 60000) / 1000)).padStart(2, "0")}
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 19, lineHeight: 1.2 }}>{pass.title}</div>
+                {lastEnd > 0 && <div style={{ fontSize: 12, fontWeight: 600, color: pass.qualified ? "#CFF5DC" : "#BBD2FF", marginTop: 3 }}>{new Date((lastEnd - 1) * 1000).toLocaleDateString("en-IN", { month: "long", year: "numeric", timeZone: "Asia/Kolkata" })}</div>}
               </div>
             </div>
-          )}
-          <div style={{ fontSize: 11.5, color: C.txt3, marginTop: 8 }}>{pass.note || "New stake counts Term + LP, open positions only"}</div>
+            <div style={{ display: "flex", gap: 6, marginTop: 12, flexWrap: "wrap" }}>
+              {pass.qualified
+                ? chip("rgba(255,255,255,.16)", "#fff", "✓ You qualified", { border: "1px solid rgba(255,255,255,.35)" })
+                : chip(PF.green, "#fff", "Any one step is enough")}
+              {!pass.qualified && lastEnd > Date.now() / 1000 && chip(PF.red, "#fff", "Closing " + day(lastEnd - 1))}
+            </div>
+          </div>
+          <div style={{ padding: "6px 14px 14px" }}>
+            {shown.map(function (st, i) {
+              var isCount = st.kind === "directs";
+              var have = Number(f18(st.total));
+              var want = Number(f18(st.need));
+              var left = Math.max(0, Math.ceil((st.endsAt - Date.now() / 1000) / 86400));
+              var live = st.started && !st.closed;
+              var label = st.label ? st.label : st.kind === "self" ? (st.lpOnly ? "Your new LP" : "Your new stake") : st.kind === "directs" ? "Directs with a pass" : (st.lpOnly ? "Directs' new LP" : "New team stake");
+              var tag = st.qualified ? "✓ Done"
+                : st.skipped ? "Not needed"
+                : st.failed ? "Could not check"
+                : !st.started ? "Starts " + day(st.startsAt)
+                : st.closed ? "Closed"
+                : left <= 1 ? "Ends today" : left + " days left";
+              var tone = st.qualified ? "done" : st.failed ? "red" : st.closed || st.skipped ? "grey" : !st.started ? "blue" : left <= 2 ? "red" : (isCount ? "blue" : "green");
+              var box = { done: ["#17A34A", "linear-gradient(180deg,#E9FAEF,#D7F4E1)"], green: [PF.green, "linear-gradient(180deg,#F0FBF4,#E3F7EA)"], red: ["#F3B7B9", "#FFF6F6"], blue: [PF.line, PF.soft], grey: ["#E2E5EC", "#F4F5F8"] }[tone];
+              var accent = { done: PF.green, green: PF.green, red: PF.red, blue: PF.blue, grey: "#9AA3B5" }[tone];
+              var tagStyle = { done: [PF.green, "#fff"], green: [PF.green, "#fff"], red: ["#FDE2E3", "#C21C24"], blue: ["#E3ECFF", PF.blue], grey: ["#EEF0F4", "#6B7280"] }[tone];
+              var pct = Math.min(100, want ? (have / want) * 100 : 0);
+              var toGo = st.qualified || have >= want ? "target met" : st.closed ? "window over" : !st.started ? "opens " + day(st.startsAt) : (isCount ? String(Math.max(0, want - have)) : fmt(Math.max(0, want - have), 0)) + " to go";
+              return (
+                <div key={st.batch}>
+                  {i > 0 && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "10px 4px 0", color: "#9AA8C8", fontSize: 10.5, fontWeight: 800, letterSpacing: ".2em" }}>
+                      <div style={{ flex: 1, height: 1, background: "#DDE5F3" }} />OR<div style={{ flex: 1, height: 1, background: "#DDE5F3" }} />
+                    </div>
+                  )}
+                  <div style={{ marginTop: 10, padding: 12, borderRadius: 16, border: "1.5px solid " + box[0], background: box[1], opacity: tone === "grey" ? 0.7 : 1 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0 }}>
+                        <div style={{ width: 26, height: 26, borderRadius: "50%", background: accent, color: "#fff", fontWeight: 800, fontSize: 12.5, display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}>{st.qualified ? "✓" : String(i + 1)}</div>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontWeight: 700, fontSize: 15, color: PF.ink, lineHeight: 1.2 }}>{label}</div>
+                          <div style={{ fontSize: 11.5, fontWeight: 600, color: PF.sub, marginTop: 2 }}>{day(st.startsAt) + " – " + day(st.endsAt - 1)}</div>
+                        </div>
+                      </div>
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: "5px 9px", borderRadius: 999, whiteSpace: "nowrap", background: tagStyle[0], color: tagStyle[1] }}>{tag}</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginTop: 9, gap: 8 }}>
+                      <div style={{ fontWeight: 800, fontSize: 22, color: PF.ink }}>
+                        {isCount ? String(have) : fmt(have, 0)}{" "}
+                        <span style={{ fontSize: 13, fontWeight: 700, color: "#7A8BB5" }}>{"/ " + (isCount ? String(want) + " directs" : fmt(want, 0) + " OSG")}</span>
+                      </div>
+                      <div style={{ fontSize: 12.5, fontWeight: 600, color: PF.sub, whiteSpace: "nowrap" }}>{toGo}</div>
+                    </div>
+                    <div style={{ height: 9, borderRadius: 6, background: "#E1E8F5", overflow: "hidden", marginTop: 7 }}>
+                      <div style={{ height: "100%", width: pct + "%", borderRadius: 6, background: tone === "done" || tone === "green" ? "linear-gradient(90deg,#12853F,#2CC46A)" : tone === "red" ? "linear-gradient(90deg,#E3262E,#FF6A70)" : tone === "grey" ? "#9AA3B5" : "linear-gradient(90deg,#1E5BFF,#4F86FF)" }} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            {pass.qualified && (
+              <div style={{ marginTop: 12, textAlign: "center", padding: 16, borderRadius: 16, background: "linear-gradient(135deg," + PF.green + ",#0E7A36)", color: "#fff" }}>
+                <div style={{ fontWeight: 800, fontSize: 20 }}>🎉 Your pass is ready</div>
+                <div style={{ fontSize: 12, fontWeight: 600, opacity: 0.9, marginTop: 4 }}>Show it at the training check-in.</div>
+              </div>
+            )}
+            {!pass.qualified && pass.failed && (
+              <button onClick={function () { setPass(null); setPassTick(function (x) { return x + 1; }); }} style={{ width: "100%", marginTop: 12, padding: 12, borderRadius: 14, border: "1.5px solid " + PF.blue, background: "#fff", color: PF.blue, fontWeight: 800, fontSize: 14, fontFamily: font }}>Check again</button>
+            )}
+            {pass.qualified && (!passQr || passNow >= passQr.exp) && (
+              <button onClick={showPass} style={{ width: "100%", marginTop: 12, padding: 13, borderRadius: 14, border: 0, background: PF.blue, color: "#fff", fontWeight: 800, fontSize: 14.5, fontFamily: font, boxShadow: "0 6px 16px rgba(20,71,200,.3)" }}>
+                {passQr ? "Refresh pass" : "Show pass"}
+              </button>
+            )}
+            {pass.qualified && passQr && passNow < passQr.exp && (
+              <div style={{ textAlign: "center", marginTop: 12 }}>
+                <div style={{ background: "#fff", borderRadius: 14, padding: 6, display: "inline-block", width: "min(320px, 86vw)", border: "1px solid " + PF.line }}>
+                  <img src={passQr.src} alt="Event pass QR" style={{ width: "100%", height: "auto", display: "block" }} />
+                </div>
+                <div style={{ fontSize: 13, color: PF.sub, marginTop: 8 }}>Show this QR at entry. Turn screen brightness up.</div>
+                <div style={{ fontSize: 13, color: PF.blue, fontWeight: 700, marginTop: 4 }}>
+                  {"Valid for " + Math.floor((passQr.exp - passNow) / 60000) + ":" + String(Math.floor(((passQr.exp - passNow) % 60000) / 1000)).padStart(2, "0")}
+                </div>
+              </div>
+            )}
+            <div style={{ marginTop: 12, padding: "10px 12px", borderRadius: 12, background: "#F2F6FF", fontSize: 12.5, lineHeight: 1.5, color: "#3B4F7D", fontWeight: 500 }}>{pass.note || "New stake counts Term + LP, open positions only"}</div>
+          </div>
         </div>
-      )}
+        );
+      })()}
 
             {card && (
         <div className="card" style={{ marginTop: 14 }}>
