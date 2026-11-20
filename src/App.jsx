@@ -5636,7 +5636,11 @@ function Referral({ wallet, data, showToast, getProvider, getReadProvider, ensur
             <div className="sec" style={{ color: pass.qualified ? C.gold1 : undefined }}>{pass.title}</div>
             {pass.qualified && <span className="chip good">✓ Ready</span>}
           </div>
-          {pass.steps.map(function (st, i) {
+          {/* Show only what still matters: when the pass is ready, the step(s)
+              that earned it; otherwise steps that are open or not started.
+              Closed steps stay in the rules (so passes earned there still
+              count) but are no longer listed. */}
+          {pass.steps.filter(function (st) { return pass.qualified ? st.qualified : (!st.closed || st.failed); }).map(function (st, i) {
             var isCount = st.kind === "directs";
             var have = Number(f18(st.total));
             var want = Number(f18(st.need));
