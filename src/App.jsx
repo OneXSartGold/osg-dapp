@@ -7893,7 +7893,7 @@ function Mining({ wallet, polUsd, ensureReady, showToast, setTab }) {
   const [blockCount, setBlockCount] = useState(0);
   // Lock choice: 365 = LPMining (ADDRESSES.lpMining, unchanged);
   // 180 / 540 = OSGLPMiningTiers (ADDRESSES.lpTiers) tier 0 / tier 1.
-  const [lockDays, setLockDays] = useState(365);
+  const [lockDays, setLockDays] = useState(540);
   const [lockAgree, setLockAgree] = useState(false);
   const [tiers, setTiers] = useState(null);
   const [tierPositions, setTierPositions] = useState([]);
